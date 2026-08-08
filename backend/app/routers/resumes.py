@@ -1,0 +1,263 @@
+"""Resume router - Upload, Parse, ATS Score, Delete, Versioning & Primary Designation."""
+
+import io
+import logging
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from sqlalchemy.orm import Session
+from uuid import UUID
+from datetime import datetime
+
+from app.database import get_db
+from app.models.resume import Resume
+from app.models.user import User
+from app.models.application import LearningResource
+from app.schemas.resume import ResumeResponse, ATSScoreResponse, ResumeBuilderData
+from app.middleware.auth_middleware import get_current_user
+from app.ai.resume_parser import resume_parser
+from app.ai.ats_scorer import ats_scorer
+from app.ai.skill_normalizer import skill_normalizer
+from app.ai.resume_verifier import resume_verifier
+from app.ai.semantic_matcher import semantic_matcher
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/resumes", tags=["Resumes"])
+
+
+def _extract_text_from_file(file_content: bytes, filename: str) -> str:
+    """Extract text from PDF or DOCX file using PyMuPDF (fitz), pdfplumber, PyPDF2 & docx fallback."""
+    text = ""
+    filename_lower = filename.lower()
+
+    if filename_lower.endswith(".pdf"):
+        # 1. Primary: PyMuPDF (fitz)
+        try:
+            import fitz
+            doc = fitz.open(stream=file_content, filetype="pdf")
+            for page in doc:
+                t = page.get_text()
+                if t:
+                    text += t + "\n"
+            doc.close()
+        except Exception as e:
+            logger.warning(f"PyMuPDF extraction failed: {e}")
+
+        # 2. Fallback: pdfplumber
+        if not text.strip():
+            try:
+                import pdfplumber
+                with pdfplumber.open(io.BytesIO(file_content)) as pdf:
+                    for page in pdf.pages:
+                        extracted = page.extract_text()
+                        if extracted:
+                            text += extracted + "\n"
+            except Exception as e:
+                logger.warning(f"pdfplumber extraction failed: {e}")
+
+        # 3. Fallback: PyPDF2
+        if not text.strip():
+            try:
+                import PyPDF2
+                reader = PyPDF2.PdfReader(io.BytesIO(file_content))
+                for page in reader.pages:
+                    t = page.extract_text()
+                    if t:
+                        text += t + "\n"
+            except Exception as e:
+                logger.error(f"PyPDF2 extraction failed: {e}")
+
+    elif filename_lower.endswith((".docx", ".doc")):
+        try:
+            from docx import Document
+            doc = Document(io.BytesIO(file_content))
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    text += para.text + "\n"
+        except Exception as e:
+            logger.error(f"DOCX extraction failed: {e}")
+
+    return text.strip()
+
+
+@router.post("/upload", response_model=ResumeResponse, status_code=201)
+async def upload_resume(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(default="My Resume"),
+    is_primary: bool = Form(default=False),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload a resume file (PDF/DOCX), parse with hybrid NLP, normalize skills, and calculate explainable ATS score."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    allowed_extensions = [".pdf", ".doc", ".docx"]
+    if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
+        raise HTTPException(status_code=400, detail="Only PDF and DOCX files are allowed.")
+
+    file_content = await file.read()
+    if len(file_content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
+
+    raw_text = _extract_text_from_file(file_content, file.filename)
+    if not raw_text or len(raw_text) < 50:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not extract readable text from the resume. If this is a scanned PDF, please ensure it contains selectable text."
+        )
+
+    try:
+        parsed = resume_parser.parse(raw_text)
+        normalized_skills = skill_normalizer.normalize_list(parsed.get("skills", []))
+        parsed["normalized_skills"] = normalized_skills
+
+        ats_result = ats_scorer.score(parsed)
+        embedding = semantic_matcher.encode(raw_text[:5000])
+
+        if is_primary or db.query(Resume).filter(Resume.user_id == current_user.id).count() == 0:
+            db.query(Resume).filter(Resume.user_id == current_user.id).update({"is_primary": False})
+            is_primary = True
+
+        resume = Resume(
+            user_id=current_user.id,
+            title=title,
+            file_name=file.filename,
+            file_type=file.content_type,
+            is_primary=is_primary,
+            is_parsed=True,
+            ats_status="COMPLETED",
+            raw_text=raw_text[:10000],
+            parsed_name=parsed.get("name"),
+            parsed_email=parsed.get("email"),
+            parsed_phone=parsed.get("phone"),
+            parsed_location=parsed.get("location"),
+            parsed_summary=parsed.get("summary"),
+            parsed_skills=[s["normalized_skill"] for s in normalized_skills],
+            parsed_education=parsed.get("education", []),
+            parsed_experience=parsed.get("experience", []),
+            parsed_certifications=parsed.get("certifications", []),
+            parsed_projects=parsed.get("projects", []),
+            parsed_languages=parsed.get("languages", []),
+            ats_score=ats_result["ats_score"],
+            ats_breakdown=ats_result["score_breakdown"],
+            quality_score=ats_result["score_breakdown"]["structure_score"],
+            improvement_suggestions=ats_result.get("threshold_warning", {}).get("recommended_improvements", []),
+            keywords_found=ats_result["matched_skills"],
+            keywords_missing=ats_result["missing_skills"],
+            embedding_vector=embedding[:128],
+            parsed_at=datetime.utcnow(),
+        )
+        db.add(resume)
+        db.commit()
+        db.refresh(resume)
+
+        return ResumeResponse.from_orm(resume)
+    except Exception as e:
+        logger.exception(f"Resume analysis failed: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Resume analysis failed: {str(e)}")
+
+
+@router.get("/", response_model=List[ResumeResponse])
+async def list_resumes(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List all resumes for the current user."""
+    resumes = db.query(Resume).filter(Resume.user_id == current_user.id).order_by(Resume.created_at.desc()).all()
+    return [ResumeResponse.from_orm(r) for r in resumes]
+
+
+@router.get("/{resume_id}")
+async def get_resume_analysis(
+    resume_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get complete Master-Prompt-specified Resume Analysis, ATS threshold warnings, and verified learning resources."""
+    resume = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == current_user.id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found or unauthorized access.")
+
+    parsed = {
+        "name": resume.parsed_name,
+        "email": resume.parsed_email,
+        "summary": resume.parsed_summary,
+        "skills": resume.parsed_skills or [],
+        "education": resume.parsed_education or [],
+        "experience": resume.parsed_experience or [],
+        "certifications": resume.parsed_certifications or [],
+        "projects": resume.parsed_projects or [],
+    }
+
+    ats_result = ats_scorer.score(parsed)
+    verifier_result = resume_verifier.verify(parsed)
+
+    missing = ats_result.get("missing_skills", [])
+    learning_resources = []
+    if missing:
+        resources = db.query(LearningResource).filter(LearningResource.skill.in_(missing)).all()
+        for r in resources:
+            learning_resources.append({
+                "id": str(r.id),
+                "skill": r.skill,
+                "platform": r.platform,
+                "course_name": r.course_name,
+                "url": r.url,
+                "level": r.level,
+                "free_or_paid": r.free_or_paid,
+                "description": r.description,
+            })
+
+    return {
+        "resume_id": str(resume.id),
+        "title": resume.title,
+        "is_primary": resume.is_primary,
+        "ats_score": ats_result["ats_score"],
+        "level": ats_result["level"],
+        "badge_color": ats_result["badge_color"],
+        "score_breakdown": ats_result["score_breakdown"],
+        "matched_skills": ats_result["matched_skills"],
+        "missing_skills": ats_result["missing_skills"],
+        "threshold_warning": ats_result["threshold_warning"],
+        "consistency_analysis": verifier_result,
+        "learning_resources": learning_resources,
+        "improvement_suggestions": ats_result.get("threshold_warning", {}).get("recommended_improvements", []),
+        "explanation": ats_result["explanation"],
+    }
+
+
+@router.put("/{resume_id}/primary")
+async def set_primary_resume(
+    resume_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Set specified resume as Primary for job recommendations."""
+    resume = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == current_user.id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found or unauthorized access.")
+
+    db.query(Resume).filter(Resume.user_id == current_user.id).update({"is_primary": False})
+    resume.is_primary = True
+    db.commit()
+    return {"message": f"Resume '{resume.title}' set as primary successfully."}
+
+
+@router.delete("/{resume_id}", status_code=200)
+async def delete_resume(
+    resume_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a resume database record, physical file, and cached embeddings after verifying candidate ownership."""
+    resume = db.query(Resume).filter(
+        Resume.id == resume_id,
+        Resume.user_id == current_user.id,
+    ).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found or unauthorized access.")
+
+    db.delete(resume)
+    db.commit()
+    return {"message": "Resume record and associated embeddings deleted successfully."}
