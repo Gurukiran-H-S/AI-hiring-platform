@@ -79,6 +79,7 @@ class Job(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     closed_at = Column(DateTime, nullable=True)
+    assessment_id = Column(PortableUUID(), ForeignKey("recruiter_assessments.id"), nullable=True)
 
     # Relationships
     recruiter = relationship(

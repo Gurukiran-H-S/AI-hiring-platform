@@ -5,8 +5,6 @@ import toast from 'react-hot-toast'
 export const ApplicationTracker = () => {
   const [applications, setApplications] = useState([])
   const [loading, setLoading] = useState(true)
-  const [selectedAppForStatus, setSelectedAppForStatus] = useState(null)
-  const [newStatus, setNewStatus] = useState('applied')
 
   const fetchApplications = async () => {
     try {
@@ -24,20 +22,16 @@ export const ApplicationTracker = () => {
     fetchApplications()
   }, [])
 
-  const handleUpdateStatusSubmit = async (e) => {
-    e.preventDefault()
-    if (!selectedAppForStatus) return
-
+  const handleDeleteApplication = async (appId) => {
+    if (!window.confirm('Are you sure you want to delete this application record?')) return
     try {
-      await api.put(`/applications/${selectedAppForStatus.id}/status`, {
-        status: newStatus,
-        notes: `Updated status manually to ${newStatus}`
-      })
-      toast.success(`Status updated to ${newStatus.toUpperCase()}!`)
-      setSelectedAppForStatus(null)
+      await api.delete(`/applications/${appId}`)
+      toast.success('Application deleted successfully!')
       fetchApplications()
     } catch (err) {
-      toast.error('Failed to update status.')
+      console.error(err)
+      const errorMsg = err.response?.data?.detail || 'Failed to delete application'
+      toast.error(errorMsg)
     }
   }
 
@@ -48,6 +42,7 @@ export const ApplicationTracker = () => {
         return 'bg-amber-500/20 text-amber-300 border-amber-500/30'
       case 'shortlisted':
       case 'interview':
+      case 'interview_scheduled':
         return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
       case 'rejected':
         return 'bg-rose-500/20 text-rose-300 border-rose-500/30'
@@ -63,7 +58,7 @@ export const ApplicationTracker = () => {
           💼 Candidate Job Application Tracker & Activity Timeline
         </h1>
         <p className="text-slate-400 text-sm mt-1">
-          Track application progress across 11 status stages, view activity timelines, and set updates.
+          Track application progress across your active job applications.
         </p>
       </div>
 
@@ -72,7 +67,7 @@ export const ApplicationTracker = () => {
         <span className="text-xl">🔔</span>
         <div>
           <strong className="text-indigo-300 block font-display">Application Reminder</strong>
-          <span>Applications submitted >7 days ago without update: Follow-up email may be appropriate.</span>
+          <span>Recruiters will update status stages and schedule interviews as your application advances.</span>
         </div>
       </div>
 
@@ -101,16 +96,49 @@ export const ApplicationTracker = () => {
                     ● {app.status?.replace('_', ' ')}
                   </span>
                   <button
-                    onClick={() => {
-                      setSelectedAppForStatus(app)
-                      setNewStatus(app.status)
-                    }}
-                    className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-slate-300 transition-colors"
+                    onClick={() => handleDeleteApplication(app.id)}
+                    className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                    title="Delete Application"
                   >
-                    Update Status
+                    🗑️ Delete
                   </button>
                 </div>
               </div>
+
+              {/* Recruiter Notes / Status Feedback */}
+              {app.recruiter_notes && (
+                <div className={`p-3 rounded-xl text-xs border ${
+                  app.status?.toLowerCase() === 'rejected' 
+                    ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' 
+                    : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300'
+                }`}>
+                  <strong className="block font-semibold mb-0.5">Recruiter Feedback / Note:</strong>
+                  <span>{app.recruiter_notes}</span>
+                </div>
+              )}
+
+              {/* Interview Meeting Link for Shortlisted / Interview Candidates */}
+              {app.meeting_link && (app.status?.toLowerCase() === 'shortlisted' || app.status?.toLowerCase() === 'interview' || app.status?.toLowerCase() === 'interview_scheduled') && (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                  <div>
+                    <div className="flex items-center gap-2 font-bold text-emerald-300 text-sm font-display">
+                      <span>📹</span> Interview Meeting Link Reflected
+                    </div>
+                    <p className="text-slate-300 text-[11px] mt-0.5">
+                      {app.scheduled_at ? `Scheduled for: ${app.scheduled_at}` : 'Shortlisted for Interview Round'}
+                      {app.interview_type ? ` • Round: ${app.interview_type.toUpperCase()}` : ''}
+                    </p>
+                  </div>
+                  <a
+                    href={app.meeting_link.startsWith('http') ? app.meeting_link : `https://${app.meeting_link}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-500/20 text-xs transition-all transform hover:scale-[1.02] cursor-pointer"
+                  >
+                    <span>🔗</span> Join Interview Meeting →
+                  </a>
+                </div>
+              )}
 
               {/* Activity Timeline */}
               <div className="space-y-2">
@@ -131,54 +159,6 @@ export const ApplicationTracker = () => {
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Update Status Modal */}
-      {selectedAppForStatus && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="glass-card p-6 rounded-2xl max-w-md w-full bg-[#0d0e19] border border-white/15 space-y-4 text-xs">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h2 className="text-base font-bold text-white font-display">Update Application Status</h2>
-              <button onClick={() => setSelectedAppForStatus(null)} className="text-slate-400 hover:text-white">✕</button>
-            </div>
-
-            <form onSubmit={handleUpdateStatusSubmit} className="space-y-4">
-              <div>
-                <label className="block text-slate-400 mb-1 font-semibold">Select Current Stage</label>
-                <select
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value)}
-                  className="w-full bg-[#0a0b14] border border-white/15 rounded-xl p-3 text-white"
-                >
-                  <option value="saved">Saved</option>
-                  <option value="applied">Applied</option>
-                  <option value="application_viewed">Application Viewed</option>
-                  <option value="screening">Screening</option>
-                  <option value="assessment">Assessment</option>
-                  <option value="interview">Interview Scheduled</option>
-                  <option value="shortlisted">Shortlisted</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="offer">Offer Received</option>
-                  <option value="hired">Hired</option>
-                  <option value="withdrawn">Withdrawn</option>
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedAppForStatus(null)}
-                  className="px-4 py-2 bg-white/10 rounded-xl text-slate-300"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary px-4 py-2 rounded-xl font-semibold">
-                  Save Status
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
     </div>

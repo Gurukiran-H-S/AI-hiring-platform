@@ -1,0 +1,42 @@
+skill_id,canonical_name,alias,category,esco_id,onet_id,source
+4cb64d5b-0bd9-405f-a34c-5e7f6bb4fd83,Deep Learning,Deep Learning,AI/ML,esco_sk_005,,esco
+4cb64d5b-0bd9-405f-a34c-5e7f6bb4fd83,Deep Learning,DL,AI/ML,esco_sk_005,,alias
+e85df9c5-ad04-4684-bcc2-4bd3ecbba75f,Natural Language Processing,Natural Language Processing,AI/ML,esco_sk_006,,esco
+e85df9c5-ad04-4684-bcc2-4bd3ecbba75f,Natural Language Processing,NLP,AI/ML,esco_sk_006,,alias
+26f030a2-bad3-4bf4-836e-6eefa5eeb2bc,Computer Vision,Computer Vision,AI/ML,esco_sk_007,,esco
+5efedbba-3450-4669-be85-60a819122117,PyTorch,PyTorch,AI/ML,esco_sk_008,,esco
+ffc63b10-20a3-4272-94a2-08f5e46427fd,TensorFlow,TensorFlow,AI/ML,esco_sk_009,,esco
+c0299c06-8265-4a2a-8df9-8bea1646bc8d,scikit-learn,scikit-learn,AI/ML,esco_sk_010,,esco
+c0299c06-8265-4a2a-8df9-8bea1646bc8d,scikit-learn,sklearn,AI/ML,esco_sk_010,,alias
+c655d8da-dee0-4481-a472-55bbf125c947,spaCy,spaCy,AI/ML,esco_sk_011,,esco
+705f219b-525a-41fe-99d0-488b32d0fdeb,Sentence Transformers,Sentence Transformers,AI/ML,esco_sk_012,,esco
+dd9728ce-bbeb-4f80-890f-7ef15a913749,YOLO,YOLO,AI/ML,esco_sk_013,,esco
+7fb67463-edee-4f1e-8c4d-506444fc43d1,OpenCV,OpenCV,AI/ML,esco_sk_014,,esco
+f488a6fa-f195-44ec-8970-f3e1bee38b5b,FastAPI,FastAPI,Backend,esco_sk_015,,esco
+6017eccc-a941-45e7-aa4f-9585e5ba661d,Flask,Flask,Backend,esco_sk_016,,esco
+9decac58-406d-4f27-8553-c5d569935749,REST API,REST API,Web Services,esco_sk_017,,esco
+9decac58-406d-4f27-8553-c5d569935749,REST API,RESTful APIs,Web Services,esco_sk_017,,alias
+9decac58-406d-4f27-8553-c5d569935749,REST API,RESTful API,Web Services,esco_sk_017,,alias
+9decac58-406d-4f27-8553-c5d569935749,REST API,RESTful services,Web Services,esco_sk_017,,alias
+d028806b-ea46-4797-8bee-6ee0659eb88e,PostgreSQL,PostgreSQL,Database,esco_sk_018,,esco
+d028806b-ea46-4797-8bee-6ee0659eb88e,PostgreSQL,Postgres,Database,esco_sk_018,,alias
+5ce1c042-a9e2-42ba-8e48-71f464a6000f,Git,Git,Tools,esco_sk_021,,esco
+8fefbf0f-7a75-41d2-90ef-4910f6d35012,GitHub,GitHub,Tools,esco_sk_022,,esco
+6191af00-d00e-4c45-9b29-c2163b9f6c77,Jenkins,Jenkins,DevOps,esco_sk_023,,esco
+98920e6d-821b-402b-a2a0-e764760dbf91,Data Structures and Algorithms,Data Structures and Algorithms,Computer Science,esco_sk_024,,esco
+a48d01d7-6897-45fc-8c7b-81fcaf5316b0,OOP,OOP,Programming Concepts,esco_sk_025,,esco
+24470be4-9ade-4a9b-93ac-ab77434af213,DBMS,DBMS,Database,esco_sk_026,,esco
+88700b41-47c8-4150-85e0-cb59a3920e79,Semantic Matching,Semantic Matching,AI/ML,esco_sk_027,,esco
+a4a0003a-c8d5-47a4-b1f5-f4fd58540c30,Recommendation Systems,Recommendation Systems,AI/ML,esco_sk_028,,esco
+0ea2bfd2-7c32-4421-ad09-c48bab168f41,Explainable AI,Explainable AI,AI/ML,esco_sk_029,,esco
+f647d54f-1688-4c2d-ab66-23e292807fde,React,React,Frontend,esco_sk_031,,esco
+f647d54f-1688-4c2d-ab66-23e292807fde,React,ReactJS,Frontend,esco_sk_031,,alias
+87aa7cf6-7a4d-481f-86ac-357f533a3665,JavaScript,JavaScript,Frontend,esco_sk_032,,esco
+ec78b578-797d-4c23-9db3-c5fa19dbe5c3,Python,Python,AI/ML,esco_sk_001,onet_sk_py,esco
+80cf5521-77a0-4234-9565-7c7cfdb2e196,Java,Java,Backend,esco_sk_002,onet_sk_jv,esco
+a233db20-7f76-4136-a390-96c0a0f14cb6,SQL,SQL,Database,esco_sk_003,onet_sk_sql,esco
+f56afab0-d985-481b-87d8-22f84c643b41,Machine Learning,Machine Learning,AI/ML,esco_sk_004,onet_sk_ml,esco
+f56afab0-d985-481b-87d8-22f84c643b41,Machine Learning,ML,AI/ML,esco_sk_004,onet_sk_ml,alias
+a17823d1-3b37-4303-a5f0-290fe8e48da9,Docker,Docker,DevOps,esco_sk_019,onet_sk_dkr,esco
+4b8e958b-9800-4a3b-87f4-b243f7c693ec,AWS,AWS,Cloud,esco_sk_020,onet_sk_aws,esco
+4a936425-b27a-4252-8772-5917446ad0a3,Kubernetes,Kubernetes,DevOps,esco_sk_030,onet_sk_k8s,esco

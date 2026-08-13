@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
 export const JobSearch = () => {
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [location, setLocation] = useState('')
   const [jobType, setJobType] = useState('')
@@ -53,8 +55,9 @@ export const JobSearch = () => {
         application_url: selectedJobForModal.application_url,
         notes: `Applied via ${selectedJobForModal.source || 'External Portal'}`
       })
-      toast.success(`Application tracked successfully! Added to My Applications.`)
+      toast.success(`Application tracked successfully! Navigating to My Applications...`)
       setSelectedJobForModal(null)
+      navigate('/candidate/applications')
     } catch (err) {
       toast.error('Failed to track application.')
     }

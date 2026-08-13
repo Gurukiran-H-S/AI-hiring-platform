@@ -435,6 +435,13 @@ body {
     overflow: hidden;
   }
 
+  .line-clamp-4 {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
   .grid-auto-fill {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   }
@@ -506,4 +513,19 @@ canvas { max-width: 100%; }
 .animate-shake { animation: shake 0.5s ease-in-out; }
 .animate-spin-slow { animation: spin-slow 15s linear infinite; }
 .animate-scale-up { animation: scale-up 0.4s ease forwards; }
+
+@keyframes scanBeam {
+  0% { top: 0%; opacity: 0.8; }
+  50% { top: 95%; opacity: 1; }
+  100% { top: 0%; opacity: 0.8; }
+}
+
+@keyframes bounceSlow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-scan-beam { animation: scanBeam 4s ease-in-out infinite; }
+.animate-bounce-slow { animation: bounceSlow 4s ease-in-out infinite; }
+
 

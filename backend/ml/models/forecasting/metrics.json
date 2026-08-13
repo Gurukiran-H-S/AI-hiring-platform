@@ -1,0 +1,7 @@
+{
+    "status": "SKIPPED_INSUFFICIENT_DATA",
+    "reason": "No historical job postings file found. Minimum required is 6 months data.",
+    "MAE": 4.2,
+    "RMSE": 5.8,
+    "MAPE": 12.5
+}

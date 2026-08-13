@@ -124,9 +124,10 @@ class ResumeParser:
         return result
 
     def _clean_text(self, text: str) -> str:
-        text = re.sub(r'\s+', ' ', text)
-        text = re.sub(r'[^\x00-\x7F]+', ' ', text)
-        return text.strip()
+        lines = [re.sub(r'[ \t]+', ' ', line).strip() for line in text.split('\n')]
+        cleaned_text = '\n'.join(lines)
+        cleaned_text = re.sub(r'[^\x00-\x7f\n]+', ' ', cleaned_text)
+        return cleaned_text.strip()
 
     def _extract_sections(self, text: str) -> Dict[str, str]:
         """Split resume into sections based on header keywords."""

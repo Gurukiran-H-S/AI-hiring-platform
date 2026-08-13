@@ -6,8 +6,7 @@ from sqlalchemy import inspect, text
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import engine, Base
-# Import all models to ensure metadata is populated
-from app.models import user, resume, job, application, notification, interview, coding, evaluation
+from app.models import user, resume, job, application, notification, interview, coding, evaluation, ml_models
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("db_migrator")
@@ -18,8 +17,16 @@ def inspect_and_migrate():
     print("==================================================")
     print(f"Connecting to database engine: {engine.url}")
 
-    # First run create_all for any missing tables
     Base.metadata.create_all(bind=engine)
+
+    # 1. Alter file_type and parsed_phone column types in resumes table to VARCHAR(255)
+    with engine.begin() as conn:
+        try:
+            conn.execute(text('ALTER TABLE resumes ALTER COLUMN file_type TYPE VARCHAR(255);'))
+            conn.execute(text('ALTER TABLE resumes ALTER COLUMN parsed_phone TYPE VARCHAR(255);'))
+            print("  [SUCCESS] Altered resumes.file_type and resumes.parsed_phone to VARCHAR(255)")
+        except Exception as e:
+            print(f"  [NOTE] Column type alteration note: {e}")
 
     inspector = inspect(engine)
     existing_tables = inspector.get_table_names()
@@ -27,22 +34,16 @@ def inspect_and_migrate():
 
     migrated_columns = []
 
-    # Iterate over all registered SQLAlchemy model tables
     for table_name, table_obj in Base.metadata.tables.items():
         if table_name not in existing_tables:
-            print(f"Table '{table_name}' was missing and created by create_all.")
             continue
 
         existing_cols = {col["name"]: col for col in inspector.get_columns(table_name)}
         model_cols = table_obj.columns
 
-        print(f"\nChecking table '{table_name}': {len(existing_cols)} DB columns vs {len(model_cols)} Model columns")
-
         for col_name, col_obj in model_cols.items():
             if col_name not in existing_cols:
                 print(f"  [MISSING COLUMN] in DB: '{table_name}.{col_name}' (type: {col_obj.type})")
-                
-                # Determine DDL column type
                 col_type_str = str(col_obj.type)
                 if "PortableUUID" in col_type_str or "UUID" in col_type_str:
                     ddl_type = "UUID" if "postgresql" in str(engine.url) else "VARCHAR(36)"
@@ -64,7 +65,6 @@ def inspect_and_migrate():
                 if col_name == "ats_status":
                     ddl_type = "VARCHAR(50) DEFAULT 'PENDING'"
 
-                # Construct DDL statement
                 sql = text(f'ALTER TABLE "{table_name}" ADD COLUMN IF NOT EXISTS "{col_name}" {ddl_type}')
                 
                 with engine.begin() as conn:
@@ -76,11 +76,7 @@ def inspect_and_migrate():
                         print(f"  [ERROR] Could not add column '{table_name}.{col_name}': {e}")
 
     print("\n==================================================")
-    print("MIGRATION SUMMARY:")
-    if migrated_columns:
-        print(f"Added {len(migrated_columns)} missing columns: {migrated_columns}")
-    else:
-        print("All database tables are 100% synchronized with SQLAlchemy models! Zero column mismatches.")
+    print("MIGRATION SUMMARY COMPLETE!")
     print("==================================================")
 
 if __name__ == "__main__":

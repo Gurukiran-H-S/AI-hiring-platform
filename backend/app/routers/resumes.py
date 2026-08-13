@@ -118,19 +118,27 @@ async def upload_resume(
             db.query(Resume).filter(Resume.user_id == current_user.id).update({"is_primary": False})
             is_primary = True
 
+        # Truncate strings to prevent PostgreSQL StringDataRightTruncation errors
+        safe_file_name = (file.filename or "resume")[:250]
+        safe_file_type = (file.content_type or "application/vnd.openxmlformats-officedocument.wordprocessingml.document")[:250]
+        safe_parsed_name = (parsed.get("name") or "")[:250] if parsed.get("name") else None
+        safe_parsed_email = (parsed.get("email") or "")[:250] if parsed.get("email") else None
+        safe_parsed_phone = (parsed.get("phone") or "")[:250] if parsed.get("phone") else None
+        safe_parsed_location = (parsed.get("location") or "")[:250] if parsed.get("location") else None
+
         resume = Resume(
             user_id=current_user.id,
-            title=title,
-            file_name=file.filename,
-            file_type=file.content_type,
+            title=(title or safe_file_name)[:250],
+            file_name=safe_file_name,
+            file_type=safe_file_type,
             is_primary=is_primary,
             is_parsed=True,
             ats_status="COMPLETED",
             raw_text=raw_text[:10000],
-            parsed_name=parsed.get("name"),
-            parsed_email=parsed.get("email"),
-            parsed_phone=parsed.get("phone"),
-            parsed_location=parsed.get("location"),
+            parsed_name=safe_parsed_name,
+            parsed_email=safe_parsed_email,
+            parsed_phone=safe_parsed_phone,
+            parsed_location=safe_parsed_location,
             parsed_summary=parsed.get("summary"),
             parsed_skills=[s["normalized_skill"] for s in normalized_skills],
             parsed_education=parsed.get("education", []),
@@ -140,7 +148,7 @@ async def upload_resume(
             parsed_languages=parsed.get("languages", []),
             ats_score=ats_result["ats_score"],
             ats_breakdown=ats_result["score_breakdown"],
-            quality_score=ats_result["score_breakdown"]["structure_score"],
+            quality_score=ats_result["score_breakdown"]["keyword_score"],
             improvement_suggestions=ats_result.get("threshold_warning", {}).get("recommended_improvements", []),
             keywords_found=ats_result["matched_skills"],
             keywords_missing=ats_result["missing_skills"],

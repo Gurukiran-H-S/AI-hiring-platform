@@ -183,3 +183,39 @@ class RecruiterAssessment(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
     recruiter = relationship("User")
+
+
+class RecruiterAssessmentAttempt(Base):
+    __tablename__ = "recruiter_assessment_attempts"
+
+    id = Column(PortableUUID(), primary_key=True, default=uuid.uuid4)
+    assessment_id = Column(PortableUUID(), ForeignKey("recruiter_assessments.id"), nullable=False, index=True)
+    candidate_id = Column(PortableUUID(), ForeignKey("users.id"), nullable=False, index=True)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    submitted_at = Column(DateTime, nullable=True)
+    status = Column(String(50), default="started") # started, submitted, expired
+    score = Column(Float, default=0.0)
+    total_points = Column(Integer, default=100)
+    time_taken_seconds = Column(Integer, nullable=True)
+
+    assessment = relationship("RecruiterAssessment")
+    candidate = relationship("User")
+    answers = relationship("RecruiterAssessmentAnswer", back_populates="attempt", cascade="all, delete-orphan")
+
+
+class RecruiterAssessmentAnswer(Base):
+    __tablename__ = "recruiter_assessment_answers"
+
+    id = Column(PortableUUID(), primary_key=True, default=uuid.uuid4)
+    attempt_id = Column(PortableUUID(), ForeignKey("recruiter_assessment_attempts.id"), nullable=False, index=True)
+    problem_id = Column(PortableUUID(), ForeignKey("coding_problems.id"), nullable=False, index=True)
+    language = Column(String(50), nullable=False)
+    source_code = Column(Text, nullable=False)
+    submission_id = Column(PortableUUID(), ForeignKey("candidate_submissions.id"), nullable=True)
+    points_awarded = Column(Float, default=0.0)
+    status = Column(String(50), default="submitted")
+    submitted_at = Column(DateTime, default=datetime.utcnow)
+
+    attempt = relationship("RecruiterAssessmentAttempt", back_populates="answers")
+    problem = relationship("CodingProblem")
+    submission = relationship("CandidateSubmission")

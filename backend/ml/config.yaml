@@ -1,0 +1,24 @@
+training:
+  train_ratio: 0.70
+  validation_ratio: 0.15
+  test_ratio: 0.15
+
+models:
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+
+ats:
+  skill_weight: 0.30
+  keyword_weight: 0.15
+  semantic_weight: 0.20
+  experience_weight: 0.15
+  education_weight: 0.10
+  project_weight: 0.10
+
+ranking:
+  minimum_feedback_records: 10
+
+forecasting:
+  minimum_months: 6
+
+system:
+  random_seed: 42

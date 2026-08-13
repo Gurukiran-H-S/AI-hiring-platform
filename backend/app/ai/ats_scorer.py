@@ -23,16 +23,14 @@ logger = logging.getLogger(__name__)
 class ATSScorer:
     """Configurable & Explainable ATS Score Prediction Engine."""
 
-    # Configurable weights matching prompt specification
+    # Configurable weights matching humanized ATS prompt specification (Section 3)
     WEIGHTS = {
         "skill_match": 0.30,
+        "keyword_match": 0.15,
         "semantic_match": 0.20,
         "experience_match": 0.15,
         "education_match": 0.10,
-        "project_relevance": 0.10,
-        "certification_match": 0.05,
-        "resume_structure": 0.05,
-        "keyword_coverage": 0.05,
+        "project_match": 0.10,
     }
 
     def score(
@@ -53,54 +51,52 @@ class ATSScorer:
 
         skill_match_score = (len(matched_skills) / max(1, len(target_skills))) * 100.0
 
-        # 2. Semantic Job Match Score (20%)
-        semantic_match_score = self._compute_semantic_score(parsed_resume, job_description)
-
-        # 3. Experience Match Score (15%)
-        experience_score, exp_issues = self._score_experience(parsed_resume)
-
-        # 4. Education Match Score (10%)
-        education_score = self._score_education(parsed_resume)
-
-        # 5. Project Relevance Score (10%)
-        project_score = self._score_projects(parsed_resume)
-
-        # 6. Certification Match Score (5%)
-        cert_score = self._score_certifications(parsed_resume)
-
-        # 7. Resume Structure Score (5%)
-        structure_score = self._score_structure(parsed_resume)
-
-        # 8. Keyword Coverage Score (5%)
+        # 2. Keyword Coverage Score (15%)
         keyword_score = self._score_keywords(parsed_resume, job_description)
 
-        # Weighted Sum
+        # 3. Semantic Job Match Score (20%)
+        semantic_match_score = self._compute_semantic_score(parsed_resume, job_description)
+
+        # 4. Experience Match Score (15%)
+        experience_score, exp_issues = self._score_experience(parsed_resume)
+
+        # 5. Education Match Score (10%)
+        education_score = self._score_education(parsed_resume)
+
+        # 6. Project Relevance Score (10%)
+        project_score = self._score_projects(parsed_resume)
+
+        # Weighted Sum matching the humanized formula (Section 3)
         ats_score = (
             skill_match_score * self.WEIGHTS["skill_match"] +
+            keyword_score * self.WEIGHTS["keyword_match"] +
             semantic_match_score * self.WEIGHTS["semantic_match"] +
             experience_score * self.WEIGHTS["experience_match"] +
             education_score * self.WEIGHTS["education_match"] +
-            project_score * self.WEIGHTS["project_relevance"] +
-            cert_score * self.WEIGHTS["certification_match"] +
-            structure_score * self.WEIGHTS["resume_structure"] +
-            keyword_score * self.WEIGHTS["keyword_coverage"]
+            project_score * self.WEIGHTS["project_match"]
         )
 
         ats_score = round(ats_score, 1)
         level_info = self._get_score_level(ats_score)
 
-        # Prompt-specified Threshold Warning (< 60 ATS Score)
-        threshold_warning = None
-        if ats_score < 60.0:
-            threshold_warning = {
-                "active": True,
-                "status": "Needs Improvement",
-                "message": f"Your profile currently matches {ats_score}% of the selected job requirements. Improving the highlighted skills and resume areas can significantly increase your compatibility.",
-                "missing_skills": missing_skills,
-                "recommended_improvements": [
-                    f"Learn fundamentals of {s}" for s in missing_skills[:4]
-                ] + ["Add quantified metrics (e.g. 'Increased accuracy by 25%') to work experience bullets."]
-            }
+        # Generate threshold warning and recommendation details
+        rec_improvements = []
+        if "SQL" not in cand_skill_names:
+            rec_improvements.append("You need to learn SQL to improve your ATS score.")
+        if "REST API" not in cand_skill_names:
+            rec_improvements.append("You need to learn REST API to improve your ATS score.")
+            
+        for s in missing_skills[:4]:
+            rec_improvements.append(f"Learn fundamentals of {s}")
+        rec_improvements.append("Add quantified metrics (e.g. 'Increased accuracy by 25%') to work experience bullets.")
+
+        threshold_warning = {
+            "active": True if ats_score < 75.0 or rec_improvements else False,
+            "status": level_info["level"],
+            "message": f"Your profile currently matches {ats_score}% of the selected job requirements.",
+            "missing_skills": missing_skills,
+            "recommended_improvements": rec_improvements
+        }
 
         return {
             "ats_score": ats_score,
@@ -108,18 +104,16 @@ class ATSScorer:
             "badge_color": level_info["color"],
             "score_breakdown": {
                 "skill_score": round(skill_match_score, 1),
+                "keyword_score": round(keyword_score, 1),
                 "semantic_score": round(semantic_match_score, 1),
                 "experience_score": round(experience_score, 1),
                 "education_score": round(education_score, 1),
                 "project_score": round(project_score, 1),
-                "certification_score": round(cert_score, 1),
-                "structure_score": round(structure_score, 1),
-                "keyword_score": round(keyword_score, 1),
             },
             "matched_skills": matched_skills,
             "missing_skills": missing_skills,
             "threshold_warning": threshold_warning,
-            "explanation": f"Overall ATS Score of {ats_score}% calculated based on weighted criteria (30% Skills, 20% Semantic, 15% Experience, 10% Education, 10% Projects, 5% Certs, 5% Structure, 5% Keywords)."
+            "explanation": f"Overall ATS Score of {ats_score}% calculated based on weighted criteria (30% Skill Match, 15% Keyword Match, 20% Semantic Match, 15% Experience Match, 10% Education Match, 10% Project Match)."
         }
 
     def _compute_semantic_score(self, resume: Dict, job_desc: Optional[str]) -> float:
@@ -177,6 +171,105 @@ class ATSScorer:
             return {"level": "Needs Improvement", "color": "amber"}
         else:
             return {"level": "Critical Improvement", "color": "rose"}
+
+
+    def calculate_match_score(
+        self,
+        parsed_resume: Dict[str, Any],
+        job_description: Optional[str] = None,
+        required_skills: Optional[List[str]] = None,
+        preferred_skills: Optional[List[str]] = None,
+        min_experience_years: int = 0,
+        required_education: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Calculates candidate-to-job match score based on Part 7 weights (40/20/15/10/10/5)."""
+        raw_skills = parsed_resume.get("skills", []) or []
+        normalized_skills = skill_normalizer.normalize_list(raw_skills)
+        cand_skill_names = [s["normalized_skill"] for s in normalized_skills]
+
+        # 1. Skill Match Score (40%)
+        req_skills_normalized = [skill_normalizer.normalize(s)["normalized_skill"] for s in (required_skills or [])]
+        if not req_skills_normalized:
+            req_skills_normalized = ["Python", "SQL", "Git"]  # default backup
+        matched_required = [s for s in req_skills_normalized if s in cand_skill_names]
+        missing_required = [s for s in req_skills_normalized if s not in cand_skill_names]
+        skill_score = (len(matched_required) / max(1, len(req_skills_normalized))) * 100.0
+
+        # 2. Preferred Skills (5%)
+        pref_skills_normalized = [skill_normalizer.normalize(s)["normalized_skill"] for s in (preferred_skills or [])]
+        matched_pref = [s for s in pref_skills_normalized if s in cand_skill_names] if pref_skills_normalized else []
+        pref_score = (len(matched_pref) / max(1, len(pref_skills_normalized))) * 100.0 if pref_skills_normalized else 100.0
+
+        # 3. Experience Match Score (20%)
+        cand_exp_items = parsed_resume.get("experience", []) or []
+        cand_years = len(cand_exp_items) * 2  # assume 2 years per experience item on average
+        if cand_years >= min_experience_years:
+            experience_match_score = 100.0
+            exp_match_label = "High"
+        else:
+            experience_match_score = 50.0
+            exp_match_label = "Low (Below the stated requirement)"
+            
+        # 4. Semantic Match Score (15%)
+        semantic_score = self._compute_semantic_score(parsed_resume, job_description)
+
+        # 5. Project Relevance Score (10%)
+        # Check if candidate has projects, support freshers/students
+        proj_items = parsed_resume.get("projects", []) or []
+        if len(proj_items) >= 2:
+            project_score = 100.0
+            proj_match_label = "High"
+        elif len(proj_items) == 1:
+            project_score = 75.0
+            proj_match_label = "Medium"
+        else:
+            project_score = 30.0
+            proj_match_label = "Low"
+
+        # 6. Education Match Score (10%)
+        # Look for education matching
+        edu_items = parsed_resume.get("education", []) or []
+        education_score = 50.0
+        edu_match_label = "Low"
+        if not required_education:
+            education_score = 100.0
+            edu_match_label = "Matched"
+        else:
+            req_edu_lower = required_education.lower()
+            for edu in edu_items:
+                edu_text = str(edu).lower()
+                if any(kw in edu_text for kw in ["bachelor", "master", "ph.d", "b.tech", "b.e.", "computer science"]):
+                    education_score = 100.0
+                    edu_match_label = "Matched"
+                    break
+
+        # Weighted Sum matching Part 7
+        match_score = (
+            skill_score * 0.40 +
+            experience_match_score * 0.20 +
+            semantic_score * 0.15 +
+            project_score * 0.10 +
+            education_score * 0.10 +
+            pref_score * 0.05
+        )
+
+        match_score = round(match_score, 1)
+
+        return {
+            "match_score": match_score,
+            "skill_score": round(skill_score, 1),
+            "experience_score": round(experience_match_score, 1),
+            "semantic_score": round(semantic_score, 1),
+            "project_score": round(project_score, 1),
+            "education_score": round(education_score, 1),
+            "preferred_score": round(pref_score, 1),
+            "matched_skills": matched_required,
+            "missing_skills": missing_required,
+            "experience_match": exp_match_label,
+            "project_match": proj_match_label,
+            "education_match": edu_match_label,
+            "matched_preferred": matched_pref,
+        }
 
 
 ats_scorer = ATSScorer()

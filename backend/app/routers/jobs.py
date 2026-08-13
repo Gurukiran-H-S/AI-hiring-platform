@@ -254,3 +254,164 @@ async def get_job_recommendations(
 
     recommendations = semantic_matcher.batch_match_jobs(resume_data, jobs_data, top_k=limit)
     return recommendations
+
+
+@router.post("/{job_id}/analyze")
+async def analyze_job_description(
+    job_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_recruiter),
+):
+    """Analyze job description to extract required skills, experience, education, responsibilities."""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    from ml.preprocessing.job_parser import job_parser
+    from app.models.ml_models import Skill, JobSkill
+
+    parsed = job_parser.parse(job.description)
+    
+    # Update job properties in PostgreSQL
+    job.min_experience_years = parsed.get("min_experience_years", job.min_experience_years)
+    job.required_education = parsed.get("required_education", job.required_education)
+    job.required_skills = list(set((job.required_skills or []) + parsed.get("required_skills", [])))
+    db.commit()
+
+    # Clear old job skills and populate job_skills table
+    db.query(JobSkill).filter(JobSkill.job_id == job.id).delete()
+    for sk_name in job.required_skills:
+        # Check if skill exists in unified skills table, if not create one
+        sk_rec = db.query(Skill).filter(Skill.canonical_name == sk_name).first()
+        if not sk_rec:
+            sk_rec = Skill(canonical_name=sk_name, source="job_extraction")
+            db.add(sk_rec)
+            db.commit()
+            db.refresh(sk_rec)
+        
+        js = JobSkill(
+            job_id=job.id,
+            skill_id=sk_rec.id,
+            skill_name=sk_name,
+            importance="required",
+            is_required=True,
+            source="extracted"
+        )
+        db.add(js)
+    db.commit()
+
+    return {
+        "job_title": job.title,
+        "required_skills": job.required_skills,
+        "preferred_skills": job.preferred_skills or [],
+        "experience": job.min_experience_years,
+        "education": job.required_education,
+        "responsibilities": job.responsibilities or ""
+    }
+
+
+@router.get("/recommended")
+async def get_recommended_jobs(
+    limit: int = Query(10, le=50),
+    current_user: User = Depends(get_current_candidate),
+    db: Session = Depends(get_db),
+):
+    """Get personalized humanized job recommendations for the candidate."""
+    resume = db.query(Resume).filter(
+        Resume.user_id == current_user.id,
+        Resume.is_parsed == True,
+    ).order_by(Resume.created_at.desc()).first()
+
+    if not resume:
+        return []
+
+    jobs = db.query(Job).filter(Job.status == JobStatus.ACTIVE).limit(100).all()
+    
+    parsed_resume = {
+        "skills": resume.parsed_skills or [],
+        "experience": resume.parsed_experience or [],
+        "projects": resume.parsed_projects or [],
+        "education": resume.parsed_education or [],
+        "certifications": resume.parsed_certifications or [],
+    }
+
+    results = []
+    from app.ai.ats_scorer import ats_scorer
+    from app.models.ml_models import ResumeJobMatch
+
+    for j in jobs:
+        # Calculate Job Compatibility Match Score (Part 18 weights)
+        match_info = ats_scorer.calculate_match_score(
+            parsed_resume,
+            job_description=j.description,
+            required_skills=j.required_skills,
+            preferred_skills=j.preferred_skills,
+            min_experience_years=j.min_experience_years or 0,
+            required_education=j.required_education
+        )
+        
+        # Calculate Job-Specific ATS Score (Section 3 formula)
+        ats_info = ats_scorer.score(
+            parsed_resume,
+            job_description=j.description,
+            job_skills=j.required_skills
+        )
+
+        # Cache results in resume_job_matches table (Part 28)
+        match_record = db.query(ResumeJobMatch).filter(
+            ResumeJobMatch.resume_id == resume.id,
+            ResumeJobMatch.job_id == j.id
+        ).first()
+
+        if not match_record:
+            match_record = ResumeJobMatch(
+                resume_id=resume.id,
+                candidate_id=current_user.id,
+                job_id=j.id
+            )
+            db.add(match_record)
+
+        match_record.ats_score = ats_info["ats_score"]
+        match_record.match_score = match_info["match_score"]
+        match_record.skill_score = match_info["skill_score"]
+        match_record.experience_score = match_info["experience_score"]
+        match_record.semantic_score = match_info["semantic_score"]
+        match_record.project_score = match_info["project_score"]
+        match_record.education_score = match_info["education_score"]
+        match_record.matched_skills = match_info["matched_skills"]
+        match_record.missing_skills = match_info["missing_skills"]
+        match_record.partial_skills = match_info["matched_preferred"]
+        db.commit()
+
+        # Check application status
+        app_status = "None"
+        application = db.query(Application).filter(
+            Application.candidate_id == current_user.id,
+            Application.job_id == j.id
+        ).first()
+        if application:
+            app_status = application.status.value
+
+        # Humanized reasons for recommendation (Part 42)
+        matched_count = len(match_info["matched_skills"])
+        total_count = len(match_info["matched_skills"]) + len(match_info["missing_skills"])
+        reason = f"Recommended because your {', '.join(match_info['matched_skills'][:3])} skills strongly align with this role and your project experience is relevant."
+
+        results.append({
+            "job_id": str(j.id),
+            "title": j.title,
+            "company": j.company,
+            "location": j.location,
+            "fit_score": match_info["match_score"],
+            "ats_score": ats_info["ats_score"],
+            "matched_skills": match_info["matched_skills"],
+            "missing_skills": match_info["missing_skills"],
+            "experience_match": match_info["experience_match"],
+            "project_match": match_info["project_match"],
+            "reason": reason,
+            "application_status": app_status
+        })
+
+    # Sort descending by match score
+    results.sort(key=lambda x: x["fit_score"], reverse=True)
+    return results[:limit]

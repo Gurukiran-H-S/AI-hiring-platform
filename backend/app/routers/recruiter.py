@@ -11,6 +11,7 @@ from app.models.user import User, CandidateProfile, UserRole
 from app.models.resume import Resume
 from app.models.application import Application, ApplicationStatus
 from app.models.interview import Interview, InterviewStatus, InterviewType
+from app.models.notification import Notification, NotificationType
 from app.models.evaluation import EvaluationWeight, CandidateScore, CandidateSkillEvaluation
 from app.middleware.auth_middleware import get_current_recruiter
 from app.ai.semantic_matcher import semantic_matcher
@@ -162,8 +163,8 @@ async def update_job_weights(
 ):
     """Update job evaluation weights and recalculate candidate scores."""
     total = round(req.ats_weight + req.coding_weight + req.skill_weight + req.interview_weight, 2)
-    if abs(total - 1.0) > 0.01:
-        raise HTTPException(status_code=400, detail=f"Weights must sum to 1.0 (100%). Got sum = {total}")
+    if total <= 0:
+        raise HTTPException(status_code=400, detail="Evaluation weights sum must be greater than zero.")
 
     w_obj = db.query(EvaluationWeight).filter(EvaluationWeight.job_id == job_id).first()
     if not w_obj:
@@ -200,7 +201,10 @@ async def get_candidate_rankings(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
 
-    apps = db.query(Application).filter(Application.job_id == job_id).options(
+    apps = db.query(Application).filter(
+        Application.job_id == job_id,
+        Application.status != ApplicationStatus.REJECTED
+    ).options(
         joinedload(Application.candidate),
         joinedload(Application.resume)
     ).all()
@@ -361,12 +365,14 @@ async def shortlist_candidate(
             job_id=req.job_id,
             status=ApplicationStatus.SHORTLISTED,
             is_shortlisted=True,
+            recruiter_notes="Candidate shortlisted for next interview round",
             applied_at=datetime.utcnow()
         )
         db.add(app)
     else:
         app.status = ApplicationStatus.SHORTLISTED
         app.is_shortlisted = True
+        app.recruiter_notes = "Candidate shortlisted for next interview round"
 
     db.commit()
     return {"message": "Candidate shortlisted successfully.", "status": "SHORTLISTED"}
@@ -388,6 +394,14 @@ async def reject_candidate(
         app.status = ApplicationStatus.REJECTED
         app.is_shortlisted = False
         app.recruiter_notes = f"Rejection reason: {req.reason}"
+
+        notif = Notification(
+            user_id=req.candidate_id,
+            type=NotificationType.REJECTED,
+            title="Application Status Updated",
+            message=f"Your application status has been updated to Rejected. Reason: {req.reason}"
+        )
+        db.add(notif)
         db.commit()
 
     return {"message": "Candidate rejected.", "status": "REJECTED", "reason": req.reason}
@@ -399,13 +413,29 @@ async def schedule_interview(
     current_user: User = Depends(get_current_recruiter),
     db: Session = Depends(get_db),
 ):
-    """Schedule interview with collision check."""
+    """Schedule interview with application association."""
     try:
         itype = InterviewType(req.interview_type)
     except ValueError:
         itype = InterviewType.TECHNICAL
 
+    app = db.query(Application).filter(
+        Application.candidate_id == req.candidate_id,
+        Application.job_id == req.job_id
+    ).first()
+    if not app:
+        app = Application(
+            candidate_id=req.candidate_id,
+            job_id=req.job_id,
+            status=ApplicationStatus.APPLIED
+        )
+        db.add(app)
+        db.flush()
+
+    app.status = ApplicationStatus.INTERVIEW_SCHEDULED
+
     interview = Interview(
+        application_id=app.id,
         recruiter_id=current_user.id,
         candidate_id=req.candidate_id,
         job_id=req.job_id,
@@ -419,14 +449,13 @@ async def schedule_interview(
     )
     db.add(interview)
 
-    # Update Application Status
-    app = db.query(Application).filter(
-        Application.candidate_id == req.candidate_id,
-        Application.job_id == req.job_id
-    ).first()
-    if app:
-        app.status = ApplicationStatus.INTERVIEW_SCHEDULED
-
+    notif = Notification(
+        user_id=req.candidate_id,
+        type=NotificationType.INTERVIEW_SCHEDULED,
+        title="📅 New Interview Scheduled!",
+        message=f"A {itype.value} interview has been scheduled for {req.scheduled_at.strftime('%b %d, %Y at %H:%M')}. Location: {req.location or 'Online'} ({req.meeting_link or 'https://meet.jit.si/hireai-interview'})"
+    )
+    db.add(notif)
     db.commit()
     db.refresh(interview)
 
@@ -435,3 +464,243 @@ async def schedule_interview(
         "interview_id": str(interview.id),
         "scheduled_at": interview.scheduled_at.isoformat()
     }
+
+
+@router.get("/jobs/{job_id}/matched-candidates")
+async def get_matched_candidates_for_job(
+    job_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_recruiter),
+):
+    """Retrieve ranked matched candidate list for a specific job."""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    resumes = db.query(Resume).filter(Resume.is_parsed == True).all()
+    results = []
+
+    from app.ai.ats_scorer import ats_scorer
+    from app.models.ml_models import ResumeJobMatch
+
+    for r in resumes:
+        # Get candidate user
+        cand_user = db.query(User).filter(User.id == r.user_id).first()
+        if not cand_user:
+            continue
+
+        parsed_resume = {
+            "skills": r.parsed_skills or [],
+            "experience": r.parsed_experience or [],
+            "projects": r.parsed_projects or [],
+            "education": r.parsed_education or [],
+            "certifications": r.parsed_certifications or [],
+        }
+
+        # Calculate matching metrics
+        match_info = ats_scorer.calculate_match_score(
+            parsed_resume,
+            job_description=job.description,
+            required_skills=job.required_skills,
+            preferred_skills=job.preferred_skills,
+            min_experience_years=job.min_experience_years or 0,
+            required_education=job.required_education
+        )
+
+        ats_info = ats_scorer.score(
+            parsed_resume,
+            job_description=job.description,
+            job_skills=job.required_skills
+        )
+
+        # Cache results in database table
+        match_record = db.query(ResumeJobMatch).filter(
+            ResumeJobMatch.resume_id == r.id,
+            ResumeJobMatch.job_id == job.id
+        ).first()
+
+        if not match_record:
+            match_record = ResumeJobMatch(
+                resume_id=r.id,
+                candidate_id=cand_user.id,
+                job_id=job.id
+            )
+            db.add(match_record)
+
+        match_record.ats_score = ats_info["ats_score"]
+        match_record.match_score = match_info["match_score"]
+        match_record.skill_score = match_info["skill_score"]
+        match_record.experience_score = match_info["experience_score"]
+        match_record.semantic_score = match_info["semantic_score"]
+        match_record.project_score = match_info["project_score"]
+        match_record.education_score = match_info["education_score"]
+        match_record.matched_skills = match_info["matched_skills"]
+        match_record.missing_skills = match_info["missing_skills"]
+        match_record.partial_skills = match_info["matched_preferred"]
+        db.commit()
+
+        # Check application status
+        app_status = "None"
+        application = db.query(Application).filter(
+            Application.candidate_id == cand_user.id,
+            Application.job_id == job.id
+        ).first()
+        if application:
+            app_status = application.status.value
+
+        results.append({
+            "candidate_id": str(cand_user.id),
+            "candidate_name": cand_user.full_name,
+            "resume_id": str(r.id),
+            "match_score": match_info["match_score"],
+            "ats_score": ats_info["ats_score"],
+            "matched_skills": match_info["matched_skills"],
+            "missing_skills": match_info["missing_skills"],
+            "partial_skills": match_info["matched_preferred"],
+            "experience": match_info["experience_match"],
+            "education": match_info["education_match"],
+            "application_status": app_status
+        })
+
+    # Sort descending by match score
+    results.sort(key=lambda x: x["match_score"], reverse=True)
+    return results
+
+
+@router.get("/candidates")
+async def get_recruiter_candidates_list(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_recruiter),
+):
+    """Retrieve list of candidates who have applied to recruiter's jobs, excluding rejected ones."""
+    # 1. Fetch all jobs posted by this recruiter
+    jobs = db.query(Job).filter(Job.recruiter_id == current_user.id).all()
+    job_ids = [j.id for j in jobs]
+    if not job_ids:
+        return []
+
+    # 2. Fetch active applications (excluding REJECTED status)
+    applications = db.query(Application).filter(
+        Application.job_id.in_(job_ids),
+        Application.status != ApplicationStatus.REJECTED
+    ).all()
+    
+    candidate_ids = {app.candidate_id for app in applications}
+    if not candidate_ids:
+        return []
+
+    # 3. Fetch candidates who applied
+    candidates = db.query(User).filter(
+        User.role == UserRole.CANDIDATE,
+        User.id.in_(candidate_ids)
+    ).all()
+
+    results = []
+    for c in candidates:
+        resume = db.query(Resume).filter(
+            Resume.user_id == c.id,
+            Resume.is_parsed == True
+        ).order_by(Resume.is_primary.desc(), Resume.created_at.desc()).first()
+        
+        # Get target job applied title
+        app = next((a for a in applications if a.candidate_id == c.id), None)
+        job_title = ""
+        if app:
+            job_obj = next((j for j in jobs if j.id == app.job_id), None)
+            if job_obj:
+                job_title = job_obj.title
+        
+        results.append({
+            "candidate_id": str(c.id),
+            "name": c.full_name,
+            "email": c.email,
+            "location": c.location or (resume.parsed_location if resume else "Remote"),
+            "skills": resume.parsed_skills if resume else [],
+            "ats_score": resume.ats_score if resume else 0.0,
+            "applied_job_title": job_title
+        })
+    return results
+
+
+@router.get("/interviews")
+async def list_scheduled_interviews(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_recruiter),
+):
+    """List all scheduled interviews for the recruiter."""
+    interviews = db.query(Interview).filter(Interview.recruiter_id == current_user.id).all()
+    results = []
+    for i in interviews:
+        candidate = db.query(User).filter(User.id == i.candidate_id).first()
+        job = db.query(Job).filter(Job.id == i.job_id).first()
+        results.append({
+            "id": str(i.id),
+            "candidate_name": candidate.full_name if candidate else "Candidate",
+            "candidate_email": candidate.email if candidate else "Email",
+            "job_title": job.title if job else "Job",
+            "job_company": job.company if job else "Company",
+            "interview_type": i.interview_type.value,
+            "status": i.status.value,
+            "scheduled_at": i.scheduled_at.isoformat(),
+            "duration_minutes": i.duration_minutes,
+            "meeting_link": i.meeting_link,
+            "notes": i.notes
+        })
+    return results
+
+
+class RescheduleRequest(BaseModel):
+    scheduled_at: datetime
+    duration_minutes: Optional[int] = 45
+    meeting_link: Optional[str] = None
+
+
+@router.put("/interviews/{interview_id}")
+async def reschedule_interview(
+    interview_id: UUID,
+    req: RescheduleRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_recruiter),
+):
+    """Reschedule an existing interview."""
+    interview = db.query(Interview).filter(
+        Interview.id == interview_id,
+        Interview.recruiter_id == current_user.id
+    ).first()
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+        
+    interview.scheduled_at = req.scheduled_at
+    interview.duration_minutes = req.duration_minutes or interview.duration_minutes
+    if req.meeting_link:
+        interview.meeting_link = req.meeting_link
+    interview.status = InterviewStatus.RESCHEDULED
+    db.commit()
+    return {"message": "Interview rescheduled successfully."}
+
+
+@router.delete("/interviews/{interview_id}")
+async def cancel_interview(
+    interview_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_recruiter),
+):
+    """Cancel and delete an interview."""
+    interview = db.query(Interview).filter(
+        Interview.id == interview_id,
+        Interview.recruiter_id == current_user.id
+    ).first()
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    # Revert Application status
+    app = db.query(Application).filter(
+        Application.candidate_id == interview.candidate_id,
+        Application.job_id == interview.job_id
+    ).first()
+    if app:
+        app.status = ApplicationStatus.SHORTLISTED
+
+    db.delete(interview)
+    db.commit()
+    return {"message": "Interview cancelled successfully."}

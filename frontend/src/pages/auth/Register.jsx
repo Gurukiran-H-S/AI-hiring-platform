@@ -14,6 +14,8 @@ export const Register = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('candidate')
+  const [organizationName, setOrganizationName] = useState('')
+  const [phone, setPhone] = useState('')
 
   // OTP States
   const [otp, setOtp] = useState('')
@@ -60,7 +62,14 @@ export const Register = () => {
       toast.success('Email Verified Successfully!')
 
       // 2. Register Account
-      const user = await register({ full_name: fullName, email, password, role })
+      const user = await register({
+        full_name: fullName,
+        email,
+        password,
+        role,
+        organization_name: role === 'recruiter' ? organizationName : undefined,
+        phone: role === 'recruiter' ? phone : undefined
+      })
       
       setTimeout(() => {
         if (user.role === 'candidate') navigate('/candidate')
@@ -154,6 +163,38 @@ export const Register = () => {
                 />
 
                 <RoleSelector selectedRole={role} onChange={setRole} />
+
+                {role === 'recruiter' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                        Organization Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        className="w-full bg-[#0a0b14]/80 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all duration-300"
+                        placeholder="Acme Corp"
+                        value={organizationName}
+                        onChange={(e) => setOrganizationName(e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                        Phone Number *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        className="w-full bg-[#0a0b14]/80 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all duration-300"
+                        placeholder="+1 (555) 000-0000"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
 
                 <button
                   type="submit"

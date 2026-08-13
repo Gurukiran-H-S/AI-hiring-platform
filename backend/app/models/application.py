@@ -56,7 +56,7 @@ class Application(Base):
     candidate = relationship("User", back_populates="applications", foreign_keys=[candidate_id])
     job = relationship("Job", back_populates="applications")
     resume = relationship("Resume", back_populates="applications")
-    interviews = relationship("Interview", back_populates="application")
+    interviews = relationship("Interview", back_populates="application", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Application {self.candidate_id} -> {self.job_id} [{self.status}]>"

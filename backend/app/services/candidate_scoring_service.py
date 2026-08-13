@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.models.evaluation import EvaluationWeight, CandidateScore, CandidateSkillEvaluation
 from app.models.application import Application
 from app.models.resume import Resume
-from app.models.coding import CandidateCodingStats, CandidateSubmission, SubmissionStatus
+from app.models.coding import CandidateCodingStats, CandidateSubmission, SubmissionStatus, RecruiterAssessmentAttempt
 from app.models.job import Job
 
 logger = logging.getLogger(__name__)
@@ -37,11 +37,15 @@ class CandidateScoringService:
         interview_score: float,
         weights: Dict[str, float]
     ) -> float:
-        """Calculate weighted overall candidate score."""
+        """Calculate weighted overall candidate score, normalized by weights sum."""
         w_ats = weights.get("ats_weight", 0.30)
         w_code = weights.get("coding_weight", 0.40)
         w_skill = weights.get("skill_weight", 0.20)
         w_int = weights.get("interview_weight", 0.10)
+
+        weight_sum = w_ats + w_code + w_skill + w_int
+        if weight_sum <= 0:
+            weight_sum = 1.0
 
         overall = (
             (ats_score * w_ats) +
@@ -49,7 +53,7 @@ class CandidateScoringService:
             (skill_score * w_skill) +
             (interview_score * w_int)
         )
-        return round(overall, 1)
+        return round(overall / weight_sum, 1)
 
     def evaluate_candidate_for_job(self, db: Session, candidate_id: Any, job_id: Any) -> Dict[str, Any]:
         """Compute full 360-degree evaluation for a candidate against a job."""
@@ -62,18 +66,27 @@ class CandidateScoringService:
             Application.job_id == job_id
         ).first()
 
-        res = app.resume if (app and app.resume) else db.query(Resume).filter(Resume.candidate_id == candidate_id).order_by(Resume.uploaded_at.desc()).first()
+        res = app.resume if (app and app.resume) else db.query(Resume).filter(Resume.user_id == candidate_id).order_by(Resume.created_at.desc()).first()
         ats_score = res.ats_score if res else 75.0
 
-        # 2. Coding Score (Deterministic judge performance)
-        coding_stats = db.query(CandidateCodingStats).filter(CandidateCodingStats.candidate_id == candidate_id).first()
-        if coding_stats and coding_stats.total_score > 0:
-            # Scale score to 100 max (e.g. 500/600 * 100)
-            coding_score = min(100.0, round((coding_stats.total_score / 500.0) * 100.0, 1))
-            if coding_score < 40.0:
-                coding_score = 65.0
+        # 2. Coding Score (Assessment attempt vs general stats)
+        coding_score = 80.0
+        if job and job.assessment_id:
+            attempt = db.query(RecruiterAssessmentAttempt).filter(
+                RecruiterAssessmentAttempt.assessment_id == job.assessment_id,
+                RecruiterAssessmentAttempt.candidate_id == candidate_id,
+                RecruiterAssessmentAttempt.status == "submitted"
+            ).first()
+            if attempt:
+                coding_score = attempt.score
+            else:
+                coding_score = 0.0  # assessment exists but not submitted yet
         else:
-            coding_score = 80.0
+            coding_stats = db.query(CandidateCodingStats).filter(CandidateCodingStats.candidate_id == candidate_id).first()
+            if coding_stats and coding_stats.total_score > 0:
+                coding_score = min(100.0, round((coding_stats.total_score / 500.0) * 100.0, 1))
+                if coding_score < 40.0:
+                    coding_score = 65.0
 
         # 3. Skill Match Score (Job required skills vs candidate skills)
         job_skills = [s.lower().strip() for s in (job.required_skills if job else ["python", "sql"])]

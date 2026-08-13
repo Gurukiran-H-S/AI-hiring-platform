@@ -10,12 +10,17 @@ export const Login = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState(null)
+  const [showWrongPasswordModal, setShowWrongPasswordModal] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
+    setErrorMessage(null)
+    setShowWrongPasswordModal(false)
+
     try {
       const user = await login(email, password)
       toast.success(`Welcome back, ${user.full_name || 'User'}! Redirecting to Dashboard...`)
@@ -26,7 +31,22 @@ export const Login = () => {
         else if (user.role === 'admin') navigate('/admin')
       }, 500)
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Unable to sign in. Please check your credentials.')
+      const errorDetail = err.response?.data?.detail || 'Unable to sign in. Please check your credentials.'
+      setErrorMessage(errorDetail)
+
+      if (errorDetail.toLowerCase().includes('wrong password')) {
+        setShowWrongPasswordModal(true)
+        toast.error('Wrong password! Please check your password and try again.', {
+          duration: 5000,
+          style: {
+            background: '#1f1315',
+            color: '#f87171',
+            border: '1px solid #ef4444',
+          },
+        })
+      } else {
+        toast.error(errorDetail)
+      }
     } finally {
       setLoading(false)
     }
@@ -60,6 +80,22 @@ export const Login = () => {
                 Access candidate analytics, recruiter job management, or system governance.
               </p>
             </div>
+
+            {/* Error Banner Notification */}
+            {errorMessage && (
+              <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center justify-between animate-shake">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">⚠️</span>
+                  <span>{errorMessage}</span>
+                </div>
+                <button
+                  onClick={() => setErrorMessage(null)}
+                  className="text-rose-400 hover:text-rose-200 text-sm font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
@@ -99,18 +135,38 @@ export const Login = () => {
               </button>
             </form>
 
-            <div className="pt-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
-              <div>
-                Don't have an account?{' '}
-                <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-semibold underline">
-                  Create Account
-                </Link>
-              </div>
+            <div className="text-center text-xs text-slate-400">
+              Don't have an account?{' '}
+              <Link to="/register" className="text-indigo-400 font-semibold hover:underline">
+                Create Free Account
+              </Link>
             </div>
           </div>
-
         </div>
       </main>
+
+      {/* Interactive Wrong Password Pop-up Modal */}
+      {showWrongPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-scale-up">
+          <div className="glass-card p-6 rounded-2xl max-w-md w-full bg-[#0d0e19] border border-rose-500/40 text-center space-y-4 text-xs shadow-2xl shadow-rose-500/20">
+            <div className="w-14 h-14 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center text-2xl mx-auto">
+              🔒
+            </div>
+            <h3 className="text-lg font-bold text-rose-300 font-display">Wrong Password</h3>
+            <p className="text-slate-300 text-xs leading-relaxed">
+              The password you entered for <strong className="text-white">{email}</strong> is incorrect. Please check your password and try again.
+            </p>
+            <div className="pt-2 flex justify-center">
+              <button
+                onClick={() => setShowWrongPasswordModal(false)}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-6 py-2.5 rounded-xl transition-all text-xs"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

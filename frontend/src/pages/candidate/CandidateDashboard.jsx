@@ -9,6 +9,7 @@ import { MockInterview } from './MockInterview'
 import { JobSearch } from './JobSearch'
 import { ApplicationTracker } from './ApplicationTracker'
 
+
 const DashboardHome = ({ stats, loading }) => {
   const [trends, setTrends] = useState(null)
   const { user, logout } = useAuth()
@@ -46,6 +47,7 @@ const DashboardHome = ({ stats, loading }) => {
           </h1>
           <p className="text-slate-400 text-sm">
             Welcome, <strong className="text-white">{user?.full_name || 'Candidate'}</strong>! Track your resumes, coding scores & job applications.
+            {user?.phone && <span className="ml-3 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-300 font-mono">📞 {user.phone}</span>}
           </p>
         </div>
 
@@ -241,17 +243,18 @@ export const CandidateDashboard = () => {
     return () => window.removeEventListener('sidebar-toggle', handleToggle)
   }, [])
 
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        const { data } = await api.get('/analytics/candidate')
-        setStats(data)
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
+  const fetchAnalytics = async () => {
+    try {
+      const { data } = await api.get('/analytics/candidate')
+      setStats(data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     fetchAnalytics()
   }, [])
 
@@ -266,7 +269,7 @@ export const CandidateDashboard = () => {
         <div className="w-full max-w-7xl">
           <Routes>
             <Route path="/" element={<DashboardHome stats={stats} loading={loading} />} />
-            <Route path="/resumes" element={<ResumeAnalyzer />} />
+            <Route path="/resumes" element={<ResumeAnalyzer onPrimaryChange={fetchAnalytics} />} />
             <Route path="/coding" element={<CodingPlayground />} />
             <Route path="/aptitude" element={<AptitudeTest />} />
             <Route path="/interview" element={<MockInterview />} />

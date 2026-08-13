@@ -23,6 +23,15 @@ export const CandidateRankings = () => {
   const [compareResult, setCompareResult] = useState(null)
   const [profileModal, setProfileModal] = useState(null)
 
+  // Interview Schedule Modal state
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [scheduleTarget, setScheduleTarget] = useState(null)
+  const [interviewDate, setInterviewDate] = useState('')
+  const [interviewType, setInterviewType] = useState('Technical')
+  const [meetingLink, setMeetingLink] = useState('https://meet.jit.si/hireai-interview')
+  const [location, setLocation] = useState('Online')
+  const [interviewNotes, setInterviewNotes] = useState('Technical Round')
+
   useEffect(() => {
     const fetchJobs = async () => {
       try {
@@ -64,8 +73,8 @@ export const CandidateRankings = () => {
 
   const handleUpdateWeights = async () => {
     const total = Object.values(weights).reduce((a, b) => a + b, 0)
-    if (Math.abs(total - 1.0) > 0.01) {
-      toast.error(`Weights must sum to 100%. Current sum: ${Math.round(total * 100)}%`)
+    if (total <= 0) {
+      toast.error('Evaluation weights sum must be greater than zero.')
       return
     }
     try {
@@ -78,20 +87,72 @@ export const CandidateRankings = () => {
     }
   }
 
-  const handleShortlist = async (candidateId) => {
+  const handleStatusChange = async (applicationId, newStatusValue) => {
+    if (!applicationId) {
+      toast.error("Application ID not found.")
+      return
+    }
+    try {
+      await api.put(`/applications/${applicationId}/status`, {
+        status: newStatusValue,
+        notes: `Updated status by recruiter to ${newStatusValue}`
+      })
+      toast.success(`Status updated to ${newStatusValue.toUpperCase()}!`)
+      fetchRankingsAndWeights()
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to update application status.')
+    }
+  }
+
+  const handleOpenScheduleModal = (candidateId, name) => {
+    setScheduleTarget({ candidate_id: candidateId, name })
+    setShowScheduleModal(true)
+  }
+
+  const handleConfirmSchedule = async (e) => {
+    if (e?.preventDefault) e.preventDefault()
+    if (!scheduleTarget || !interviewDate) {
+      toast.error('Please select interview date and time.')
+      return
+    }
+    try {
+      await api.post('/recruiter/interviews', {
+        candidate_id: scheduleTarget.candidate_id,
+        job_id: selectedJobId,
+        interview_type: interviewType,
+        scheduled_at: new Date(interviewDate).toISOString(),
+        duration_minutes: 45,
+        meeting_link: meetingLink,
+        location: location,
+        notes: interviewNotes
+      })
+      toast.success(`Interview scheduled successfully for ${scheduleTarget.name}!`)
+      setShowScheduleModal(false)
+      setScheduleTarget(null)
+      fetchRankingsAndWeights()
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to schedule interview.')
+    }
+  }
+
+  const handleShortlist = async (candidateId, name) => {
     try {
       await api.post('/recruiter/shortlist', { candidate_id: candidateId, job_id: selectedJobId })
-      toast.success('Candidate shortlisted successfully!')
+      toast.success(`Candidate ${name || ''} shortlisted successfully!`)
       fetchRankingsAndWeights()
     } catch (err) {
       toast.error('Failed to shortlist candidate.')
     }
   }
 
-  const handleReject = async (candidateId) => {
+  const handleReject = async (candidateId, name) => {
+    const reason = window.prompt(`Enter rejection reason for ${name || 'candidate'}:`, 'Skills mismatch')
+    if (reason === null) return
     try {
-      await api.post('/recruiter/reject', { candidate_id: candidateId, job_id: selectedJobId, reason: 'Skills mismatch' })
-      toast.success('Candidate rejected.')
+      await api.post('/recruiter/reject', { candidate_id: candidateId, job_id: selectedJobId, reason })
+      toast.success('Candidate rejected and removed from active pool.')
       fetchRankingsAndWeights()
     } catch (err) {
       toast.error('Failed to reject candidate.')
@@ -332,17 +393,41 @@ export const CandidateRankings = () => {
                           {r.match_level}
                         </span>
                       </td>
-                      <td className="p-3 font-semibold text-slate-300">{r.status}</td>
+                      <td className="p-3">
+                        <select
+                          value={r.status?.toLowerCase() || 'applied'}
+                          onChange={(e) => handleStatusChange(r.application_id, e.target.value)}
+                          className="bg-[#0d0e1b] border border-white/10 rounded-xl px-2 py-1 text-[11px] text-white focus:outline-none focus:border-indigo-500/50 cursor-pointer"
+                        >
+                          <option value="saved">Saved</option>
+                          <option value="applied">Applied</option>
+                          <option value="application_viewed">Viewed</option>
+                          <option value="screening">Screening</option>
+                          <option value="assessment">Assessment</option>
+                          <option value="interview">Interview</option>
+                          <option value="shortlisted">Shortlisted</option>
+                          <option value="rejected">Rejected</option>
+                          <option value="offer">Offer</option>
+                          <option value="hired">Hired</option>
+                          <option value="withdrawn">Withdrawn</option>
+                        </select>
+                      </td>
                       <td className="p-3 text-right space-x-2">
                         <button
-                          onClick={() => handleShortlist(r.candidate_id)}
-                          className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-lg text-[11px] font-semibold"
+                          onClick={() => handleOpenScheduleModal(r.candidate_id, r.name)}
+                          className="bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer"
+                        >
+                          📅 Schedule
+                        </button>
+                        <button
+                          onClick={() => handleShortlist(r.candidate_id, r.name)}
+                          className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer"
                         >
                           Shortlist
                         </button>
                         <button
-                          onClick={() => handleReject(r.candidate_id)}
-                          className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 px-2.5 py-1 rounded-lg text-[11px] font-semibold"
+                          onClick={() => handleReject(r.candidate_id, r.name)}
+                          className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer"
                         >
                           Reject
                         </button>
@@ -382,6 +467,93 @@ export const CandidateRankings = () => {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+      {/* Schedule Interview Modal */}
+      {showScheduleModal && scheduleTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="bg-[#0d0e19] border border-white/20 rounded-2xl p-6 w-full max-w-lg space-y-4 text-white">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h2 className="text-lg font-bold font-display">📅 Schedule Interview - {scheduleTarget.name}</h2>
+              <button onClick={() => setShowScheduleModal(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <form onSubmit={handleConfirmSchedule} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Interview Date & Time *</label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={interviewDate}
+                  onChange={(e) => setInterviewDate(e.target.value)}
+                  className="w-full bg-white/5 border border-white/15 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Interview Round Type</label>
+                <select
+                  value={interviewType}
+                  onChange={(e) => setInterviewType(e.target.value)}
+                  className="w-full bg-[#080918] border border-white/15 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="Technical">Technical Round</option>
+                  <option value="HR">HR Round</option>
+                  <option value="Coding">AI Coding Assessment</option>
+                  <option value="System Design">System Design</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Meeting Link / Platform</label>
+                <input
+                  type="text"
+                  value={meetingLink}
+                  onChange={(e) => setMeetingLink(e.target.value)}
+                  className="w-full bg-white/5 border border-white/15 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500"
+                  placeholder="https://meet.google.com/xyz"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Location / Venue</label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-full bg-white/5 border border-white/15 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500"
+                  placeholder="Online / Office Conference Room"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Instructions / Notes for Candidate</label>
+                <textarea
+                  rows="2"
+                  value={interviewNotes}
+                  onChange={(e) => setInterviewNotes(e.target.value)}
+                  className="w-full bg-white/5 border border-white/15 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500"
+                  placeholder="Please join 5 mins early and bring your updated resume."
+                ></textarea>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setShowScheduleModal(false)}
+                  className="bg-white/10 hover:bg-white/20 text-slate-300 px-4 py-2 rounded-xl font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary py-2 px-5 font-semibold rounded-xl"
+                >
+                  Confirm & Schedule Interview
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

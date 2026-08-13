@@ -48,7 +48,7 @@ export default function App() {
       <Route
         path="/recruiter/*"
         element={
-          <ProtectedRoute allowedRoles={['recruiter']}>
+          <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
             <RecruiterDashboard />
           </ProtectedRoute>
         }

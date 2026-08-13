@@ -14,14 +14,16 @@ from app.models.coding import (
     CandidateCodingStats,
     WeeklyAssessment,
     RecruiterAssessment,
+    RecruiterAssessmentAttempt,
+    RecruiterAssessmentAnswer,
     Language,
     AIReview,
     ProblemDifficulty,
     SubmissionStatus
 )
+from app.models.job import Job
+from app.models.application import Application
 from app.middleware.auth_middleware import get_current_user, require_role
-from app.services.judge0_service import Judge0Service
-from app.services.sandbox_runner import CodeSandboxRunner
 from app.services.ai_coding_service import ai_coding_service
 from app.services.dataset_importer import seed_default_problems, import_huggingface_dataset
 
@@ -129,6 +131,86 @@ def get_problems(
     ]
 
 
+def generate_starter_codes(problem):
+    func_name = problem.function_name or "twoSum"
+    slug = problem.slug or ""
+    
+    classic_mappings = {
+        "two-sum": ("twoSum", "nums: list[int], target: int", "list[int]", "int[]", "int[] nums, int target", "vector<int>", "vector<int>& nums, int target"),
+        "climbing-stairs": ("climbStairs", "n: int", "int", "int", "int n", "int", "int n"),
+        "longest-substring-without-repeating-characters": ("lengthOfLongestSubstring", "s: str", "int", "int", "String s", "int", "string s"),
+        "best-time-to-buy-and-sell-stock": ("maxProfit", "prices: list[int]", "int", "int", "int[] prices", "int", "vector<int>& prices"),
+        "number-of-islands": ("numIslands", "grid: list[list[str]]", "int", "int", "char[][] grid", "int", "vector<vector<char>>& grid"),
+        "3sum": ("threeSum", "nums: list[int]", "list[list[int]]", "List<List<Integer>>", "int[] nums", "vector<vector<int>>", "vector<int>& nums"),
+        "valid-anagram": ("isAnagram", "s: str, t: str", "bool", "boolean", "String s, String t", "bool", "string s, string t"),
+        "reverse-linked-list": ("reverseList", "head: Optional[ListNode]", "Optional[ListNode]", "ListNode", "ListNode head", "ListNode*", "ListNode* head"),
+        "valid-parentheses": ("isValid", "s: str", "bool", "boolean", "String s", "bool", "string s"),
+        "merge-two-sorted-lists": ("mergeTwoLists", "list1: Optional[ListNode], list2: Optional[ListNode]", "Optional[ListNode]", "ListNode", "ListNode list1, ListNode list2", "ListNode*", "ListNode* list1, ListNode* list2"),
+        "maximum-subarray": ("maxSubArray", "nums: list[int]", "int", "int", "int[] nums", "int", "vector<int>& nums"),
+        "binary-search": ("search", "nums: list[int], target: int", "int", "int", "int[] nums, int target", "int", "vector<int>& nums, int target"),
+        "container-with-most-water": ("maxArea", "height: list[int]", "int", "int", "int[] height", "int", "vector<int>& height"),
+        "valid-palindrome": ("isPalindrome", "s: str", "bool", "boolean", "String s", "bool", "string s"),
+        "search-in-rotated-sorted-array": ("search", "nums: list[int], target: int", "int", "int", "int[] nums, int target", "int", "vector<int>& nums, int target"),
+        "min-stack": ("MinStack", "", "", "", "", "", ""),
+    }
+
+    if slug in classic_mappings:
+        f_name, py_args, py_ret, java_ret, java_args, cpp_ret, cpp_args = classic_mappings[slug]
+    else:
+        f_name = func_name
+        sample = (problem.sample_input or "").strip()
+        py_args = "nums: list[int]"
+        py_ret = "int"
+        java_args = "int[] nums"
+        java_ret = "int"
+        cpp_args = "vector<int>& nums"
+        cpp_ret = "int"
+        
+        if sample:
+            if sample.startswith("[[") or (sample.startswith("[") and ("[" in sample[1:10])):
+                py_args = "grid: list[list[str]]"
+                java_args = "char[][] grid"
+                cpp_args = "vector<vector<char>>& grid"
+            elif "=" in sample:
+                var_names = []
+                for part in sample.split(","):
+                    if "=" in part:
+                        var_names.append(part.split("=")[0].strip())
+                if len(var_names) >= 2:
+                    py_args = f"{var_names[0]}: list[int], {var_names[1]}: int"
+                    java_args = f"int[] {var_names[0]}, int {var_names[1]}"
+                    cpp_args = f"vector<int>& {var_names[0]}, int {var_names[1]}"
+            elif sample.startswith('"') or sample.startswith("'") or (len(sample) > 2 and not sample.replace("-","").isdigit() and not sample.startswith("[")):
+                py_args = "s: str"
+                java_args = "String s"
+                cpp_args = "string s"
+            elif sample.replace("-", "").isdigit():
+                py_args = "n: int"
+                java_args = "int n"
+                cpp_args = "int n"
+            elif sample.startswith("["):
+                py_args = "nums: list[int]"
+                java_args = "int[] nums"
+                cpp_args = "vector<int>& nums"
+
+    py_code = f"class Solution:\n    def {f_name}(self, {py_args}) -> {py_ret}:\n        # Write your algorithm here\n        pass\n"
+    
+    if f_name == "MinStack":
+        java_code = "class MinStack {\n    public MinStack() {\n    }\n    public void push(int val) {\n    }\n    public void pop() {\n    }\n    public int top() {\n        return 0;\n    }\n    public int getMin() {\n        return 0;\n    }\n}\n"
+        py_code = "class MinStack:\n    def __init__(self):\n        pass\n    def push(self, val: int) -> None:\n        pass\n    def pop(self) -> None:\n        pass\n    def top(self) -> int:\n        return 0\n    def getMin(self) -> int:\n        return 0\n"
+        cpp_code = "class MinStack {\npublic:\n    MinStack() {\n    }\n    void push(int val) {\n    }\n    void pop() {\n    }\n    int top() {\n        return 0;\n    }\n    int getMin() {\n        return 0;\n    }\n};\n"
+    else:
+        fallback_val = '0' if java_ret == 'int' else 'false' if java_ret == 'boolean' else 'new int[]{}' if '[]' in java_ret else 'null'
+        java_code = f"class Solution {{\n    public {java_ret} {f_name}({java_args}) {{\n        // Write your solution\n        return {fallback_val};\n    }}\n}}\n"
+        cpp_code = f"class Solution {{\npublic:\n    {cpp_ret} {f_name}({cpp_args}) {{\n        return {{}};\n    }}\n}};\n"
+        
+    js_args = ', '.join(arg.split(':')[0].strip() for arg in py_args.split(',') if arg)
+    js_fallback = '[]' if 'list' in py_ret else '0' if py_ret == 'int' else 'false'
+    js_code = f"class Solution {{\n    {f_name}({js_args}) {{\n        // Write your solution\n        return {js_fallback};\n    }}\n}}\n"
+
+    return py_code, java_code, cpp_code, js_code
+
+
 @router.get("/problems/{problem_id}")
 def get_problem_detail(problem_id: str, db: Session = Depends(get_db)):
     """Get single problem detail with PUBLIC sample testcases (hidden test cases are filtered out)."""
@@ -137,6 +219,8 @@ def get_problem_detail(problem_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Problem not found")
 
     sample_tests = db.query(TestCase).filter(TestCase.problem_id == problem.id, TestCase.is_hidden == False).all()
+
+    py_code, java_code, cpp_code, js_code = generate_starter_codes(problem)
 
     return {
         "id": str(problem.id),
@@ -152,10 +236,10 @@ def get_problem_detail(problem_id: str, db: Session = Depends(get_db)):
         "sample_output": problem.sample_output,
         "time_limit_seconds": problem.time_limit_seconds,
         "memory_limit_mb": problem.memory_limit_mb,
-        "starter_code_python": f"class Solution:\n    def {problem.function_name or 'twoSum'}(self, nums: list[int], target: int) -> list[int]:\n        # Write your algorithm here\n        pass\n",
-        "starter_code_java": f"class Solution {{\n    public int[] {problem.function_name or 'twoSum'}(int[] nums, int target) {{\n        // Write your solution\n        return new int[]{{}};\n    }}\n}}\n",
-        "starter_code_cpp": f"class Solution {{\npublic:\n    vector<int> {problem.function_name or 'twoSum'}(vector<int>& nums, int target) {{\n        return {{}};\n    }}\n}};\n",
-        "starter_code_javascript": f"class Solution {{\n    {problem.function_name or 'twoSum'}(nums, target) {{\n        // Write your solution\n        return [];\n    }}\n}}\n",
+        "starter_code_python": py_code,
+        "starter_code_java": java_code,
+        "starter_code_cpp": cpp_code,
+        "starter_code_javascript": js_code,
         "sample_test_cases": [
             {
                 "id": str(tc.id),
@@ -181,39 +265,28 @@ def run_code_sample(
     if not sample_tests:
         sample_tests = [TestCase(input_data=req.input_data or problem.sample_input or "", expected_output=problem.sample_output or "")]
 
-    judge_service = Judge0Service()
+    from app.services.code_execution.docker_executor import DockerExecutor
+    executor = DockerExecutor(time_limit_seconds=problem.time_limit_seconds or 2.0, memory_limit_mb=problem.memory_limit_mb or 256)
+    
+    run_res = executor.run_code(req.language, req.code, sample_tests, problem.function_name or "twoSum")
+    
     test_results = []
-    passed_count = 0
-
-    for idx, tc in enumerate(sample_tests, start=1):
-        res = judge_service.submit_and_poll(
-            language=req.language,
-            source_code=req.code,
-            stdin=tc.input_data,
-            expected_output=tc.expected_output,
-            cpu_time_limit=problem.time_limit_seconds,
-            memory_limit_mb=problem.memory_limit_mb
-        )
-        is_passed = (res["status"] == "Accepted")
-        if is_passed:
-            passed_count += 1
-        
+    for idx, r in enumerate(run_res.get("test_results", []), start=1):
+        tc = sample_tests[idx-1] if idx-1 < len(sample_tests) else None
         test_results.append({
             "number": idx,
-            "status": res["status"],
-            "input": tc.input_data,
-            "expected_output": tc.expected_output,
-            "actual_output": res.get("stdout") or res.get("error_message") or "",
-            "execution_time": res.get("execution_time", 0.0),
+            "status": r["status"],
+            "input": tc.input_data if tc else "",
+            "expected_output": tc.expected_output if tc else "",
+            "actual_output": r.get("actual") or run_res.get("error_message") or "",
+            "execution_time": run_res.get("execution_time", 0.0) / len(sample_tests) if sample_tests else 0.0,
         })
-
-    overall_status = "Accepted" if passed_count == len(sample_tests) else test_results[0]["status"]
-
+        
     return {
-        "status": overall_status,
-        "passed_test_cases": passed_count,
-        "total_test_cases": len(sample_tests),
-        "execution_time": test_results[0].get("execution_time", 0.0) if test_results else 0.0,
+        "status": run_res["status"],
+        "passed_test_cases": run_res["passed_test_cases"],
+        "total_test_cases": run_res["total_test_cases"],
+        "execution_time": run_res["execution_time"],
         "test_cases": test_results
     }
 
@@ -233,32 +306,15 @@ def submit_code(
     if not test_cases:
         test_cases = [TestCase(input_data=problem.sample_input or "", expected_output=problem.sample_output or "")]
 
-    judge_service = Judge0Service()
-    passed_count = 0
-    total_time = 0.0
-    overall_status = "Accepted"
-    first_error = None
+    from app.services.code_execution.docker_executor import DockerExecutor
+    executor = DockerExecutor(time_limit_seconds=problem.time_limit_seconds or 2.0, memory_limit_mb=problem.memory_limit_mb or 256)
+    
+    run_res = executor.run_code(req.language, req.code, test_cases, problem.function_name or "twoSum")
+    passed_count = run_res["passed_test_cases"]
+    total_time = run_res["execution_time"]
+    overall_status = run_res["status"]
+    first_error = run_res["error_message"]
     first_token = None
-
-    for idx, tc in enumerate(test_cases, start=1):
-        res = judge_service.submit_and_poll(
-            language=req.language,
-            source_code=req.code,
-            stdin=tc.input_data,
-            expected_output=tc.expected_output,
-            cpu_time_limit=problem.time_limit_seconds,
-            memory_limit_mb=problem.memory_limit_mb
-        )
-        total_time += res.get("execution_time", 0.0)
-        if not first_token:
-            first_token = res.get("judge_token")
-
-        if res["status"] == "Accepted":
-            passed_count += 1
-        else:
-            overall_status = res["status"]
-            first_error = res.get("error_message") or f"Test Case #{idx} Failed."
-            break
 
     status_enum = SubmissionStatus.ACCEPTED if overall_status == "Accepted" else SubmissionStatus.WRONG_ANSWER
     if overall_status == "Compilation Error":
@@ -292,18 +348,29 @@ def submit_code(
     # Update candidate coding stats
     stats = db.query(CandidateCodingStats).filter(CandidateCodingStats.candidate_id == current_user.id).first()
     if not stats:
-        stats = CandidateCodingStats(candidate_id=current_user.id)
+        stats = CandidateCodingStats(
+            candidate_id=current_user.id,
+            total_solved=0,
+            easy_solved=0,
+            medium_solved=0,
+            hard_solved=0,
+            longest_streak=0,
+            current_streak=0,
+            total_score=0,
+            accuracy_percentage=0.0
+        )
         db.add(stats)
 
     if status_enum == SubmissionStatus.ACCEPTED:
         prev_accepted = db.query(CandidateSubmission).filter(
             CandidateSubmission.candidate_id == current_user.id,
             CandidateSubmission.problem_id == problem.id,
-            CandidateSubmission.status == SubmissionStatus.ACCEPTED
+            CandidateSubmission.status == SubmissionStatus.ACCEPTED,
+            CandidateSubmission.id != submission.id
         ).count()
 
         # Idempotent scoring: Award points ONLY on first accepted solve
-        if prev_accepted == 1:
+        if prev_accepted == 0:
             stats.total_solved += 1
             diff_val = problem.difficulty.value if hasattr(problem.difficulty, 'value') else problem.difficulty
             if diff_val == "Easy":
@@ -313,7 +380,7 @@ def submit_code(
                 stats.medium_solved += 1
                 stats.total_score += 200
             elif diff_val == "Hard":
-                stats.hard_solved += 300
+                stats.hard_solved += 1
                 stats.total_score += 300
 
     db.commit()
@@ -406,19 +473,463 @@ def get_submissions_history(
 
 @router.get("/leaderboard")
 def get_leaderboard(db: Session = Depends(get_db)):
-    """Get global coding leaderboard."""
-    stats_list = db.query(CandidateCodingStats).order_by(CandidateCodingStats.total_score.desc()).limit(50).all()
+    """Get global coding leaderboard for registered candidates."""
+    stats_list = (
+        db.query(CandidateCodingStats)
+        .join(User, CandidateCodingStats.candidate_id == User.id)
+        .filter(User.role == UserRole.CANDIDATE)
+        .order_by(CandidateCodingStats.total_score.desc(), CandidateCodingStats.total_solved.desc())
+        .limit(50)
+        .all()
+    )
     result = []
     for idx, s in enumerate(stats_list, start=1):
         user = db.query(User).filter(User.id == s.candidate_id).first()
         result.append({
             "rank": idx,
-            "candidate_name": user.full_name if user else "Candidate",
-            "total_solved": s.total_solved,
-            "easy_solved": s.easy_solved,
-            "medium_solved": s.medium_solved,
-            "hard_solved": s.hard_solved,
-            "total_score": s.total_score,
-            "streak": s.current_streak,
+            "candidate_name": user.full_name if user and user.full_name else f"Candidate {idx}",
+            "total_solved": s.total_solved or 0,
+            "easy_solved": s.easy_solved or 0,
+            "medium_solved": s.medium_solved or 0,
+            "hard_solved": s.hard_solved or 0,
+            "total_score": s.total_score or 0,
+            "streak": s.current_streak or 0,
         })
     return result
+
+
+# --- NEW SCHEMAS AND ENDPOINTS FOR RECRUITER CODING ASSESSMENT ---
+
+class AnswerSubmitItem(BaseModel):
+    problem_id: str
+    language: str
+    code: str
+
+
+class AssessmentSubmitRequest(BaseModel):
+    answers: List[AnswerSubmitItem]
+
+
+class JobLinkAssessmentRequest(BaseModel):
+    assessment_id: str
+
+
+@router.get("/problems/{problem_id}/progress")
+def get_problem_progress(
+    problem_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retrieve current candidate's submission progress on a specific problem."""
+    submissions = db.query(CandidateSubmission).filter(
+        CandidateSubmission.candidate_id == current_user.id,
+        CandidateSubmission.problem_id == problem_id
+    ).order_by(CandidateSubmission.submitted_at.desc()).all()
+
+    solved = any(s.status == SubmissionStatus.ACCEPTED for s in submissions)
+    attempts = len(submissions)
+    best_time = min((s.execution_time_seconds for s in submissions if s.execution_time_seconds is not None), default=0.0)
+
+    return {
+        "solved": solved,
+        "attempts": attempts,
+        "best_time_seconds": best_time,
+        "submissions": [
+            {
+                "id": str(s.id),
+                "language": s.language,
+                "status": s.status.value if hasattr(s.status, "value") else s.status,
+                "passed_test_cases": s.passed_test_cases,
+                "total_test_cases": s.total_test_cases,
+                "execution_time": s.execution_time_seconds,
+                "submitted_at": s.submitted_at.isoformat()
+            }
+            for s in submissions
+        ]
+    }
+
+
+@router.get("/profile")
+def get_coding_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retrieve detailed coding profile stats for candidate dashboard."""
+    stats = db.query(CandidateCodingStats).filter(CandidateCodingStats.candidate_id == current_user.id).first()
+    recent = db.query(CandidateSubmission).filter(
+        CandidateSubmission.candidate_id == current_user.id
+    ).order_by(CandidateSubmission.submitted_at.desc()).limit(5).all()
+
+    problems_dict = {}
+    for s in recent:
+        prob = db.query(CodingProblem).filter(CodingProblem.id == s.problem_id).first()
+        if prob:
+            problems_dict[s.problem_id] = prob.title
+
+    return {
+        "total_score": stats.total_score if stats else 0,
+        "total_solved": stats.total_solved if stats else 0,
+        "easy_solved": stats.easy_solved if stats else 0,
+        "medium_solved": stats.medium_solved if stats else 0,
+        "hard_solved": stats.hard_solved if stats else 0,
+        "current_streak": stats.current_streak if stats else 0,
+        "recent_submissions": [
+            {
+                "id": str(s.id),
+                "problem_title": problems_dict.get(s.problem_id, "Problem"),
+                "language": s.language,
+                "status": s.status.value if hasattr(s.status, "value") else s.status,
+                "submitted_at": s.submitted_at.isoformat()
+            }
+            for s in recent
+        ]
+    }
+
+
+@router.post("/assessments")
+def create_recruiter_assessment(
+    req: RecruiterAssessmentCreate,
+    current_user: User = Depends(require_role(UserRole.RECRUITER)),
+    db: Session = Depends(get_db)
+):
+    """Recruiter API: Create a new custom coding assessment."""
+    assessment = RecruiterAssessment(
+        recruiter_id=current_user.id,
+        title=req.title,
+        target_role=req.target_role,
+        difficulty=req.difficulty,
+        problem_ids=req.problem_ids,
+        time_limit_minutes=req.time_limit_minutes,
+        passing_score=req.passing_score
+    )
+    db.add(assessment)
+    db.commit()
+    db.refresh(assessment)
+
+    return {
+        "id": str(assessment.id),
+        "title": assessment.title,
+        "target_role": assessment.target_role,
+        "time_limit_minutes": assessment.time_limit_minutes
+    }
+
+
+@router.get("/assessments")
+def get_assessments(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retrieve coding assessments list. For recruiters, returns their created assessments. For candidates, returns assigned/linked assessments."""
+    if current_user.role == UserRole.RECRUITER:
+        assessments = db.query(RecruiterAssessment).filter(RecruiterAssessment.recruiter_id == current_user.id).all()
+    else:
+        # Candidate: Fetch linked assessments through applications
+        apps = db.query(Application).filter(Application.candidate_id == current_user.id).all()
+        job_ids = [a.job_id for a in apps if a.job]
+        jobs = db.query(Job).filter(Job.id.in_(job_ids), Job.assessment_id != None).all()
+        assessment_ids = [j.assessment_id for j in jobs]
+        assessments = db.query(RecruiterAssessment).filter(RecruiterAssessment.id.in_(assessment_ids)).all()
+
+    return [
+        {
+            "id": str(a.id),
+            "title": a.title,
+            "target_role": a.target_role,
+            "difficulty": a.difficulty,
+            "time_limit_minutes": a.time_limit_minutes,
+            "passing_score": a.passing_score,
+            "problem_count": len(a.problem_ids or [])
+        }
+        for a in assessments
+    ]
+
+
+@router.get("/assessments/{assessment_id}")
+def get_assessment_details(
+    assessment_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get coding assessment and its problems details."""
+    assessment = db.query(RecruiterAssessment).filter(RecruiterAssessment.id == assessment_id).first()
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    problems = db.query(CodingProblem).filter(CodingProblem.id.in_(assessment.problem_ids)).all()
+
+    # Check if candidate has already started/submitted an attempt
+    attempt = db.query(RecruiterAssessmentAttempt).filter(
+        RecruiterAssessmentAttempt.assessment_id == assessment.id,
+        RecruiterAssessmentAttempt.candidate_id == current_user.id
+    ).first()
+
+    return {
+        "id": str(assessment.id),
+        "title": assessment.title,
+        "target_role": assessment.target_role,
+        "time_limit_minutes": assessment.time_limit_minutes,
+        "passing_score": assessment.passing_score,
+        "attempt_status": attempt.status if attempt else None,
+        "attempt_id": str(attempt.id) if attempt else None,
+        "started_at": attempt.started_at.isoformat() if attempt else None,
+        "problems": [
+            {
+                "id": str(p.id),
+                "title": p.title,
+                "difficulty": p.difficulty.value if hasattr(p.difficulty, 'value') else p.difficulty,
+                "category": p.category,
+                "description": p.description,
+                "constraints": p.constraints,
+                "sample_input": p.sample_input,
+                "sample_output": p.sample_output,
+                "function_name": p.function_name
+            }
+            for p in problems
+        ]
+    }
+
+
+@router.post("/assessments/{assessment_id}/start")
+def start_assessment_attempt(
+    assessment_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Start assessment timer and create a candidate attempt record."""
+    assessment = db.query(RecruiterAssessment).filter(RecruiterAssessment.id == assessment_id).first()
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    # Prevent re-starting completed assessments
+    existing = db.query(RecruiterAssessmentAttempt).filter(
+        RecruiterAssessmentAttempt.assessment_id == assessment_id,
+        RecruiterAssessmentAttempt.candidate_id == current_user.id
+    ).first()
+
+    if existing:
+        if existing.status == "submitted":
+            raise HTTPException(status_code=400, detail="Assessment already submitted")
+        return {
+            "attempt_id": str(existing.id),
+            "started_at": existing.started_at.isoformat(),
+            "status": existing.status
+        }
+
+    attempt = RecruiterAssessmentAttempt(
+        assessment_id=assessment.id,
+        candidate_id=current_user.id,
+        status="started",
+        started_at=datetime.utcnow()
+    )
+    db.add(attempt)
+    db.commit()
+    db.refresh(attempt)
+
+    return {
+        "attempt_id": str(attempt.id),
+        "started_at": attempt.started_at.isoformat(),
+        "status": attempt.status
+    }
+
+
+@router.post("/assessments/{assessment_id}/submit")
+def submit_assessment_attempt(
+    assessment_id: str,
+    req: AssessmentSubmitRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Grade coding assessment submissions, record answers, calculate candidate final score and trigger metrics update."""
+    assessment = db.query(RecruiterAssessment).filter(RecruiterAssessment.id == assessment_id).first()
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    attempt = db.query(RecruiterAssessmentAttempt).filter(
+        RecruiterAssessmentAttempt.assessment_id == assessment_id,
+        RecruiterAssessmentAttempt.candidate_id == current_user.id,
+        RecruiterAssessmentAttempt.status == "started"
+    ).first()
+
+    if not attempt:
+        raise HTTPException(status_code=400, detail="No active attempt found for this assessment")
+
+    from app.services.code_execution.docker_executor import DockerExecutor
+    executor = DockerExecutor()
+
+    total_weight_score = 0.0
+    problems_count = len(assessment.problem_ids)
+    points_per_problem = 100.0 / max(1, problems_count)
+
+    # Process and grade each submitted code file
+    for answer_item in req.answers:
+        prob = db.query(CodingProblem).filter(CodingProblem.id == answer_item.problem_id).first()
+        if not prob:
+            continue
+
+        test_cases = db.query(TestCase).filter(TestCase.problem_id == prob.id).all()
+        if not test_cases:
+            test_cases = [TestCase(input_data=prob.sample_input or "", expected_output=prob.sample_output or "")]
+
+        # Run inside isolated sandbox container
+        grade_res = executor.run_code(answer_item.language, answer_item.code, test_cases, prob.function_name or "twoSum")
+        passed = grade_res.get("passed_test_cases", 0)
+        total = grade_res.get("total_test_cases", len(test_cases))
+
+        # Calculate problem partial or full points
+        earned_points = (passed / max(1, total)) * points_per_problem
+        total_weight_score += earned_points
+
+        # Save submission record
+        sub_status = SubmissionStatus.ACCEPTED if grade_res["status"] == "Accepted" else SubmissionStatus.WRONG_ANSWER
+        if grade_res["status"] == "Compilation Error":
+            sub_status = SubmissionStatus.COMPILATION_ERROR
+        elif grade_res["status"] == "Time Limit Exceeded":
+            sub_status = SubmissionStatus.TIME_LIMIT_EXCEEDED
+        elif grade_res["status"] == "Runtime Error":
+            sub_status = SubmissionStatus.RUNTIME_ERROR
+
+        submission = CandidateSubmission(
+            candidate_id=current_user.id,
+            problem_id=prob.id,
+            language=answer_item.language,
+            code=answer_item.code,
+            status=sub_status,
+            execution_time_seconds=grade_res.get("execution_time", 0.0),
+            passed_test_cases=passed,
+            total_test_cases=total,
+            error_message=grade_res.get("error_message")
+        )
+        db.add(submission)
+        db.flush()
+
+        # Save answer item
+        answer_record = RecruiterAssessmentAnswer(
+            attempt_id=attempt.id,
+            problem_id=prob.id,
+            language=answer_item.language,
+            source_code=answer_item.code,
+            submission_id=submission.id,
+            points_awarded=round(earned_points, 1),
+            status=grade_res["status"]
+        )
+        db.add(answer_record)
+
+    # Save attempt final scores
+    attempt.submitted_at = datetime.utcnow()
+    attempt.status = "submitted"
+    attempt.score = round(total_weight_score, 1)
+    attempt.time_taken_seconds = int((attempt.submitted_at - attempt.started_at).total_seconds())
+
+    # Dynamically update overall candidate scores for all jobs that use this assessment
+    from app.services.candidate_scoring_service import candidate_scoring_service
+    linked_jobs = db.query(Job).filter(Job.assessment_id == assessment_id).all()
+    for job in linked_jobs:
+        # Trigger full evaluation recalculation instantly
+        candidate_scoring_service.evaluate_candidate_for_job(db, current_user.id, job.id)
+
+    db.commit()
+
+    return {
+        "status": "success",
+        "score": attempt.score,
+        "time_taken_seconds": attempt.time_taken_seconds
+    }
+
+
+@router.get("/recruiter/candidates/{candidate_id}/coding")
+def get_candidate_coding_details(
+    candidate_id: str,
+    current_user: User = Depends(require_role(UserRole.RECRUITER)),
+    db: Session = Depends(get_db)
+):
+    """Recruiter API: Fetch specific candidate profile coding metrics & submission history."""
+    stats = db.query(CandidateCodingStats).filter(CandidateCodingStats.candidate_id == candidate_id).first()
+    recent = db.query(CandidateSubmission).filter(
+        CandidateSubmission.candidate_id == candidate_id
+    ).order_by(CandidateSubmission.submitted_at.desc()).limit(10).all()
+
+    problems_dict = {}
+    for s in recent:
+        prob = db.query(CodingProblem).filter(CodingProblem.id == s.problem_id).first()
+        if prob:
+            problems_dict[s.problem_id] = prob.title
+
+    return {
+        "total_score": stats.total_score if stats else 0,
+        "total_solved": stats.total_solved if stats else 0,
+        "easy_solved": stats.easy_solved if stats else 0,
+        "medium_solved": stats.medium_solved if stats else 0,
+        "hard_solved": stats.hard_solved if stats else 0,
+        "recent_submissions": [
+            {
+                "problem_title": problems_dict.get(s.problem_id, "Problem"),
+                "language": s.language,
+                "status": s.status.value if hasattr(s.status, "value") else s.status,
+                "execution_time_seconds": s.execution_time_seconds,
+                "passed_test_cases": s.passed_test_cases,
+                "total_test_cases": s.total_test_cases,
+                "submitted_at": s.submitted_at.isoformat()
+            }
+            for s in recent
+        ]
+    }
+
+
+@router.get("/recruiter/jobs/{job_id}/coding-results")
+def get_job_coding_assessment_results(
+    job_id: str,
+    current_user: User = Depends(require_role(UserRole.RECRUITER)),
+    db: Session = Depends(get_db)
+):
+    """Recruiter API: Retrieve coding assessment scores of all applicants for a job."""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job or not job.assessment_id:
+        return []
+
+    attempts = db.query(RecruiterAssessmentAttempt).filter(
+        RecruiterAssessmentAttempt.assessment_id == job.assessment_id,
+        RecruiterAssessmentAttempt.status == "submitted"
+    ).all()
+
+    results = []
+    for att in attempts:
+        user = db.query(User).filter(User.id == att.candidate_id).first()
+        if not user:
+            continue
+        results.append({
+            "candidate_id": str(user.id),
+            "candidate_name": user.full_name,
+            "email": user.email,
+            "score": att.score,
+            "time_taken_seconds": att.time_taken_seconds,
+            "submitted_at": att.submitted_at.isoformat()
+        })
+    return results
+
+
+@router.post("/recruiter/jobs/{job_id}/assessment")
+def link_job_coding_assessment(
+    job_id: str,
+    req: JobLinkAssessmentRequest,
+    current_user: User = Depends(require_role(UserRole.RECRUITER)),
+    db: Session = Depends(get_db)
+):
+    """Recruiter API: Link a coding assessment to a specific Job Posting."""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    assessment = db.query(RecruiterAssessment).filter(RecruiterAssessment.id == req.assessment_id).first()
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    job.assessment_id = assessment.id
+    db.commit()
+
+    return {
+        "status": "success",
+        "job_id": str(job.id),
+        "assessment_id": str(assessment.id),
+        "assessment_title": assessment.title
+    }
+

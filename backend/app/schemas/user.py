@@ -15,6 +15,7 @@ class UserCreate(UserBase):
     password: str
     phone: Optional[str] = None
     location: Optional[str] = None
+    organization_name: Optional[str] = None
 
     @validator("password")
     def password_strength(cls, v):

@@ -14,7 +14,7 @@ export const CandidateSearch = () => {
     setLoading(true)
     try {
       const { data } = await api.get('/recruiter/candidates', {
-        params: { skill, location, min_ats: minAts ? Number(minAts) : None }
+        params: { skill, location, min_ats: minAts ? Number(minAts) : null }
       })
       setCandidates(data || [])
     } catch (err) {
@@ -128,6 +128,9 @@ export const CandidateSearch = () => {
                     <div>
                       <h3 className="text-base font-bold text-white font-display">{cand.name}</h3>
                       <p className="text-xs text-indigo-300 font-medium">{cand.email} • {cand.location}</p>
+                      {cand.applied_job_title && (
+                        <p className="text-[11px] text-emerald-300 font-medium mt-1">💼 Applied for: {cand.applied_job_title}</p>
+                      )}
                     </div>
                     <span className="text-xs font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded">
                       ATS: {cand.ats_score}%

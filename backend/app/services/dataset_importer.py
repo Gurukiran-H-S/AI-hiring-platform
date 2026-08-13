@@ -292,6 +292,22 @@ SEED_PROBLEMS = [
         "test_cases": [
             {"input_data": "SELECT Person.firstName, Person.lastName, Address.city, Address.state FROM Person LEFT JOIN Address ON Person.personId = Address.personId;", "expected_output": "OK", "is_hidden": False},
         ]
+    },
+    {
+        "title": "Maximum Subarray",
+        "slug": "maximum-subarray",
+        "difficulty": ProblemDifficulty.MEDIUM,
+        "category": "Arrays",
+        "tags": ["Array", "Divide and Conquer", "Dynamic Programming"],
+        "description": "Given an integer array `nums`, find the subarray with the largest sum and return its sum.",
+        "constraints": "1 <= nums.length <= 10^5\n-10^4 <= nums[i] <= 10^4",
+        "sample_input": "[-2,1,-3,4,-1,2,1,-5,4]",
+        "sample_output": "6",
+        "function_name": "maxSubArray",
+        "test_cases": [
+            {"input_data": "-2 1 -3 4 -1 2 1 -5 4", "expected_output": "6", "is_hidden": False},
+            {"input_data": "5 4 -1 7 8", "expected_output": "23", "is_hidden": True},
+        ]
     }
 ]
 

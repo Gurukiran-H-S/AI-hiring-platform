@@ -373,7 +373,8 @@ async def get_table_data(
         raise HTTPException(status_code=404, detail=f"Table '{table_name}' does not exist in database.")
 
     try:
-        result = db.execute(f"SELECT * FROM {table_name} LIMIT {limit}")
+        from sqlalchemy import text
+        result = db.execute(text(f"SELECT * FROM {table_name} LIMIT {limit}"))
         keys = result.keys()
         rows = [dict(zip(keys, row)) for row in result.fetchall()]
 
@@ -385,6 +386,8 @@ async def get_table_data(
                     clean_r[k] = str(v)
                 elif isinstance(v, bytes):
                     clean_r[k] = f"<binary blob ({len(v)} bytes)>"
+                elif hasattr(v, 'value'):          # handle Enum types
+                    clean_r[k] = v.value
                 else:
                     clean_r[k] = v
             clean_rows.append(clean_r)
@@ -473,7 +476,10 @@ async def recruiter_analytics(
 
     total_jobs = len(jobs)
     active_jobs = sum(1 for j in jobs if j.status == JobStatus.ACTIVE)
-    total_applications = db.query(Application).filter(Application.job_id.in_(job_ids)).count() if job_ids else 0
+    total_applications = db.query(Application).filter(
+        Application.job_id.in_(job_ids),
+        Application.status != ApplicationStatus.REJECTED
+    ).count() if job_ids else 0
     shortlisted = db.query(Application).filter(
         Application.job_id.in_(job_ids),
         Application.is_shortlisted == True,
@@ -542,8 +548,10 @@ async def candidate_analytics(
     for app in applications:
         status_counts[app.status.value] = status_counts.get(app.status.value, 0) + 1
 
-    valid_ats = [r.ats_score for r in resumes if r.ats_score is not None]
-    avg_ats = round(sum(valid_ats) / len(valid_ats), 1) if valid_ats else None
+    primary_resume = next((r for r in resumes if r.is_primary), None)
+    if not primary_resume and resumes:
+        primary_resume = sorted(resumes, key=lambda x: x.created_at or datetime.min, reverse=True)[0]
+    avg_ats = primary_resume.ats_score if primary_resume else None
 
     valid_match = [a.overall_score for a in applications if getattr(a, 'overall_score', None) is not None]
     avg_match = round(sum(valid_match) / len(valid_match), 1) if valid_match else None

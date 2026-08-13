@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { api } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
-export const ResumeAnalyzer = () => {
+export const ResumeAnalyzer = ({ onPrimaryChange }) => {
   const [resumes, setResumes] = useState([])
   const [selectedResume, setSelectedResume] = useState(null)
   const [analysisDetails, setAnalysisDetails] = useState(null)
@@ -106,6 +106,9 @@ export const ResumeAnalyzer = () => {
       await api.put(`/resumes/${resumeId}/primary`)
       toast.success('Set as primary resume for recommendations!')
       fetchResumes()
+      if (onPrimaryChange) {
+        onPrimaryChange()
+      }
     } catch (err) {
       toast.error('Failed to set primary resume.')
     }

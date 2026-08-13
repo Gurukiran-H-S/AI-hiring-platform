@@ -2,6 +2,7 @@
 AI Hiring Platform - FastAPI Main Application
 """
 
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -22,6 +23,8 @@ from app.routers.coding import router as coding_router
 from app.routers.trends import router as trends_router
 from app.routers.applications import router as applications_router
 from app.routers.recruiter import router as recruiter_router
+from app.routers.aptitude import router as aptitude_router
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -106,6 +109,8 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
     app.include_router(trends_router)
     app.include_router(applications_router)
     app.include_router(recruiter_router)
+    app.include_router(aptitude_router)
+
 
     # ─── Global Exception Handler ─────────────────────────────────────────────
     @app.exception_handler(Exception)
@@ -131,10 +136,15 @@ if __name__ == "__main__":
         workers=1,
     )
 
+
 #cd backend
-#venv\Scripts\activate
-#uvicorn app.main:app --reload
+#venv\Scripts\python -m app.main
 
 #new terminal
 #cd frontend
 #npm run dev
+    
+    #curl -s http://localhost:8000/api/health
+#curl -s http://localhost:8000/api/coding/problems?limit=3
+
+#Stop-Process -Name python -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; venv\Scripts\python -m app.main

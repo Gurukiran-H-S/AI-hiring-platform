@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app.models.application import Application, ApplicationStatus
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.job import Job
 from app.middleware.auth_middleware import get_current_user, get_current_candidate
 
@@ -45,6 +45,21 @@ async def list_candidate_applications(
         job_title = app.job.title if app.job else getattr(app, 'job_title', 'Software Position')
         company = app.job.company if app.job else getattr(app, 'company', 'Tech Company')
 
+        from app.models.interview import Interview
+        interview = db.query(Interview).filter(Interview.application_id == app.id).order_by(Interview.scheduled_at.desc()).first()
+
+        meeting_link = None
+        scheduled_at = None
+        interview_type = None
+
+        if interview:
+            meeting_link = interview.meeting_link
+            scheduled_at = interview.scheduled_at.strftime("%d %b %Y at %I:%M %p") if interview.scheduled_at else None
+            interview_type = interview.interview_type.value if hasattr(interview.interview_type, 'value') else str(interview.interview_type)
+        elif app.status.value in ["shortlisted", "interview", "interview_scheduled"]:
+            meeting_link = "https://meet.jit.si/hireai-interview"
+            interview_type = "technical"
+
         results.append({
             "id": str(app.id),
             "job_id": str(app.job_id) if app.job_id else None,
@@ -56,6 +71,9 @@ async def list_candidate_applications(
             "ats_score": app.ats_score or 78.0,
             "overall_score": app.overall_score or 82.0,
             "recruiter_notes": app.recruiter_notes,
+            "meeting_link": meeting_link,
+            "scheduled_at": scheduled_at,
+            "interview_type": interview_type,
             "timeline": [
                 {"date": app.applied_at.strftime("%d %b") if app.applied_at else "Today", "event": "Application submitted"},
                 {"date": "Pending", "event": f"Current Status: {app.status.value.replace('_', ' ').title()}"}
@@ -111,8 +129,36 @@ async def update_application_status(
         app.status = new_status
         if req.notes:
             app.recruiter_notes = req.notes
+        elif new_status != ApplicationStatus.REJECTED:
+            app.recruiter_notes = f"Status updated to {new_status.value.replace('_', ' ').title()}"
         app.updated_at = datetime.utcnow()
         db.commit()
         return {"message": f"Application status updated to {new_status.value}", "status": new_status.value}
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Invalid status: {req.status}")
+
+
+@router.delete("/{app_id}")
+async def delete_application(
+    app_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete an application record cleanly."""
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if current_user.role == UserRole.CANDIDATE and str(app.candidate_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this application")
+
+    try:
+        from app.models.interview import Interview
+        db.query(Interview).filter(Interview.application_id == app.id).delete(synchronize_session=False)
+
+        db.delete(app)
+        db.commit()
+        return {"message": "Application deleted successfully", "id": str(app_id)}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete application: {str(e)}")

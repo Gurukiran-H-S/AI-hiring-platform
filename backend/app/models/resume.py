@@ -14,7 +14,7 @@ class Resume(Base):
     title = Column(String(255), nullable=True, default="My Resume")
     file_url = Column(Text, nullable=True)  # Cloudinary URL
     file_name = Column(String(255), nullable=True)
-    file_type = Column(String(50), nullable=True)
+    file_type = Column(String(255), nullable=True)
     is_primary = Column(Boolean, default=False)
     is_parsed = Column(Boolean, default=False)
     ats_status = Column(String(50), default="PENDING")  # PENDING, PROCESSING, COMPLETED, FAILED
@@ -23,7 +23,7 @@ class Resume(Base):
     raw_text = Column(Text, nullable=True)
     parsed_name = Column(String(255), nullable=True)
     parsed_email = Column(String(255), nullable=True)
-    parsed_phone = Column(String(50), nullable=True)
+    parsed_phone = Column(String(255), nullable=True)
     parsed_location = Column(String(255), nullable=True)
     parsed_summary = Column(Text, nullable=True)
     parsed_skills = Column(JSON, nullable=True, default=list)      # ["Python", "FastAPI", ...]
