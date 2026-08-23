@@ -41,6 +41,14 @@ export const MockInterview = () => {
   const [liveFillerCount, setLiveFillerCount] = useState(0)
   const [analyzingLive, setAnalyzingLive] = useState(false)
 
+  // Web Audio API Frequency Waveform Visualizer
+  const [frequencyBars, setFrequencyBars] = useState(new Array(32).fill(4))
+  const [audioLevel, setAudioLevel] = useState(0)
+  const audioContextRef = useRef(null)
+  const analyserRef = useRef(null)
+  const mediaStreamRef = useRef(null)
+  const animFrameRef = useRef(null)
+
   // Final Report State
   const [finalReport, setFinalReport] = useState(null)
 
@@ -116,10 +124,12 @@ export const MockInterview = () => {
         } else if (event.error !== 'no-speech') {
           toast.error(`Speech recognition: ${event.error}`)
         }
+        stopAudioVisualizer()
         setRecording(false)
       }
 
       recognition.onend = () => {
+        stopAudioVisualizer()
         setRecording(false)
       }
 
@@ -133,6 +143,7 @@ export const MockInterview = () => {
       if (recognitionRef.current) {
         try { recognitionRef.current.stop() } catch (e) {}
       }
+      stopAudioVisualizer()
     }
   }, [finalTranscript])
 
@@ -149,6 +160,78 @@ export const MockInterview = () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
   }, [recording])
+
+  // Start Real-Time Web Audio Frequency Waveform Visualizer
+  const startAudioVisualizer = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaStreamRef.current = stream
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      if (!AudioCtx) return
+      const audioCtx = new AudioCtx()
+      audioContextRef.current = audioCtx
+
+      const analyser = audioCtx.createAnalyser()
+      analyser.fftSize = 64
+      analyser.smoothingTimeConstant = 0.75
+      analyserRef.current = analyser
+
+      const source = audioCtx.createMediaStreamSource(stream)
+      source.connect(analyser)
+
+      const bufferLength = analyser.frequencyBinCount
+      const dataArray = new Uint8Array(bufferLength)
+
+      const updateFrequency = () => {
+        if (!analyserRef.current) return
+        analyser.getByteFrequencyData(dataArray)
+
+        // Sample 32 frequency line bars
+        const bars = []
+        let sum = 0
+        const step = Math.max(1, Math.floor(bufferLength / 32))
+        for (let i = 0; i < 32; i++) {
+          const val = dataArray[i * step] || 0
+          sum += val
+          // Map frequency intensity into bar height (4px min up to 50px max)
+          const barHeight = Math.max(4, Math.min(50, Math.round((val / 255) * 50)))
+          bars.push(barHeight)
+        }
+        const avg = Math.round(sum / 32)
+        setAudioLevel(avg)
+        setFrequencyBars(bars)
+
+        animFrameRef.current = requestAnimationFrame(updateFrequency)
+      }
+
+      updateFrequency()
+    } catch (err) {
+      console.warn('Audio visualizer stream init warning:', err)
+    }
+  }
+
+  // Stop Real-Time Web Audio Frequency Waveform Visualizer
+  const stopAudioVisualizer = () => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current)
+      animFrameRef.current = null
+    }
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+      } catch (e) {}
+      mediaStreamRef.current = null
+    }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close()
+      } catch (e) {}
+      audioContextRef.current = null
+    }
+    setFrequencyBars(new Array(32).fill(4))
+    setAudioLevel(0)
+  }
 
   const currentQuestion = useMemo(() => {
     if (!interviewSession?.questions?.length) return null
@@ -212,6 +295,7 @@ export const MockInterview = () => {
     setLiveCoverage(0)
     setLiveScore(0)
     setLiveFillerCount(0)
+    stopAudioVisualizer()
     if (questionObj?.expected_points) {
       setLivePointsAnalysis(
         questionObj.expected_points.map((p) => ({
@@ -224,7 +308,7 @@ export const MockInterview = () => {
     }
   }
 
-  // Start Microphone Recording
+  // Start Microphone Recording & Frequency Spectrum
   const handleStartRecording = () => {
     if (!speechSupported) {
       return toast.error('Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.')
@@ -235,12 +319,13 @@ export const MockInterview = () => {
       setInterimTranscript('')
       recognitionRef.current.start()
       setRecording(true)
+      startAudioVisualizer()
     } catch (err) {
       console.warn('Recognition start exception:', err)
     }
   }
 
-  // Stop Microphone Recording
+  // Stop Microphone Recording & Frequency Spectrum
   const handleStopRecording = () => {
     if (recognitionRef.current && recording) {
       try {
@@ -249,6 +334,7 @@ export const MockInterview = () => {
         console.warn(err)
       }
     }
+    stopAudioVisualizer()
     setRecording(false)
   }
 
@@ -361,11 +447,11 @@ export const MockInterview = () => {
               AI Mock Interview Arena
             </h1>
             <p className="text-sm text-slate-600 mt-1">
-              Speak into your microphone. Experience live speech-to-text, real-time expected answer point detection (`1 Mentioned` vs `0 Not Mentioned`), and explainable scoring.
+              Speak into your microphone. Experience live speech-to-text, real-time voice frequency lines, expected point detection (`1 Mentioned` vs `0 Not Mentioned`), and explainable scoring.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="badge badge-emerald font-bold">✓ Live Speech Recognition</span>
+            <span className="badge badge-emerald font-bold">✓ Live Speech Recognition &amp; Frequency Waves</span>
           </div>
         </header>
 
@@ -655,20 +741,20 @@ export const MockInterview = () => {
           </div>
         </div>
 
-        {/* Live Transcript Box & Microphone Controls */}
+        {/* Live Transcript Box, Real-Time Frequency Waveform, & Microphone Controls */}
         <div className="card space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h3 className="section-title flex items-center gap-2">
-                <span>🎙️ Live Candidate Transcript</span>
+                <span>🎙️ Live Candidate Audio &amp; Transcript</span>
                 {recording && (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 animate-pulse">
+                  <span className="inline-flex items-center gap-1.5 text-xs text-rose-600 font-bold bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 animate-pulse">
                     <span className="w-2 h-2 rounded-full bg-rose-600"></span> Live Listening
                   </span>
                 )}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Speak clearly into your microphone. Words are transcribed and evaluated in real time.
+                Speak into your microphone. Audio frequency lines animate live with voice pitch &amp; speech is transcribed in real time.
               </p>
             </div>
 
@@ -694,8 +780,48 @@ export const MockInterview = () => {
             </div>
           </div>
 
+          {/* Real-time Voice Audio Frequency Line Visualizer */}
+          <div className="p-3 sm:p-4 rounded-xl bg-slate-950 border border-slate-800 shadow-inner flex flex-col gap-2">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-bold text-slate-400 flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${recording ? (audioLevel > 15 ? 'bg-emerald-400 animate-ping' : 'bg-blue-400') : 'bg-slate-600'}`}></span>
+                <span>Voice Audio Frequency Spectrum</span>
+              </span>
+              <span className={`font-mono text-[10.5px] px-2.5 py-0.5 rounded-md font-bold transition-colors ${
+                recording
+                  ? audioLevel > 20
+                    ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-700'
+                    : 'bg-blue-950/80 text-blue-300 border border-blue-700'
+                  : 'bg-slate-900 text-slate-500 border border-slate-800'
+              }`}>
+                {recording ? (audioLevel > 20 ? '🔊 Voice Detected' : '🎙️ Microphone Live') : '⏹️ Audio Idle'}
+              </span>
+            </div>
+
+            {/* Dynamic Frequency Line Bars */}
+            <div className="h-12 sm:h-14 flex items-end justify-between gap-[3px] sm:gap-1 px-2 py-1 bg-slate-900/90 rounded-lg border border-slate-800/80 overflow-hidden">
+              {frequencyBars.map((height, i) => (
+                <div
+                  key={i}
+                  className="flex-1 rounded-t-full transition-all duration-75 ease-out"
+                  style={{
+                    height: `${recording ? height : 4}px`,
+                    background: recording
+                      ? height > 35
+                        ? 'linear-gradient(to top, #0A66C2, #6366F1, #10B981)'
+                        : height > 18
+                        ? 'linear-gradient(to top, #0A66C2, #6366F1, #38BDF8)'
+                        : 'linear-gradient(to top, #1E293B, #0A66C2)'
+                      : '#334155',
+                    boxShadow: recording && height > 20 ? '0 0 6px rgba(99, 102, 241, 0.6)' : 'none',
+                  }}
+                ></div>
+              ))}
+            </div>
+          </div>
+
           {/* Transcript Display Area */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900 text-slate-100 min-h-[130px] font-sans text-sm leading-relaxed border border-slate-800 shadow-inner flex flex-col justify-between">
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900 text-slate-100 min-h-[120px] font-sans text-sm leading-relaxed border border-slate-800 shadow-inner flex flex-col justify-between">
             <div>
               {finalTranscript || interimTranscript ? (
                 <div>
@@ -707,7 +833,7 @@ export const MockInterview = () => {
                   )}
                 </div>
               ) : (
-                <div className="text-slate-500 italic text-xs py-6 text-center">
+                <div className="text-slate-500 italic text-xs py-5 text-center">
                   {recording
                     ? 'Listening... Speak your answer into the microphone...'
                     : 'Click "Start Speaking" above and state your answer clearly.'}
