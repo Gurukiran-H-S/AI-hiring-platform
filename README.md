@@ -1,18 +1,48 @@
 # 🚀 AI Hiring & Candidate Evaluation Platform
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18.2+-61DAFB.svg?style=flat&logo=react&logoColor=black)](https://reactjs.org)
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.12-3776AB.svg?style=flat&logo=python&logoColor=white)](https://python.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15.0+-336791.svg?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4+-38B2AC.svg?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://img.shields.io/badge/Pytest-21%20Passed-success.svg?style=flat&logo=pytest)](https://docs.pytest.org)
 
 > An enterprise-grade, full-stack AI recruitment platform featuring automated NLP resume parsing, sandboxed multi-language coding playgrounds, AI mock interviews, and deterministic 4-pillar candidate ranking.
 
 ---
 
-## 🔗 Git Repository & Clone Instructions
+## 📜 1. License & Project Terms
+
+This project is licensed under the **[MIT License](LICENSE)**:
+
+```text
+MIT License
+
+Copyright (c) 2026 Gurukiran H S
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+---
+
+## 🔗 2. Git Repository & Clone Instructions
 
 ### Clone the Repository
 ```bash
@@ -41,34 +71,34 @@ git push origin feature/your-feature-name
 
 ---
 
-## 📌 Project Overview
+## 📌 3. Project Overview & Features
 
 The **AI Hiring & Candidate Evaluation Platform** automates technical hiring workflows through explainable AI models and deterministic scoring algorithms:
 
-- **👨‍💻 Candidate Portal**:
-  - **AI Resume Parser**: Extract technical skills, work experience, education, and calculate instant ATS compatibility scores.
-  - **Monaco Coding Arena**: Multi-language coding playground (Python, JavaScript, Java, C++) with real-time sandboxed execution and 4-tier progressive AI hints.
-  - **Aptitude & Technical Assessments**: Timed interactive tests with automated grading.
-  - **AI Mock Interviews**: Audio/visual interview simulations with real-time AI feedback.
-  - **Semantic Job Matching**: AI recommendations matching candidate profiles to open roles.
-  - **Tech Market Intelligence**: Live analytics on in-demand technologies, salary ranges, and hiring trends.
+### 👨‍💻 Candidate Portal
+- **AI Resume Parser**: Extract technical skills, work experience, education, and calculate instant ATS compatibility scores.
+- **Monaco Coding Arena**: Multi-language coding playground (Python, JavaScript, Java, C++) with real-time sandboxed execution and 4-tier progressive AI hints.
+- **Aptitude & Technical Assessments**: Timed interactive tests with automated grading.
+- **AI Mock Interviews**: Audio/visual interview simulations with real-time AI feedback.
+- **Semantic Job Matching**: AI recommendations matching candidate profiles to open roles.
+- **Tech Market Intelligence**: Live analytics on in-demand technologies, salary ranges, and hiring trends.
 
-- **🏢 Recruiter Portal**:
-  - **Job Management**: Create, edit, and publish job listings with customizable skill requirements.
-  - **Deterministic 4-Pillar Ranking**: Candidate ranking formula combining `ATS Score (20%) + Coding Score (30%) + Skill Match (30%) + Interview Score (20%) = 100%`.
-  - **Customizable Weights**: Recruiter drawer allowing custom percentage weights totaling exactly 100%.
-  - **Active Pipeline Filtering**: Automatically filters out rejected candidates from active ranking while keeping them accessible under the *Rejected* tab.
-  - **Side-by-Side Candidate Comparison**: Compare 2+ candidates across ATS, Coding, Skill alignment, and Interview scores.
-  - **Interview Scheduler**: Book and manage online technical interview rounds.
+### 🏢 Recruiter Portal
+- **Job Management**: Create, edit, and publish job listings with customizable skill requirements.
+- **Deterministic 4-Pillar Ranking**: Candidate ranking formula combining `ATS Score (20%) + Coding Score (30%) + Skill Match (30%) + Interview Score (20%) = 100%`.
+- **Customizable Weights**: Recruiter drawer allowing custom percentage weights totaling exactly 100%.
+- **Active Pipeline Filtering**: Automatically filters out rejected candidates from active ranking while keeping them accessible under the *Rejected* tab.
+- **Side-by-Side Candidate Comparison**: Compare 2+ candidates across ATS, Coding, Skill alignment, and Interview scores.
+- **Interview Scheduler**: Book and manage online technical interview rounds.
 
-- **⚙️ Administrator Portal**:
-  - **System Analytics**: Platform health metrics, user registration volume, and test completion rates.
-  - **Database Viewer**: Live PostgreSQL table schemas and record explorer.
-  - **User Directory Management**: Search, filter, inspect, and manage candidate and recruiter accounts.
+### ⚙️ Administrator Portal
+- **System Analytics**: Platform health metrics, user registration volume, and test completion rates.
+- **Database Viewer**: Live PostgreSQL table schemas and record explorer.
+- **User Directory Management**: Search, filter, inspect, and manage candidate and recruiter accounts.
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ 4. Technology Stack
 
 | Layer | Technologies |
 | :--- | :--- |
@@ -80,7 +110,7 @@ The **AI Hiring & Candidate Evaluation Platform** automates technical hiring wor
 
 ---
 
-## 📂 Complete Project Directory Structure
+## 📂 5. Complete Project Directory Structure
 
 ```
 AI-Hiring-Platform/
@@ -158,13 +188,14 @@ AI-Hiring-Platform/
 ├── docs/                         # Technical Architecture & API Documentation
 ├── scripts/                      # Database seeders & maintenance scripts
 ├── docker-compose.yml            # Multi-container orchestration config
+├── LICENSE                       # Full MIT Open-Source License
 ├── .gitignore                    # Git ignore rules
 └── README.md                     # Project documentation
 ```
 
 ---
 
-## ⚡ Step-by-Step Setup & How to Run
+## ⚡ 6. Step-by-Step Setup & How to Run
 
 ### 📋 Prerequisites
 Ensure you have the following installed on your machine:
@@ -273,7 +304,7 @@ npm run build
 
 ---
 
-## 🔑 Default Demo Accounts
+## 🔑 7. Default Demo Accounts
 
 Use any of the pre-configured accounts below or create a new account on the `/register` page with instant email OTP verification:
 
@@ -285,7 +316,7 @@ Use any of the pre-configured accounts below or create a new account on the `/re
 
 ---
 
-## 🌐 Core REST API Endpoints
+## 🌐 8. Core REST API Endpoints
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
@@ -305,7 +336,15 @@ Use any of the pre-configured accounts below or create a new account on the `/re
 
 ---
 
-## 🤝 Contributing
+## 👨‍💻 9. Author & Maintainer
+
+- **Developer**: **Gurukiran H S**
+- **GitHub**: [@Gurukiran-H-S](https://github.com/Gurukiran-H-S)
+- **Repository**: [https://github.com/Gurukiran-H-S/AI-hiring-platform](https://github.com/Gurukiran-H-S/AI-hiring-platform)
+
+---
+
+## 🤝 10. Contributing
 
 Contributions, issues, and feature requests are welcome!
 
@@ -314,44 +353,6 @@ Contributions, issues, and feature requests are welcome!
 3. **Commit your Changes** (`git commit -m "feat: add some AmazingFeature"`)
 4. **Push to the Branch** (`git push origin feature/AmazingFeature`)
 5. **Open a Pull Request**
-
----
-
-## 👨‍💻 Author & Maintainer
-
-- **Developer**: **Gurukiran H S**
-- **GitHub**: [@Gurukiran-H-S](https://github.com/Gurukiran-H-S)
-- **Repository**: [https://github.com/Gurukiran-H-S/AI-hiring-platform](https://github.com/Gurukiran-H-S/AI-hiring-platform)
-
----
-
-## 📄 License & Terms
-
-This project is distributed under the **MIT License**.
-
-```text
-MIT License
-
-Copyright (c) 2026 Gurukiran H S
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
 
 ---
 
