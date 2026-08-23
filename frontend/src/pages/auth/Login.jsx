@@ -58,28 +58,54 @@ export const Login = () => {
       <main className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 bg-white border border-line rounded-[10px] shadow-card overflow-hidden">
 
-          {/* LEFT PANEL: Brand Messaging */}
-          <div className="hidden lg:flex flex-col justify-between bg-brand-subtle border-r border-line p-10">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-[10px] bg-brand text-white flex items-center justify-center font-bold text-lg">
-                Hi
+          {/* LEFT PANEL: Brand Messaging & Illustration */}
+          <div className="hidden lg:flex flex-col justify-between bg-gradient-to-br from-[#EAF3FF]/90 via-[#F7F9FC] to-white border-r border-[#E1E5EB] p-8 relative overflow-hidden">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0A66C2] via-indigo-600 to-purple-600 flex items-center justify-center text-white font-extrabold text-base shadow-sm">
+                  ✨
+                </div>
+                <div>
+                  <p className="font-extrabold text-lg text-[#172B4D] leading-tight font-display">HireAI</p>
+                  <p className="text-[11px] text-[#5E6C84]">AI-Powered Hiring &amp; Candidate Evaluation Platform</p>
+                </div>
               </div>
-              <div>
-                <p className="font-bold text-lg text-ink leading-tight">HireAI</p>
-                <p className="text-xs text-ink-2">AI-Powered Hiring &amp; Candidate Evaluation Platform</p>
+
+              <div className="pt-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF3FF] border border-[#378FE9]/30 text-[#0A66C2] text-xs font-bold shadow-xs mb-2">
+                  <span className="w-2 h-2 rounded-full bg-[#0A66C2]"></span>
+                  Secure &amp; Intelligent Access
+                </span>
+                <h3 className="font-extrabold text-2xl text-[#172B4D] leading-snug font-display">
+                  Find Your Perfect Career
+                </h3>
+                <p className="text-xs text-[#5E6C84] mt-2 leading-relaxed">
+                  Connect your skills with top job opportunities powered by AI-driven resume
+                  parsing, semantic matching, and interactive coding benchmarks.
+                </p>
               </div>
             </div>
 
-            <div>
-              <span className="badge badge-blue mb-4 inline-flex">Secure &amp; Intelligent</span>
-              <h3 className="font-bold text-2xl text-ink leading-snug">Find Your Perfect Career</h3>
-              <p className="text-sm text-ink-2 mt-3 leading-relaxed">
-                Connect your skills with top job opportunities powered by AI-driven resume
-                parsing and semantic job matching.
-              </p>
+            {/* Career Scene Image */}
+            <div className="my-3 rounded-2xl overflow-hidden border border-[#E1E5EB] shadow-md bg-white p-1">
+              <img
+                src="/images/hero-talent-collaboration.jpg"
+                alt="AI Talent Collaboration & Career Platform"
+                className="w-full h-44 rounded-xl object-cover"
+              />
             </div>
 
-            <p className="text-xs text-ink-3">Trusted by recruiters and candidates worldwide.</p>
+            {/* Bottom Highlights */}
+            <div className="space-y-1.5 pt-2 border-t border-[#E1E5EB] text-[11px] text-[#5E6C84]">
+              <div className="flex items-center gap-2">
+                <span className="text-[#057642] font-bold">✓</span>
+                <span>Deterministic ATS ranking &amp; explainable scores</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[#057642] font-bold">✓</span>
+                <span>Containerized coding sandbox with AI hint assistance</span>
+              </div>
+            </div>
           </div>
 
           {/* RIGHT PANEL: Login Form */}
