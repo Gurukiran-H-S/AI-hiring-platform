@@ -52,7 +52,7 @@ export const MockInterview = () => {
   useEffect(() => {
     const fetchJobs = async () => {
       try {
-        const { data } = await api.get('/jobs')
+        const { data } = await api.get('/jobs/')
         if (Array.isArray(data)) setJobs(data)
         else if (data?.jobs) setJobs(data.jobs)
       } catch (err) {

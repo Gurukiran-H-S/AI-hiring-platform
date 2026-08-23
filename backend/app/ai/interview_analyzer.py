@@ -10,18 +10,19 @@ AI Mock Interview NLP Engine:
 import re
 from typing import List, Dict, Any, Optional, Tuple
 
-# Optional sentence transformers / spaCy
-try:
-    from sentence_transformers import SentenceTransformer, util
-    _st_model = SentenceTransformer("all-MiniLM-L6-v2")
-except Exception:
-    _st_model = None
+_st_model = None
+_st_attempted = False
 
-try:
-    import spacy
-    _nlp = spacy.load("en_core_web_sm")
-except Exception:
-    _nlp = None
+def _get_st_model():
+    global _st_model, _st_attempted
+    if not _st_attempted:
+        _st_attempted = True
+        try:
+            from sentence_transformers import SentenceTransformer
+            _st_model = SentenceTransformer("all-MiniLM-L6-v2")
+        except Exception:
+            _st_model = None
+    return _st_model
 
 
 FILLER_REGEX = re.compile(r"\b(um|uh|like|you know|actually|basically|sort of|kind of|i mean|right)\b", re.IGNORECASE)
@@ -51,7 +52,6 @@ def split_sentences(text: str) -> List[str]:
     """Split transcript into individual sentences / clauses for fine-grained matching."""
     if not text:
         return []
-    # Split by standard sentence terminators and clause separators
     sentences = re.split(r"[.!?;\n]+", text)
     cleaned = [s.strip() for s in sentences if len(s.strip()) > 3]
     return cleaned if cleaned else [text.strip()]
@@ -62,10 +62,12 @@ def calculate_semantic_similarity(text1: str, text2: str) -> float:
     if not text1 or not text2:
         return 0.0
 
-    if _st_model is not None:
+    model = _get_st_model()
+    if model is not None:
         try:
-            emb1 = _st_model.encode(text1, convert_to_tensor=True)
-            emb2 = _st_model.encode(text2, convert_to_tensor=True)
+            from sentence_transformers import util
+            emb1 = model.encode(text1, convert_to_tensor=True)
+            emb2 = model.encode(text2, convert_to_tensor=True)
             sim = util.cos_sim(emb1, emb2).item()
             return max(0.0, min(1.0, float(sim)))
         except Exception:

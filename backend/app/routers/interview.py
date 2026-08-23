@@ -57,11 +57,11 @@ async def start_mock_interview(
     resume = (
         db.query(Resume)
         .filter(Resume.user_id == current_user.id)
-        .order_by(Resume.uploaded_at.desc())
+        .order_by(Resume.created_at.desc())
         .first()
     )
-    if resume and resume.skills:
-        candidate_skills = resume.skills if isinstance(resume.skills, list) else []
+    if resume and resume.parsed_skills:
+        candidate_skills = resume.parsed_skills if isinstance(resume.parsed_skills, list) else []
 
     # 3. Generate tailored questions
     questions_data = generate_interview_questions(
