@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { api, useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
@@ -44,6 +44,7 @@ export const CandidateRankings = () => {
   const [weightDraft, setWeightDraft] = useState(null)
   const [showWeightsDrawer, setShowWeightsDrawer] = useState(false)
   const [savingWeights, setSavingWeights] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('active') // 'active', 'shortlisted', 'rejected', 'all'
 
   const [explainModal, setExplainModal] = useState(null)
   const [selectedForCompare, setSelectedForCompare] = useState([])
@@ -116,6 +117,22 @@ export const CandidateRankings = () => {
 
   useEffect(() => { fetchJobs() }, [])
   useEffect(() => { if (selectedJobId) fetchRankingsAndWeights() }, [selectedJobId])
+
+  /* ── Filtered Rankings by Status ── */
+  const allRankings = useMemo(() => rankingData?.rankings || [], [rankingData])
+  const activeRankings = useMemo(() => allRankings.filter((r) => r.status?.toLowerCase() !== 'rejected'), [allRankings])
+  const shortlistedRankings = useMemo(() => allRankings.filter((r) => r.status?.toLowerCase() === 'shortlisted' || r.is_shortlisted), [allRankings])
+  const rejectedRankings = useMemo(() => allRankings.filter((r) => r.status?.toLowerCase() === 'rejected'), [allRankings])
+
+  const displayedRankings = useMemo(() => {
+    let list = []
+    if (statusFilter === 'active') list = activeRankings
+    else if (statusFilter === 'shortlisted') list = shortlistedRankings
+    else if (statusFilter === 'rejected') list = rejectedRankings
+    else list = allRankings
+
+    return list.map((item, idx) => ({ ...item, displayRank: idx + 1 }))
+  }, [statusFilter, activeRankings, shortlistedRankings, rejectedRankings, allRankings])
 
   /* ── Save & Recalculate: PUT weights (must = 100) → POST recalculate ── */
   const handleSaveAndRecalculate = async () => {
@@ -448,26 +465,26 @@ export const CandidateRankings = () => {
         </div>
       )}
 
-      {/* Stats: Total Applicants / Ranked / Pending / Averages */}
+      {/* Stats: Total Applicants / Active / Rejected / Averages */}
       {rankingData && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
           <div className="card space-y-1">
             <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Total Applicants</div>
-            <div className="text-3xl font-bold text-ink">{rankingData.total_applicants ?? 0}</div>
+            <div className="text-3xl font-bold text-ink">{allRankings.length}</div>
             <div className="text-[11px] text-ink-muted">All applications for this job</div>
           </div>
           <div className="card space-y-1">
-            <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Ranked Candidates</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Active Pipeline</div>
             <div className="text-3xl font-bold text-ok">
-              {rankingData.ranked_candidates ?? rankingData.rankings?.length ?? 0}
-              <span className="text-base text-ink-muted font-semibold"> of {rankingData.total_applicants ?? 0}</span>
+              {activeRankings.length}
+              <span className="text-base text-ink-muted font-semibold"> of {allRankings.length}</span>
             </div>
-            <div className="text-[11px] text-ink-muted">Fully evaluated & ready for ranking</div>
+            <div className="text-[11px] text-ink-muted">Active, non-rejected candidates</div>
           </div>
           <div className="card space-y-1">
-            <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Pending Evaluation</div>
-            <div className="text-3xl font-bold text-warn">{rankingData.pending_candidates ?? 0}</div>
-            <div className="text-[11px] text-ink-muted">Missing ATS / coding / interview data</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Rejected</div>
+            <div className="text-3xl font-bold text-bad">{rejectedRankings.length}</div>
+            <div className="text-[11px] text-ink-muted">Filtered out of active ranking</div>
           </div>
           <div className="card space-y-1">
             <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Average Evaluation Scores</div>
@@ -483,9 +500,75 @@ export const CandidateRankings = () => {
 
       {/* Rankings Table */}
       <div className="card !p-0 overflow-hidden">
-        <div className="px-5 pt-5 pb-4 flex items-center justify-between flex-wrap gap-2">
+        {/* Status Filter Tabs */}
+        <div className="flex items-center gap-1.5 border-b border-slate-200 px-5 pt-3 bg-slate-50/50">
+          <button
+            type="button"
+            onClick={() => setStatusFilter('active')}
+            className={`px-3.5 py-2 text-xs font-bold rounded-t-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+              statusFilter === 'active'
+                ? 'bg-white text-brand border-t-2 border-l border-r border-slate-200 border-t-brand -mb-[1px] shadow-xs'
+                : 'text-ink-muted hover:text-ink'
+            }`}
+          >
+            <span>Active Pipeline</span>
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${statusFilter === 'active' ? 'bg-indigo-100 text-brand' : 'bg-slate-200 text-slate-700'}`}>
+              {activeRankings.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusFilter('shortlisted')}
+            className={`px-3.5 py-2 text-xs font-bold rounded-t-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+              statusFilter === 'shortlisted'
+                ? 'bg-white text-ok border-t-2 border-l border-r border-slate-200 border-t-ok -mb-[1px] shadow-xs'
+                : 'text-ink-muted hover:text-ink'
+            }`}
+          >
+            <span>⭐ Shortlisted</span>
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${statusFilter === 'shortlisted' ? 'bg-emerald-100 text-ok' : 'bg-slate-200 text-slate-700'}`}>
+              {shortlistedRankings.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusFilter('rejected')}
+            className={`px-3.5 py-2 text-xs font-bold rounded-t-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+              statusFilter === 'rejected'
+                ? 'bg-white text-bad border-t-2 border-l border-r border-slate-200 border-t-bad -mb-[1px] shadow-xs'
+                : 'text-ink-muted hover:text-ink'
+            }`}
+          >
+            <span>🚫 Rejected</span>
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${statusFilter === 'rejected' ? 'bg-rose-100 text-bad' : 'bg-slate-200 text-slate-700'}`}>
+              {rejectedRankings.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className={`px-3.5 py-2 text-xs font-bold rounded-t-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+              statusFilter === 'all'
+                ? 'bg-white text-slate-800 border-t-2 border-l border-r border-slate-200 border-t-slate-800 -mb-[1px] shadow-xs'
+                : 'text-ink-muted hover:text-ink'
+            }`}
+          >
+            <span>All Applicants</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-700">
+              {allRankings.length}
+            </span>
+          </button>
+        </div>
+
+        <div className="px-5 pt-4 pb-3 flex items-center justify-between flex-wrap gap-2">
           <h2 className="section-title">
-            Ranked Candidates ({rankingData?.ranked_candidates ?? rankingData?.rankings?.length ?? 0} of {rankingData?.total_applicants ?? 0})
+            {statusFilter === 'active' && `Active Ranked Candidates (${activeRankings.length} of ${allRankings.length})`}
+            {statusFilter === 'shortlisted' && `Shortlisted Candidates (${shortlistedRankings.length})`}
+            {statusFilter === 'rejected' && `Rejected Candidates (${rejectedRankings.length})`}
+            {statusFilter === 'all' && `All Applicants (${allRankings.length})`}
           </h2>
           <div className="flex items-center gap-2">
             <span className="badge badge-blue">Deterministic Weighted Ranking</span>
@@ -503,10 +586,19 @@ export const CandidateRankings = () => {
           <div className="p-5 space-y-2">
             {[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-12" />)}
           </div>
-        ) : !rankingData || rankingData.rankings?.length === 0 ? (
+        ) : !rankingData || displayedRankings.length === 0 ? (
           <div className="empty-state">
-            <h3>No Applicants Yet</h3>
-            <p>Candidates who apply to this job will appear here.</p>
+            <h3>
+              {statusFilter === 'active' && 'No Active Candidates in Pipeline'}
+              {statusFilter === 'shortlisted' && 'No Candidates Shortlisted Yet'}
+              {statusFilter === 'rejected' && 'No Rejected Candidates'}
+              {statusFilter === 'all' && 'No Applicants Yet'}
+            </h3>
+            <p>
+              {statusFilter === 'active'
+                ? 'All candidates for this job have been processed or moved to Rejected list.'
+                : 'Candidates who apply to this job will appear here.'}
+            </p>
           </div>
         ) : (
           <div className="table-scroll">
@@ -530,19 +622,21 @@ export const CandidateRankings = () => {
                 </tr>
               </thead>
               <tbody>
-                {rankingData.rankings.map((r) => {
+                {displayedRankings.map((r) => {
                   const cd = r.coding_display || {}
                   const comp = (key) => r.contributions?.[key]
+                  const isRejected = r.status?.toLowerCase() === 'rejected'
                   return (
-                    <tr key={r.candidate_id} className={r.rank <= 3 ? 'row-highlight' : ''}>
+                    <tr key={r.candidate_id} className={r.displayRank <= 3 && !isRejected ? 'row-highlight' : isRejected ? 'opacity-85 bg-slate-50/60' : ''}>
                       <td>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-extrabold ${
-                          r.rank === 1 ? 'bg-amber-100 text-amber-900 border border-amber-300' :
-                          r.rank === 2 ? 'bg-slate-100 text-slate-800 border border-slate-300' :
-                          r.rank === 3 ? 'bg-orange-100 text-orange-900 border border-orange-300' :
+                          isRejected ? 'bg-slate-100 text-slate-500 border border-slate-200' :
+                          r.displayRank === 1 ? 'bg-amber-100 text-amber-900 border border-amber-300' :
+                          r.displayRank === 2 ? 'bg-slate-100 text-slate-800 border border-slate-300' :
+                          r.displayRank === 3 ? 'bg-orange-100 text-orange-900 border border-orange-300' :
                           'font-semibold text-slate-700'
                         }`}>
-                          #{r.rank}
+                          #{r.displayRank}
                         </span>
                       </td>
                       <td>
@@ -595,7 +689,10 @@ export const CandidateRankings = () => {
                         <select
                           value={r.status?.toLowerCase() || 'applied'}
                           onChange={(e) => handleStatusChange(r.application_id, e.target.value)}
-                          className="input !py-1 !px-2 !text-[11px] !w-auto cursor-pointer"
+                          className={`input !py-1 !px-2 !text-[11px] !w-auto cursor-pointer font-semibold ${
+                            isRejected ? '!bg-rose-50 !border-rose-300 text-rose-700' :
+                            r.status?.toLowerCase() === 'shortlisted' ? '!bg-emerald-50 !border-emerald-300 text-emerald-700' : ''
+                          }`}
                         >
                           <option value="saved">Saved</option>
                           <option value="applied">Applied</option>
@@ -640,12 +737,24 @@ export const CandidateRankings = () => {
                           >
                             📅
                           </button>
-                          <button onClick={() => handleShortlist(r.candidate_id, r.name)} className="btn-success btn-sm !py-1 !px-2 !text-[11px]">
-                            Shortlist
-                          </button>
-                          <button onClick={() => handleReject(r.candidate_id, r.name)} className="btn-danger btn-sm !py-1 !px-2 !text-[11px]">
-                            Reject
-                          </button>
+                          {isRejected ? (
+                            <button
+                              onClick={() => handleStatusChange(r.application_id, 'applied')}
+                              className="btn-secondary btn-sm !py-1 !px-2 !text-[11px] text-brand border-brand hover:bg-brand/10 font-bold"
+                              title="Restore candidate to active pipeline"
+                            >
+                              ↩ Restore
+                            </button>
+                          ) : (
+                            <>
+                              <button onClick={() => handleShortlist(r.candidate_id, r.name)} className="btn-success btn-sm !py-1 !px-2 !text-[11px]">
+                                Shortlist
+                              </button>
+                              <button onClick={() => handleReject(r.candidate_id, r.name)} className="btn-danger btn-sm !py-1 !px-2 !text-[11px]">
+                                Reject
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
