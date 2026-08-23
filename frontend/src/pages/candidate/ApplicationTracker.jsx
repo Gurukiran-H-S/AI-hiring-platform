@@ -34,6 +34,43 @@ export const ApplicationTracker = () => {
   const [applications, setApplications] = useState([])
   const [loading, setLoading] = useState(true)
 
+  // Offer Letter Modal State
+  const [selectedOfferApp, setSelectedOfferApp] = useState(null)
+  const [candidateSig, setCandidateSig] = useState('')
+  const [respondingOffer, setRespondingOffer] = useState(false)
+
+  const handleOpenOfferModal = (app) => {
+    setSelectedOfferApp(app)
+    setCandidateSig('')
+  }
+
+  const handleRespondOffer = async (responseType) => {
+    if (!selectedOfferApp) return
+    if (responseType === 'accepted' && !candidateSig.trim()) {
+      toast.error('Please enter your full name as digital signature to accept.')
+      return
+    }
+    setRespondingOffer(true)
+    try {
+      await api.post(`/applications/${selectedOfferApp.id}/offer-letter/respond`, {
+        response: responseType,
+        signature: candidateSig
+      })
+      if (responseType === 'accepted') {
+        toast.success('🎉 Congratulations! You have successfully accepted the offer letter!')
+      } else {
+        toast('Offer letter response recorded.', { icon: 'ℹ️' })
+      }
+      setSelectedOfferApp(null)
+      fetchApplications()
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to submit offer response. Please try again.')
+    } finally {
+      setRespondingOffer(false)
+    }
+  }
+
   const fetchApplications = async () => {
     try {
       const { data } = await api.get('/applications/')
@@ -207,6 +244,51 @@ export const ApplicationTracker = () => {
                   </div>
                 )}
 
+                {/* Formal Offer Letter Banner */}
+                {app.offer_letter && (
+                  <div className={`p-4 rounded-xl border mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs transition-all ${
+                    app.offer_letter.status === 'accepted'
+                      ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+                      : app.offer_letter.status === 'declined'
+                      ? 'bg-slate-50 border-slate-300 text-slate-700'
+                      : 'bg-gradient-to-r from-amber-50/90 via-emerald-50/80 to-blue-50/80 border-emerald-300/80 text-emerald-950'
+                  }`}>
+                    <div className="flex items-start gap-3.5">
+                      <span className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shrink-0 shadow-xs ${
+                        app.offer_letter.status === 'accepted'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-amber-500 text-white animate-pulse'
+                      }`}>
+                        {app.offer_letter.status === 'accepted' ? '🎉' : '📜'}
+                      </span>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-sm text-slate-900">
+                            {app.offer_letter.status === 'accepted'
+                              ? 'Official Offer Accepted & Confirmed!'
+                              : 'Formal Employment Offer Letter Extended!'}
+                          </span>
+                          <span className={`badge text-[10px] font-extrabold uppercase py-0.5 px-2 ${
+                            app.offer_letter.status === 'accepted' ? 'badge-success' : 'badge-amber'
+                          }`}>
+                            {app.offer_letter.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-700">
+                          <strong>Compensation:</strong> <span className="text-emerald-700 font-bold">{app.offer_letter.salary_offered}</span> · <strong>Joining Date:</strong> {app.offer_letter.joining_date} · <strong>Model:</strong> {app.offer_letter.location_type}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleOpenOfferModal(app)}
+                      className="btn-primary btn-sm shrink-0 font-bold flex items-center gap-1.5 shadow-sm text-xs"
+                    >
+                      📜 {app.offer_letter.status === 'accepted' ? 'View Accepted Offer' : 'Review & Sign Offer'}
+                    </button>
+                  </div>
+                )}
+
                 {/* Cancelled Meeting Notice */}
                 {app.interview_status?.toLowerCase() === 'cancelled' && (
                   <div className="bg-rose-50 border border-rose-200/80 p-4 rounded-xl mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
@@ -343,6 +425,142 @@ export const ApplicationTracker = () => {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Official Offer Letter Viewer & Response Modal */}
+      {selectedOfferApp && selectedOfferApp.offer_letter && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs">
+          <div className="card !p-6 md:!p-8 w-full max-w-2xl space-y-6 page-slide-up max-h-[92vh] overflow-y-auto shadow-2xl bg-white border border-slate-200">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-slate-200 pb-4">
+              <div className="flex items-center gap-3">
+                <span className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-extrabold text-xl shadow-md">
+                  📜
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-extrabold text-slate-900">Employment Offer Letter</h2>
+                    <span className={`badge text-[10px] font-extrabold uppercase py-0.5 px-2 ${
+                      selectedOfferApp.offer_letter.status === 'accepted' ? 'badge-success' : 'badge-amber'
+                    }`}>
+                      {selectedOfferApp.offer_letter.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {selectedOfferApp.offer_letter.company_name || selectedOfferApp.company} · {selectedOfferApp.offer_letter.job_title}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedOfferApp(null)} className="btn-ghost btn-sm text-slate-400 hover:text-slate-700">✕</button>
+            </div>
+
+            {/* Offer Key Highlights Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Annual CTC / Salary</div>
+                <div className="text-sm font-extrabold text-emerald-700 font-mono mt-0.5">
+                  {selectedOfferApp.offer_letter.salary_offered}
+                </div>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Joining Date</div>
+                <div className="text-sm font-extrabold text-slate-800 mt-0.5">
+                  {selectedOfferApp.offer_letter.joining_date}
+                </div>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Department</div>
+                <div className="text-sm font-extrabold text-slate-800 mt-0.5 truncate">
+                  {selectedOfferApp.offer_letter.department || 'Engineering'}
+                </div>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Work Model</div>
+                <div className="text-sm font-extrabold text-blue-700 mt-0.5">
+                  {selectedOfferApp.offer_letter.location_type || 'Remote'}
+                </div>
+              </div>
+            </div>
+
+            {/* Formal Letter Document Body */}
+            <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-5 text-xs text-slate-800 leading-relaxed font-sans space-y-3 whitespace-pre-line border-l-4 border-l-emerald-600">
+              {selectedOfferApp.offer_letter.letter_body}
+            </div>
+
+            {/* Benefits & Perks */}
+            {selectedOfferApp.offer_letter.benefits && (
+              <div className="bg-emerald-50/50 border border-emerald-200 rounded-xl p-4 space-y-1">
+                <div className="text-[11px] font-bold uppercase text-emerald-800 flex items-center gap-1.5">
+                  <span>🎁 Included Benefits &amp; Perks</span>
+                </div>
+                <p className="text-xs text-emerald-950 font-medium">
+                  {selectedOfferApp.offer_letter.benefits}
+                </p>
+              </div>
+            )}
+
+            {/* Response Section */}
+            {selectedOfferApp.offer_letter.status === 'accepted' ? (
+              <div className="bg-emerald-100/70 border border-emerald-300 rounded-xl p-4 text-center space-y-1">
+                <div className="text-sm font-extrabold text-emerald-900 flex items-center justify-center gap-1.5">
+                  <span>✅ Offer Accepted &amp; Executed</span>
+                </div>
+                <p className="text-xs text-emerald-800">
+                  Signed by: <strong>{selectedOfferApp.offer_letter.candidate_signature}</strong> on {selectedOfferApp.offer_letter.responded_at || 'Recently'}. The talent acquisition team has been notified.
+                </p>
+              </div>
+            ) : selectedOfferApp.offer_letter.status === 'declined' ? (
+              <div className="bg-slate-100 border border-slate-300 rounded-xl p-4 text-center text-xs text-slate-600 font-medium">
+                This offer letter was declined on {selectedOfferApp.offer_letter.responded_at || 'Recently'}.
+              </div>
+            ) : (
+              <div className="space-y-4 pt-2 border-t border-slate-200">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                    ✍️ Digital Acceptance Signature (Type your Full Name to sign) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={candidateSig}
+                    onChange={(e) => setCandidateSig(e.target.value)}
+                    placeholder="e.g. Gurukiran H S"
+                    className="input font-semibold text-xs"
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={respondingOffer}
+                    onClick={() => handleRespondOffer('declined')}
+                    className="btn-danger btn-sm w-full sm:w-auto font-bold text-xs"
+                  >
+                    ✕ Decline Offer
+                  </button>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedOfferApp(null)}
+                      className="btn-secondary btn-sm"
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      disabled={respondingOffer}
+                      onClick={() => handleRespondOffer('accepted')}
+                      className="btn-success btn-sm font-extrabold text-xs shadow-md flex items-center gap-1.5 px-4"
+                    >
+                      {respondingOffer ? 'Signing & Accepting...' : '🎉 Accept & Sign Offer Letter'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

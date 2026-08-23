@@ -59,6 +59,17 @@ export const CandidateRankings = () => {
   const [location, setLocation] = useState('Online')
   const [interviewNotes, setInterviewNotes] = useState('Technical Round')
 
+  // Offer Letter State
+  const [showOfferModal, setShowOfferModal] = useState(false)
+  const [offerTarget, setOfferTarget] = useState(null)
+  const [offerSalary, setOfferSalary] = useState('$120,000 / year')
+  const [offerJoiningDate, setOfferJoiningDate] = useState('2026-09-15')
+  const [offerDepartment, setOfferDepartment] = useState('Engineering')
+  const [offerLocationType, setOfferLocationType] = useState('Remote')
+  const [offerBenefits, setOfferBenefits] = useState('Comprehensive Health & Dental Insurance, 401(k) Matching, Flexible PTO, Annual Learning Stipend ($2,000)')
+  const [offerNotes, setOfferNotes] = useState('We are thrilled by your performance and look forward to having you on the team!')
+  const [offerSending, setOfferSending] = useState(false)
+
   const draftTotal = weightDraft ? totalOf(weightDraft) : 0
   const draftValid = weightDraft && draftTotal === 100
 
@@ -216,11 +227,43 @@ export const CandidateRankings = () => {
   const handleShortlist = async (candidateId, name) => {
     try {
       await api.post('/recruiter/shortlist', { candidate_id: candidateId, job_id: selectedJobId })
-      toast.success(`${name || 'Candidate'} shortlisted`)
+      toast.success(`🎉 ${name || 'Candidate'} shortlisted! Candidate notified.`)
       fetchRankingsAndWeights()
     } catch (err) {
       console.error(err)
       toast.error('Failed to shortlist')
+    }
+  }
+
+  const handleOpenOfferModal = (candidate) => {
+    setOfferTarget(candidate)
+    setShowOfferModal(true)
+  }
+
+  const handleConfirmSendOffer = async (e) => {
+    e.preventDefault()
+    if (!offerTarget || !selectedJobId) return
+    setOfferSending(true)
+    try {
+      await api.post('/recruiter/offer-letter', {
+        candidate_id: offerTarget.candidate_id,
+        job_id: selectedJobId,
+        job_title: rankingData?.job_title || 'Software Engineer',
+        salary_offered: offerSalary,
+        joining_date: offerJoiningDate,
+        department: offerDepartment,
+        location_type: offerLocationType,
+        benefits: offerBenefits,
+        notes: offerNotes,
+      })
+      toast.success(`🎉 Formal Offer Letter sent to ${offerTarget.name}! Candidate notified.`)
+      setShowOfferModal(false)
+      fetchRankingsAndWeights()
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to send offer letter.')
+    } finally {
+      setOfferSending(false)
     }
   }
 
@@ -747,10 +790,13 @@ export const CandidateRankings = () => {
                             </button>
                           ) : (
                             <>
-                              <button onClick={() => handleShortlist(r.candidate_id, r.name)} className="btn-success btn-sm !py-1 !px-2 !text-[11px]">
+                              <button onClick={() => handleShortlist(r.candidate_id, r.name)} className="btn-success btn-sm !py-1 !px-2 !text-[11px]" title="Shortlist candidate">
                                 Shortlist
                               </button>
-                              <button onClick={() => handleReject(r.candidate_id, r.name)} className="btn-danger btn-sm !py-1 !px-2 !text-[11px]">
+                              <button onClick={() => handleOpenOfferModal(r)} className="btn-primary btn-sm !py-1 !px-2.5 !text-[11px] font-bold" title="Extend Official Offer Letter">
+                                📜 Offer
+                              </button>
+                              <button onClick={() => handleReject(r.candidate_id, r.name)} className="btn-danger btn-sm !py-1 !px-2 !text-[11px]" title="Reject candidate">
                                 Reject
                               </button>
                             </>
@@ -887,6 +933,126 @@ export const CandidateRankings = () => {
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={() => setShowScheduleModal(false)} className="btn-secondary btn-sm">Cancel</button>
                 <button type="submit" className="btn-primary btn-sm">Schedule Interview</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Send Formal Offer Letter Modal */}
+      {showOfferModal && offerTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 p-4 backdrop-blur-xs">
+          <div className="card !p-6 w-full max-w-xl space-y-4 page-slide-up max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">
+                  📜
+                </span>
+                <div>
+                  <h2 className="section-title !text-[16px]">Send Formal Offer Letter</h2>
+                  <p className="text-xs text-ink-muted">Extending job offer to <strong className="text-ink">{offerTarget.name}</strong></p>
+                </div>
+              </div>
+              <button onClick={() => setShowOfferModal(false)} className="btn-ghost btn-sm">✕</button>
+            </div>
+
+            <form onSubmit={handleConfirmSendOffer} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label">Annual Salary / Compensation *</label>
+                  <input
+                    type="text"
+                    required
+                    value={offerSalary}
+                    onChange={(e) => setOfferSalary(e.target.value)}
+                    placeholder="e.g. $120,000 / year or ₹18,00,000 CTC"
+                    className="input font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="field-label">Target Joining Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={offerJoiningDate}
+                    onChange={(e) => setOfferJoiningDate(e.target.value)}
+                    className="input"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label">Department / Team</label>
+                  <input
+                    type="text"
+                    value={offerDepartment}
+                    onChange={(e) => setOfferDepartment(e.target.value)}
+                    placeholder="e.g. Core Engineering"
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="field-label">Work Model</label>
+                  <select
+                    value={offerLocationType}
+                    onChange={(e) => setOfferLocationType(e.target.value)}
+                    className="input"
+                  >
+                    <option value="Remote">Remote</option>
+                    <option value="Hybrid">Hybrid</option>
+                    <option value="On-site">On-site</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="field-label">Benefits & Perks Breakdown</label>
+                <textarea
+                  rows={2}
+                  value={offerBenefits}
+                  onChange={(e) => setOfferBenefits(e.target.value)}
+                  placeholder="e.g. Health insurance, Equity stock options, Learning stipend"
+                  className="input resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="field-label">Executive Welcome Note / Custom Letter Message</label>
+                <textarea
+                  rows={3}
+                  value={offerNotes}
+                  onChange={(e) => setOfferNotes(e.target.value)}
+                  placeholder="Personalized message to the candidate..."
+                  className="input resize-none"
+                />
+              </div>
+
+              {/* Offer Letter Document Preview */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+                <div className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">Document Summary Preview</div>
+                <div className="text-slate-800 space-y-1">
+                  <div className="font-semibold text-slate-900">Position: {rankingData?.job_title || 'Software Engineer'} ({offerDepartment})</div>
+                  <div>Compensation: <strong className="text-emerald-700">{offerSalary}</strong> · Work Arrangement: <strong>{offerLocationType}</strong></div>
+                  <div>Expected Joining: <strong>{offerJoiningDate}</strong></div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => setShowOfferModal(false)}
+                  className="btn-secondary btn-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={offerSending}
+                  className="btn-primary btn-sm font-bold flex items-center gap-1.5"
+                >
+                  {offerSending ? 'Dispatching Offer...' : '🚀 Send Official Offer Letter'}
+                </button>
               </div>
             </form>
           </div>

@@ -5,7 +5,7 @@ AI Hiring Platform - Centralized Models Hub
 from app.models.user import User, CandidateProfile, RecruiterProfile, UserRole, EmailVerification
 from app.models.resume import Resume
 from app.models.job import Job, JobStatus, JobType, ExperienceLevel
-from app.models.application import Application, ApplicationStatus, SkillAssessment, CourseRecommendation
+from app.models.application import Application, ApplicationStatus, SkillAssessment, CourseRecommendation, OfferLetter
 from app.models.notification import Notification, NotificationType
 from app.models.interview import (
     Interview, InterviewType, InterviewStatus,
@@ -25,7 +25,7 @@ __all__ = [
     "User", "CandidateProfile", "RecruiterProfile", "UserRole", "EmailVerification",
     "Resume",
     "Job", "JobStatus", "JobType", "ExperienceLevel",
-    "Application", "ApplicationStatus", "SkillAssessment", "CourseRecommendation",
+    "Application", "ApplicationStatus", "SkillAssessment", "CourseRecommendation", "OfferLetter",
     "Notification", "NotificationType",
     "Interview", "InterviewType", "InterviewStatus",
     "MockInterview", "MockInterviewQuestion", "MockInterviewResponse",

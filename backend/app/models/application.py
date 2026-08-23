@@ -110,3 +110,33 @@ class LearningResource(Base):
     level = Column(String(50), default="Beginner")
     free_or_paid = Column(String(20), default="Free")
     description = Column(Text, nullable=True)
+
+
+class OfferLetter(Base):
+    __tablename__ = "offer_letters"
+
+    id = Column(PortableUUID(), primary_key=True, default=uuid.uuid4)
+    application_id = Column(PortableUUID(), ForeignKey("applications.id"), nullable=False, index=True)
+    candidate_id = Column(PortableUUID(), ForeignKey("users.id"), nullable=False, index=True)
+    recruiter_id = Column(PortableUUID(), ForeignKey("users.id"), nullable=False, index=True)
+    job_id = Column(PortableUUID(), ForeignKey("jobs.id"), nullable=False, index=True)
+
+    job_title = Column(String(255), nullable=False)
+    company_name = Column(String(255), nullable=True)
+    salary_offered = Column(String(100), nullable=False)
+    joining_date = Column(String(100), nullable=False)
+    department = Column(String(100), nullable=True, default="Engineering")
+    location_type = Column(String(50), nullable=True, default="Remote")
+    benefits = Column(Text, nullable=True)
+    letter_body = Column(Text, nullable=True)
+    status = Column(String(50), default="sent")  # sent, accepted, declined, withdrawn
+
+    sent_at = Column(DateTime, default=datetime.utcnow)
+    responded_at = Column(DateTime, nullable=True)
+    candidate_signature = Column(String(255), nullable=True)
+
+    # Relationships
+    application = relationship("Application", backref="offer_letters")
+    candidate = relationship("User", foreign_keys=[candidate_id])
+    recruiter = relationship("User", foreign_keys=[recruiter_id])
+    job = relationship("Job", foreign_keys=[job_id])

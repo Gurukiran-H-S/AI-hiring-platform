@@ -59,6 +59,18 @@ class RejectRequest(BaseModel):
     reason: Optional[str] = "Skills mismatch"
 
 
+class OfferLetterCreateRequest(BaseModel):
+    candidate_id: UUID
+    job_id: UUID
+    job_title: Optional[str] = None
+    salary_offered: str
+    joining_date: str
+    department: Optional[str] = "Engineering"
+    location_type: Optional[str] = "Remote"
+    benefits: Optional[str] = "Health & Dental Insurance, Flexible Working Hours, 401(k) Matching, Annual Learning Stipend"
+    notes: Optional[str] = "We are thrilled to extend this formal offer of employment to you!"
+
+
 class ScheduleInterviewRequest(BaseModel):
     candidate_id: UUID
     job_id: UUID
@@ -724,11 +736,14 @@ async def shortlist_candidate(
     current_user: User = Depends(get_current_recruiter),
     db: Session = Depends(get_db),
 ):
-    """Shortlist a candidate for a job."""
+    """Shortlist a candidate for a job and dispatch real-time candidate notification."""
     app = db.query(Application).filter(
         Application.candidate_id == req.candidate_id,
         Application.job_id == req.job_id
     ).first()
+
+    job = db.query(Job).filter(Job.id == req.job_id).first()
+    job_title = job.title if job else "Applied Position"
 
     if not app:
         app = Application(
@@ -745,8 +760,120 @@ async def shortlist_candidate(
         app.is_shortlisted = True
         app.recruiter_notes = "Candidate shortlisted for next interview round"
 
+    # Dispatch in-app notification to candidate
+    notif = Notification(
+        user_id=req.candidate_id,
+        type=NotificationType.SHORTLISTED,
+        title="🎉 Congratulations! You have been Shortlisted",
+        message=f"Great news! Your application for {job_title} has been shortlisted by the recruiter following interview & profile evaluation.",
+        link="/candidate/applications"
+    )
+    db.add(notif)
     db.commit()
     return {"message": "Candidate shortlisted successfully.", "status": "SHORTLISTED"}
+
+
+@router.post("/offer-letter")
+async def send_offer_letter(
+    req: OfferLetterCreateRequest,
+    current_user: User = Depends(get_current_recruiter),
+    db: Session = Depends(get_db),
+):
+    """Generate and dispatch an official offer letter to a candidate."""
+    from app.models.application import OfferLetter
+
+    job = db.query(Job).filter(Job.id == req.job_id).first()
+    candidate = db.query(User).filter(User.id == req.candidate_id).first()
+
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found.")
+
+    job_title = req.job_title or (job.title if job else "Software Engineer")
+    company_name = (job.company if job else "Enterprise Tech Partner") or "HireAI Platform"
+
+    app = db.query(Application).filter(
+        Application.candidate_id == req.candidate_id,
+        Application.job_id == req.job_id
+    ).first()
+
+    if not app:
+        app = Application(
+            candidate_id=req.candidate_id,
+            job_id=req.job_id,
+            status=ApplicationStatus.OFFERED,
+            recruiter_notes=f"Offer extended: {req.salary_offered}, Joining: {req.joining_date}"
+        )
+        db.add(app)
+        db.flush()
+    else:
+        app.status = ApplicationStatus.OFFERED
+        app.recruiter_notes = f"Offer Letter extended for {job_title} ({req.salary_offered}, Starting {req.joining_date})"
+
+    # Generate formal letter body
+    letter_body = f"""### Official Employment Offer Letter
+
+**Date:** {datetime.utcnow().strftime('%B %d, %Y')}
+
+**Dear {candidate.full_name},**
+
+On behalf of **{company_name}**, we are pleased to offer you the position of **{job_title}** within our **{req.department}** division.
+
+#### 1. Key Offer Terms:
+- **Role Title:** {job_title}
+- **Department:** {req.department}
+- **Work Arrangement:** {req.location_type}
+- **Annual Total Compensation (CTC):** {req.salary_offered}
+- **Commencement / Joining Date:** {req.joining_date}
+
+#### 2. Benefits & Allowances:
+{req.benefits or 'Comprehensive healthcare coverage, flexible leave policy, and professional development allowances.'}
+
+#### 3. Executive Note:
+*{req.notes or 'We were thoroughly impressed by your skills and look forward to having you on the team!' }*
+
+Sincerely,  
+**Talent Acquisition Team**  
+*{company_name}*
+"""
+
+    offer = OfferLetter(
+        application_id=app.id,
+        candidate_id=candidate.id,
+        recruiter_id=current_user.id,
+        job_id=req.job_id,
+        job_title=job_title,
+        company_name=company_name,
+        salary_offered=req.salary_offered,
+        joining_date=req.joining_date,
+        department=req.department,
+        location_type=req.location_type,
+        benefits=req.benefits,
+        letter_body=letter_body,
+        status="sent",
+        sent_at=datetime.utcnow()
+    )
+    db.add(offer)
+
+    # Dispatch in-app notification to candidate
+    notif = Notification(
+        user_id=candidate.id,
+        type=NotificationType.OFFER_RECEIVED,
+        title="📜 Formal Offer Letter Received!",
+        message=f"🎉 Congratulations! You have received a formal offer letter for {job_title} at {company_name} with compensation of {req.salary_offered}. Click to review details and accept!",
+        link="/candidate/applications"
+    )
+    db.add(notif)
+    db.commit()
+    db.refresh(offer)
+
+    return {
+        "message": "Offer Letter dispatched successfully to candidate!",
+        "offer_id": str(offer.id),
+        "status": "sent",
+        "job_title": job_title,
+        "salary_offered": req.salary_offered,
+        "joining_date": req.joining_date
+    }
 
 
 @router.post("/reject")

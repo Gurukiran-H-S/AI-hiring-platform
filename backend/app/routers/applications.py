@@ -31,6 +31,11 @@ class StatusUpdateRequest(BaseModel):
     notes: Optional[str] = None
 
 
+class OfferResponseRequest(BaseModel):
+    response: str = "accepted"  # accepted | declined
+    signature: Optional[str] = None
+
+
 @router.get("/")
 async def list_candidate_applications(
     current_user: User = Depends(get_current_candidate),
@@ -87,10 +92,37 @@ async def list_candidate_applications(
             interview_type = "technical"
             interview_status = "scheduled"
 
+        from app.models.application import OfferLetter
+        offer = db.query(OfferLetter).filter(
+            (OfferLetter.application_id == app.id) |
+            ((OfferLetter.candidate_id == app.candidate_id) & (OfferLetter.job_id == app.job_id))
+        ).order_by(OfferLetter.sent_at.desc()).first()
+
+        offer_letter_data = None
+        if offer:
+            offer_letter_data = {
+                "id": str(offer.id),
+                "job_title": offer.job_title,
+                "company_name": offer.company_name,
+                "salary_offered": offer.salary_offered,
+                "joining_date": offer.joining_date,
+                "department": offer.department,
+                "location_type": offer.location_type,
+                "benefits": offer.benefits,
+                "letter_body": offer.letter_body,
+                "status": offer.status,
+                "sent_at": offer.sent_at.strftime("%d %b %Y at %I:%M %p") if offer.sent_at else None,
+                "responded_at": offer.responded_at.strftime("%d %b %Y") if offer.responded_at else None,
+                "candidate_signature": offer.candidate_signature
+            }
+
         # Build comprehensive activity timeline
         timeline = [
             {"date": app.applied_at.strftime("%d %b") if app.applied_at else "Today", "event": "Application submitted"}
         ]
+        if app.is_shortlisted or app.status.value in ["shortlisted", "interview_scheduled", "interview", "offered", "hired"]:
+            timeline.append({"date": "Shortlist", "event": "Candidate shortlisted for evaluation"})
+
         for m in meeting_logs:
             if m["status"] == "cancelled":
                 timeline.append({"date": "Log", "event": f"Interview meeting cancelled ({m['scheduled_at']})"})
@@ -98,6 +130,11 @@ async def list_candidate_applications(
                 timeline.append({"date": "Log", "event": f"Interview rescheduled to {m['scheduled_at']}"})
             elif m["status"] in ["scheduled", "confirmed"]:
                 timeline.append({"date": "Log", "event": f"Interview scheduled for {m['scheduled_at']}"})
+
+        if offer_letter_data:
+            timeline.append({"date": "Offer", "event": f"Official Offer Letter Extended ({offer_letter_data['salary_offered']})"})
+            if offer_letter_data["status"] == "accepted":
+                timeline.append({"date": "Hired", "event": "Offer Letter Accepted by Candidate 🎉"})
 
         timeline.append({"date": "Current", "event": f"Status: {app.status.value.replace('_', ' ').title()}"})
 
@@ -117,10 +154,68 @@ async def list_candidate_applications(
             "interview_type": interview_type,
             "interview_status": interview_status,
             "meeting_logs": meeting_logs,
+            "offer_letter": offer_letter_data,
             "timeline": timeline
         })
 
     return results
+
+
+@router.post("/{app_id}/offer-letter/respond")
+async def respond_to_offer_letter(
+    app_id: UUID,
+    req: OfferResponseRequest,
+    current_user: User = Depends(get_current_candidate),
+    db: Session = Depends(get_db),
+):
+    """Candidate accepts or declines an extended offer letter."""
+    from app.models.application import OfferLetter, Application, ApplicationStatus
+    from app.models.notification import Notification, NotificationType
+
+    app = db.query(Application).filter(
+        Application.id == app_id,
+        Application.candidate_id == current_user.id
+    ).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found.")
+
+    offer = db.query(OfferLetter).filter(OfferLetter.application_id == app_id).order_by(OfferLetter.sent_at.desc()).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer letter not found.")
+
+    if req.response.lower() == "accepted":
+        offer.status = "accepted"
+        offer.responded_at = datetime.utcnow()
+        offer.candidate_signature = req.signature or current_user.full_name
+        app.status = ApplicationStatus.HIRED
+        app.recruiter_notes = f"Candidate accepted offer letter on {datetime.utcnow().strftime('%d %b %Y')}."
+
+        # Notify recruiter
+        notif = Notification(
+            user_id=offer.recruiter_id,
+            type=NotificationType.APPLICATION_STATUS,
+            title="🎉 Offer Letter Accepted by Candidate!",
+            message=f"{current_user.full_name} has accepted the offer letter for {offer.job_title}! Ready for onboarding.",
+            link="/recruiter/candidates"
+        )
+        db.add(notif)
+    else:
+        offer.status = "declined"
+        offer.responded_at = datetime.utcnow()
+        app.status = ApplicationStatus.WITHDRAWN
+        app.recruiter_notes = f"Candidate declined offer letter on {datetime.utcnow().strftime('%d %b %Y')}."
+
+        notif = Notification(
+            user_id=offer.recruiter_id,
+            type=NotificationType.APPLICATION_STATUS,
+            title="Offer Letter Declined",
+            message=f"{current_user.full_name} has declined the offer letter for {offer.job_title}.",
+            link="/recruiter/candidates"
+        )
+        db.add(notif)
+
+    db.commit()
+    return {"message": f"Offer letter {offer.status} successfully.", "status": offer.status}
 
 
 @router.post("/track-external")
