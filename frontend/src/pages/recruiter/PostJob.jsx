@@ -70,21 +70,21 @@ export const PostJob = () => {
   }
 
   return (
-    <div className="space-y-8 w-full max-w-5xl mx-auto text-white">
+    <div className="space-y-8 w-full max-w-5xl mx-auto text-ink">
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent font-display">
+        <h1 className="page-title">
           ➕ Post a New Job Opportunity
         </h1>
-        <p className="text-slate-400 text-sm mt-1">
+        <p className="text-ink-3 text-sm mt-1">
           Define job requirements, required technical skills, and candidate expectations.
         </p>
       </div>
 
-      <div className="glass-card p-8 border border-white/10 rounded-2xl bg-white/5 backdrop-blur-md">
+      <div className="card p-8">
         <form onSubmit={handleSubmit} className="space-y-6 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Job Title *</label>
+              <label className="field-label">Job Title *</label>
               <input
                 type="text"
                 name="title"
@@ -92,26 +92,26 @@ export const PostJob = () => {
                 placeholder="e.g. Senior Machine Learning Engineer"
                 value={formData.title}
                 onChange={handleChange}
-                className="w-full bg-[#0a0b14] border border-white/15 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
+                className="input"
               />
             </div>
 
             <div>
-              <label className="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Company Name *</label>
+              <label className="field-label">Company Name *</label>
               <input
                 type="text"
                 name="company"
                 required
                 value={formData.company}
                 onChange={handleChange}
-                className="w-full bg-[#0a0b14] border border-white/15 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
+                className="input"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Required Skills (Comma-separated) *</label>
+              <label className="field-label">Required Skills (Comma-separated) *</label>
               <input
                 type="text"
                 name="required_skills"
@@ -119,50 +119,50 @@ export const PostJob = () => {
                 placeholder="Python, SQL, Machine Learning, Docker"
                 value={formData.required_skills}
                 onChange={handleChange}
-                className="w-full bg-[#0a0b14] border border-white/15 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
+                className="input"
               />
             </div>
 
             <div>
-              <label className="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Preferred Skills</label>
+              <label className="field-label">Preferred Skills</label>
               <input
                 type="text"
                 name="preferred_skills"
                 placeholder="AWS, PyTorch, Kubernetes"
                 value={formData.preferred_skills}
                 onChange={handleChange}
-                className="w-full bg-[#0a0b14] border border-white/15 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
+                className="input"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Min Experience (Years)</label>
+              <label className="field-label">Min Experience (Years)</label>
               <input
                 type="number"
                 name="min_experience_years"
                 min="0"
                 value={formData.min_experience_years}
                 onChange={handleChange}
-                className="w-full bg-[#0a0b14] border border-white/15 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
+                className="input"
               />
             </div>
 
             <div>
-              <label className="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Max Experience (Years)</label>
+              <label className="field-label">Max Experience (Years)</label>
               <input
                 type="number"
                 name="max_experience_years"
                 min="0"
                 value={formData.max_experience_years}
                 onChange={handleChange}
-                className="w-full bg-[#0a0b14] border border-white/15 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
+                className="input"
               />
             </div>
 
             <div>
-              <label className="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Location *</label>
+              <label className="field-label">Location *</label>
               <input
                 type="text"
                 name="location"
@@ -170,19 +170,19 @@ export const PostJob = () => {
                 placeholder="Bengaluru, India"
                 value={formData.location}
                 onChange={handleChange}
-                className="w-full bg-[#0a0b14] border border-white/15 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
+                className="input"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Employment Type</label>
+              <label className="field-label">Employment Type</label>
               <select
                 name="job_type"
                 value={formData.job_type}
                 onChange={handleChange}
-                className="w-full bg-[#0a0b14] border border-white/15 rounded-xl p-3 text-white"
+                className="input"
               >
                 <option value="Full-time">Full Time</option>
                 <option value="Part-time">Part Time</option>
@@ -192,24 +192,24 @@ export const PostJob = () => {
             </div>
 
             <div>
-              <label className="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Min Salary (INR / Yr)</label>
+              <label className="field-label">Min Salary (INR / Yr)</label>
               <input
                 type="number"
                 name="salary_min"
                 value={formData.salary_min}
                 onChange={handleChange}
-                className="w-full bg-[#0a0b14] border border-white/15 rounded-xl p-3 text-white"
+                className="input"
               />
             </div>
 
             <div>
-              <label className="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Max Salary (INR / Yr)</label>
+              <label className="field-label">Max Salary (INR / Yr)</label>
               <input
                 type="number"
                 name="salary_max"
                 value={formData.salary_max}
                 onChange={handleChange}
-                className="w-full bg-[#0a0b14] border border-white/15 rounded-xl p-3 text-white"
+                className="input"
               />
             </div>
           </div>
@@ -221,13 +221,13 @@ export const PostJob = () => {
               name="is_remote"
               checked={formData.is_remote}
               onChange={handleChange}
-              className="w-4 h-4 rounded text-indigo-500 bg-[#0a0b14] border-white/20"
+              className="w-4 h-4 rounded accent-[#0A66C2] border-line"
             />
-            <label htmlFor="is_remote" className="text-slate-300">Allow Remote Work</label>
+            <label htmlFor="is_remote" className="text-ink-2">Allow Remote Work</label>
           </div>
 
           <div>
-            <label className="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Full Job Description *</label>
+            <label className="field-label">Full Job Description *</label>
             <textarea
               name="description"
               rows={5}
@@ -235,22 +235,22 @@ export const PostJob = () => {
               placeholder="Describe the job duties, role requirements, team structure, and expectations..."
               value={formData.description}
               onChange={handleChange}
-              className="w-full bg-[#0a0b14] border border-white/15 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
+              className="input"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+          <div className="flex justify-end gap-3 pt-4 border-t border-line">
             <button
               type="button"
               onClick={() => navigate('/recruiter/jobs')}
-              className="px-5 py-2.5 bg-white/10 hover:bg-white/15 rounded-xl text-slate-300 font-semibold"
+              className="btn-secondary btn-sm"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary px-6 py-2.5 font-semibold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-indigo-500/25"
+              className="btn-primary btn-sm flex items-center gap-2"
             >
               {loading ? 'Posting Job...' : 'POST JOB NOW 🚀'}
             </button>
@@ -260,25 +260,25 @@ export const PostJob = () => {
 
       {/* Pop-Up Modal when Job is Posted Successfully */}
       {postedJobSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="glass-card p-8 rounded-2xl max-w-lg w-full bg-[#0d0e19] border border-emerald-500/40 text-center space-y-4 shadow-2xl animate-fade-in">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-3xl text-emerald-400 mx-auto">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4">
+          <div className="bg-white rounded-xl border border-line shadow-xl max-w-lg w-full p-6 text-center space-y-4 animate-fade-in">
+            <div className="w-16 h-16 rounded-full bg-ok-bg border border-green-200 flex items-center justify-center text-3xl mx-auto">
               🎉
             </div>
 
-            <h2 className="text-2xl font-bold font-display bg-gradient-to-r from-emerald-400 to-indigo-400 bg-clip-text text-transparent">
+            <h2 className="page-title">
               Your Job Has Been Posted!
             </h2>
 
-            <div className="bg-black/40 p-4 rounded-xl border border-white/10 text-xs text-slate-300 space-y-2 text-left font-mono">
-              <div><strong className="text-white">Job Title:</strong> {postedJobSuccess.title}</div>
-              <div><strong className="text-white">Company:</strong> {postedJobSuccess.company}</div>
-              <div className="text-emerald-400 font-bold pt-1 border-t border-white/5">
+            <div className="bg-page p-4 rounded-xl border border-line text-xs text-ink-2 space-y-2 text-left font-mono">
+              <div><strong className="text-ink">Job Title:</strong> {postedJobSuccess.title}</div>
+              <div><strong className="text-ink">Company:</strong> {postedJobSuccess.company}</div>
+              <div className="text-ok font-bold pt-1 border-t border-line">
                 ✓ Status: Active & Published to Candidate Portal
               </div>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className="text-xs text-ink-2 leading-relaxed">
               This job position is now live in the system and will immediately be reflected in the candidate job search portal for job seekers to view, match ATS scores, and apply!
             </p>
 
@@ -302,13 +302,13 @@ export const PostJob = () => {
                     salary_max: 1200000,
                   })
                 }}
-                className="px-4 py-2.5 bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-semibold rounded-xl"
+                className="btn-secondary btn-sm"
               >
                 + Post Another Job
               </button>
               <button
                 onClick={() => navigate('/recruiter/jobs')}
-                className="btn-primary px-5 py-2.5 text-xs font-semibold rounded-xl"
+                className="btn-primary btn-sm"
               >
                 View in Manage Jobs 💼
               </button>

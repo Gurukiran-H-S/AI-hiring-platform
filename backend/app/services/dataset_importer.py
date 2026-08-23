@@ -314,10 +314,11 @@ SEED_PROBLEMS = [
 def seed_default_problems(db: Session):
     """Seed comprehensive problem set into database."""
     for item in SEED_PROBLEMS:
-        tc_data = item.pop("test_cases", [])
+        tc_data = item.get("test_cases", [])
+        prob_dict = {k: v for k, v in item.items() if k != "test_cases"}
         existing = db.query(CodingProblem).filter(CodingProblem.slug == item["slug"]).first()
         if not existing:
-            problem = CodingProblem(**item)
+            problem = CodingProblem(**prob_dict)
             db.add(problem)
             db.flush()
 
@@ -329,6 +330,18 @@ def seed_default_problems(db: Session):
                     is_hidden=tc.get("is_hidden", True),
                 )
                 db.add(testcase)
+        else:
+            # Ensure existing problems have their test cases seeded
+            existing_tcs = db.query(TestCase).filter(TestCase.problem_id == existing.id).count()
+            if existing_tcs == 0 and tc_data:
+                for tc in tc_data:
+                    testcase = TestCase(
+                        problem_id=existing.id,
+                        input_data=tc["input_data"],
+                        expected_output=tc["expected_output"],
+                        is_hidden=tc.get("is_hidden", True),
+                    )
+                    db.add(testcase)
 
     db.commit()
 

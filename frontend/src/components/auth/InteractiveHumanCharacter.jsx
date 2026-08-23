@@ -37,40 +37,40 @@ export const InteractiveHumanCharacter = ({ activeState = 'IDLE' }) => {
   return (
     <div className="flex flex-col items-center justify-center p-2 select-none relative z-20 transition-all duration-500 w-full max-w-sm mx-auto">
       {/* Speech Bubble */}
-      <div className="mb-3 bg-[#0d0e19]/90 border border-indigo-500/40 text-indigo-200 text-xs font-semibold px-4 py-2 rounded-2xl shadow-xl backdrop-blur-md animate-scale-up flex items-center gap-2 max-w-xs text-center font-display">
+      <div className="mb-3 bg-white border border-line text-brand text-xs font-semibold px-4 py-2 rounded-2xl shadow-sm animate-scale-up flex items-center gap-2 max-w-xs text-center font-display">
         <span>{statePrompts[activeState] || statePrompts.IDLE}</span>
       </div>
 
       {/* Floating AI Recruitment Context Badges */}
       <div className="relative w-full max-w-[280px] h-[340px] flex items-center justify-center">
         {/* Ambient Halo */}
-        <div className="absolute w-52 h-52 rounded-full bg-gradient-to-tr from-indigo-500/15 via-purple-500/15 to-emerald-500/15 filter blur-2xl animate-pulse"></div>
+        <div className="absolute w-52 h-52 rounded-full bg-brand-light filter blur-2xl"></div>
 
         {/* Floating Card 1: Resume Analyzed */}
-        <div className="absolute top-2 left-0 bg-[#0d0e19]/90 border border-emerald-500/40 px-2.5 py-1 rounded-xl shadow-lg backdrop-blur-md animate-float flex items-center gap-1.5 text-[10px] text-emerald-300 font-semibold z-30">
+        <div className="absolute top-2 left-0 card !p-0 px-2.5 py-1 flex items-center gap-1.5 text-[10px] text-ok font-semibold z-30">
           <span>📄 Resume Analyzed ✓</span>
         </div>
 
         {/* Floating Card 2: ATS Score */}
-        <div className="absolute top-8 -right-2 bg-[#0d0e19]/90 border border-indigo-500/40 px-2.5 py-1 rounded-xl shadow-lg backdrop-blur-md animate-float-delayed flex items-center gap-1.5 text-[10px] z-30">
-          <span className="text-indigo-300 font-bold font-mono">ATS SCORE</span>
-          <span className="bg-indigo-500/20 text-indigo-200 px-1.5 py-0.5 rounded font-mono font-bold">87% ✓</span>
+        <div className="absolute top-8 -right-2 card !p-0 px-2.5 py-1 flex items-center gap-1.5 text-[10px] z-30">
+          <span className="text-brand font-bold font-mono">ATS SCORE</span>
+          <span className="bg-brand-light text-brand px-1.5 py-0.5 rounded font-mono font-bold">87% ✓</span>
         </div>
 
         {/* Floating Card 3: Skill Match */}
-        <div className="absolute bottom-16 -left-3 bg-[#0d0e19]/90 border border-purple-500/40 px-2.5 py-1 rounded-xl shadow-lg backdrop-blur-md animate-float flex items-center gap-1.5 text-[10px] text-purple-300 font-semibold z-30">
+        <div className="absolute bottom-16 -left-3 card !p-0 px-2.5 py-1 flex items-center gap-1.5 text-[10px] text-brand font-semibold z-30">
           <span>🧠 Skill Match 92%</span>
         </div>
 
         {/* Floating Context Badge for States */}
         {activeState === 'OTP_WAITING' && (
-          <div className="absolute top-24 right-0 bg-emerald-500/25 border border-emerald-500/50 px-3 py-1.5 rounded-2xl animate-bounce flex items-center gap-1.5 text-xs text-emerald-300 font-bold z-40 shadow-xl">
+          <div className="absolute top-24 right-0 bg-ok-soft border border-ok/30 px-3 py-1.5 rounded-2xl animate-bounce flex items-center gap-1.5 text-xs text-ok font-bold z-40 shadow-sm">
             <span className="text-base">📧</span> Check Email
           </div>
         )}
 
         {activeState === 'SUCCESS' && (
-          <div className="absolute top-24 right-0 bg-emerald-500/30 border border-emerald-500/60 px-3 py-1.5 rounded-2xl animate-scale-up flex items-center gap-1.5 text-xs text-emerald-300 font-bold z-40 shadow-xl">
+          <div className="absolute top-24 right-0 bg-ok-soft border border-ok/30 px-3 py-1.5 rounded-2xl animate-scale-up flex items-center gap-1.5 text-xs text-ok font-bold z-40 shadow-sm">
             <span className="text-base">✓</span> Email Verified!
           </div>
         )}
@@ -123,7 +123,7 @@ export const InteractiveHumanCharacter = ({ activeState = 'IDLE' }) => {
           </defs>
 
           {/* Ground Shadow */}
-          <ellipse cx="100" cy="305" rx="60" ry="8" fill="#000" opacity="0.35" />
+          <ellipse cx="100" cy="305" rx="60" ry="8" fill="#172B4D" opacity="0.12" />
 
           {/* 1. LEGS & DARK TROUSERS (Relaxed Standing Pose, Right Leg Slightly Cross-Angled) */}
           <g>

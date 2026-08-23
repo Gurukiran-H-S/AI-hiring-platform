@@ -67,3 +67,14 @@ class CandidateSkillEvaluation(Base):
 
     candidate = relationship("User")
     job = relationship("Job")
+
+class WeightAuditLog(Base):
+    """Audit trail for recruiter weight configuration changes."""
+    __tablename__ = "weight_audit_logs"
+
+    id = Column(PortableUUID(), primary_key=True, default=uuid.uuid4)
+    recruiter_id = Column(PortableUUID(), ForeignKey("users.id"), nullable=False, index=True)
+    job_id = Column(PortableUUID(), ForeignKey("jobs.id"), nullable=False, index=True)
+    old_weights = Column(JSON, nullable=True)
+    new_weights = Column(JSON, nullable=True)
+    changed_at = Column(DateTime, default=datetime.utcnow)

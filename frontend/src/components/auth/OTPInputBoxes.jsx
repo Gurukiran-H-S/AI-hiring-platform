@@ -54,20 +54,20 @@ export const OTPInputBoxes = ({ value, onChange, onVerify, onResend, loading, er
             value={digits[idx] || ''}
             onChange={(e) => handleDigitChange(idx, e)}
             onKeyDown={(e) => handleKeyDown(idx, e)}
-            className={`w-12 h-14 text-center font-mono font-bold text-2xl rounded-2xl border bg-black/40 text-white transition-all duration-200 focus:outline-none ${
+            className={`input w-12 h-14 text-center font-mono font-bold text-2xl rounded-2xl transition-all duration-200 focus:outline-none ${
               digits[idx]
-                ? 'border-indigo-500 bg-indigo-500/10 shadow-md shadow-indigo-500/20 scale-105'
-                : 'border-white/15 hover:border-white/30 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                ? 'border-brand bg-brand-light text-ink scale-105'
+                : 'border-line hover:border-ink-faint focus:border-brand'
             }`}
           />
         ))}
       </div>
 
       {/* Countdown Timer & Resend */}
-      <div className="flex items-center justify-between text-xs text-slate-400 border-t border-b border-white/5 py-3">
+      <div className="flex items-center justify-between text-xs text-ink-soft border-t border-b border-line-soft py-3">
         <div className="flex items-center gap-2">
           <span>⏱️ Expires in:</span>
-          <span className={`font-mono font-bold ${timer < 60 ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>
+          <span className={`font-mono font-bold ${timer < 60 ? 'text-bad animate-pulse' : 'text-ok'}`}>
             {formatTimer(timer)}
           </span>
         </div>
@@ -79,7 +79,7 @@ export const OTPInputBoxes = ({ value, onChange, onVerify, onResend, loading, er
             onResend()
           }}
           disabled={loading || timer > 270}
-          className="text-indigo-400 hover:text-indigo-300 font-semibold disabled:text-slate-600 disabled:cursor-not-allowed"
+          className="text-brand hover:text-brand-dark font-semibold disabled:text-ink-faint disabled:cursor-not-allowed"
         >
           Resend Code
         </button>
@@ -90,7 +90,7 @@ export const OTPInputBoxes = ({ value, onChange, onVerify, onResend, loading, er
         type="button"
         onClick={onVerify}
         disabled={loading || value.length < 6}
-        className="btn-primary w-full py-3.5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 disabled:opacity-50"
+        className="btn-primary w-full py-3.5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
       >
         {loading ? (
           <span className="flex items-center gap-2">

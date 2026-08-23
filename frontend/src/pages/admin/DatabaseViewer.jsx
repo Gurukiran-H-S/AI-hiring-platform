@@ -43,13 +43,13 @@ export const DatabaseViewer = () => {
   }
 
   return (
-    <div className="space-y-8 w-full max-w-7xl mx-auto text-white">
+    <div className="space-y-8 w-full max-w-7xl mx-auto text-ink">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent font-display">
+          <h1 className="page-title text-ink font-display">
             🗄️ PostgreSQL Database Inspector & Schema Explorer
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-ink-3 text-sm mt-1">
             Live database inspector for project evaluation, faculty demonstration, table schemas, and live record inspection.
           </p>
         </div>
@@ -65,35 +65,35 @@ export const DatabaseViewer = () => {
       {loadingSchema ? (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 bg-white/5 rounded-2xl animate-pulse"></div>
+            <div key={i} className="skeleton h-28 rounded-xl"></div>
           ))}
         </div>
       ) : (
         <>
           {/* Database Summary Header */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 text-center">
-              <div className="text-xs text-slate-400 uppercase tracking-wider mb-1 font-display">Database Engine</div>
-              <div className="text-2xl font-extrabold text-emerald-400 font-mono uppercase">{schemaData?.database_engine || 'PostgreSQL'}</div>
-              <div className="text-[11px] text-slate-500 mt-1 truncate">{schemaData?.database_url}</div>
+            <div className="card p-6 text-center">
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-ink-3 mb-1 font-display">Database Engine</div>
+              <div className="text-2xl font-bold text-ok font-mono uppercase">{schemaData?.database_engine || 'PostgreSQL'}</div>
+              <div className="text-[11px] text-ink-3 mt-1 truncate">{schemaData?.database_url}</div>
             </div>
 
-            <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 text-center">
-              <div className="text-xs text-slate-400 uppercase tracking-wider mb-1 font-display">Total Database Tables</div>
-              <div className="text-4xl font-extrabold text-indigo-400 font-display my-1">{schemaData?.total_tables || 0}</div>
-              <div className="text-[11px] text-slate-500">Relational PostgreSQL Tables</div>
+            <div className="card p-6 text-center">
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-ink-3 mb-1 font-display">Total Database Tables</div>
+              <div className="text-4xl font-bold text-brand font-display my-1">{schemaData?.total_tables || 0}</div>
+              <div className="text-[11px] text-ink-3">Relational PostgreSQL Tables</div>
             </div>
 
-            <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 text-center">
-              <div className="text-xs text-slate-400 uppercase tracking-wider mb-1 font-display">Selected Table</div>
-              <div className="text-2xl font-extrabold text-amber-400 font-mono my-1 truncate">{selectedTable || 'None'}</div>
-              <div className="text-[11px] text-slate-500">{tableData?.row_count || 0} Records Loaded</div>
+            <div className="card p-6 text-center">
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-ink-3 mb-1 font-display">Selected Table</div>
+              <div className="text-2xl font-bold text-warn font-mono my-1 truncate">{selectedTable || 'None'}</div>
+              <div className="text-[11px] text-ink-3">{tableData?.row_count || 0} Records Loaded</div>
             </div>
           </div>
 
           {/* Database Tables Selector Grid */}
-          <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 space-y-4">
-            <h2 className="text-md font-bold font-display text-white">Database Tables ({schemaData?.tables?.length || 0})</h2>
+          <div className="card p-6 space-y-4">
+            <h2 className="section-title font-display text-ink">Database Tables ({schemaData?.tables?.length || 0})</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {schemaData?.tables?.map((table) => (
                 <button
@@ -101,12 +101,12 @@ export const DatabaseViewer = () => {
                   onClick={() => loadTableRecords(table.table_name)}
                   className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between ${
                     selectedTable === table.table_name
-                      ? 'bg-indigo-500/20 border-indigo-500 text-white shadow'
-                      : 'bg-black/30 border-white/5 text-slate-400 hover:bg-white/5'
+                      ? 'bg-brand-light border-brand text-ink shadow-sm'
+                      : 'bg-page border-line text-ink-2 hover:bg-brand-subtle'
                   }`}
                 >
                   <span className="font-mono text-xs font-semibold truncate">{table.table_name}</span>
-                  <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded font-mono text-emerald-400">
+                  <span className="text-[10px] bg-ok-bg px-2 py-0.5 rounded font-mono text-ok">
                     {table.row_count} rows
                   </span>
                 </button>
@@ -116,39 +116,39 @@ export const DatabaseViewer = () => {
 
           {/* Live Records Table Inspector */}
           {selectedTable && (
-            <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 space-y-4">
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <h2 className="text-lg font-bold font-display text-white">
-                  Live Table Inspection — <span className="font-mono text-indigo-400">{selectedTable}</span>
+            <div className="card p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-line pb-3">
+                <h2 className="section-title font-display text-ink">
+                  Live Table Inspection — <span className="font-mono text-brand">{selectedTable}</span>
                 </h2>
-                <span className="text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full border border-emerald-500/30 font-mono">
+                <span className="badge badge-green px-3 py-1 rounded-full font-mono">
                   PostgreSQL Real-Time Query
                 </span>
               </div>
 
               {loadingTable ? (
-                <div className="h-44 bg-white/5 rounded-2xl animate-pulse"></div>
+                <div className="skeleton h-44 rounded-xl"></div>
               ) : !tableData || tableData.records?.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 text-xs">
+                <div className="empty-state text-xs">
                   No records stored in table '{selectedTable}' yet.
                 </div>
               ) : (
-                <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-                  <table className="w-full text-left text-xs font-mono">
-                    <thead className="bg-black/60 text-indigo-300 uppercase sticky top-0 border-b border-white/10">
+                <div className="table-scroll max-h-[500px] overflow-y-auto">
+                  <table className="data-table w-full text-left text-xs font-mono">
+                    <thead className="bg-brand-subtle text-brand uppercase sticky top-0 border-b border-line">
                       <tr>
                         {tableData.columns?.map((col) => (
                           <th key={col} className="p-3 whitespace-nowrap">{col}</th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5 text-slate-300">
+                    <tbody className="divide-y divide-line text-ink-2">
                       {tableData.records.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-white/5">
+                        <tr key={idx} className="hover:bg-brand-subtle">
                           {tableData.columns.map((col) => (
                             <td key={col} className="p-3 whitespace-nowrap max-w-[200px] truncate" title={String(row[col])}>
                               {row[col] === null || row[col] === undefined ? (
-                                <span className="text-slate-600 italic">null</span>
+                                <span className="text-ink-4 italic">null</span>
                               ) : typeof row[col] === 'object' ? (
                                 JSON.stringify(row[col])
                               ) : (

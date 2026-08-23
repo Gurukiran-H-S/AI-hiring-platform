@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, DateTime, Enum, Text, ForeignKey, Integer
+from sqlalchemy import Column, String, Boolean, DateTime, Enum, Text, ForeignKey, Integer, JSON
 from sqlalchemy.orm import relationship
 from app.database import Base
 from app.models.types import PortableUUID
@@ -59,17 +59,40 @@ class CandidateProfile(Base):
     __tablename__ = "candidate_profiles"
 
     id = Column(PortableUUID(), primary_key=True, default=uuid.uuid4)
-    user_id = Column(PortableUUID(), ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(PortableUUID(), ForeignKey("users.id"), nullable=False, unique=True, index=True)
     headline = Column(String(255), nullable=True)
-    linkedin_url = Column(String(500), nullable=True)
+    summary = Column(Text, nullable=True)
+    skills = Column(JSON, nullable=True, default=list)            # ["Python", "React", ...]
+    education = Column(JSON, nullable=True, default=list)         # [{degree, college, university, year, cgpa}]
+    experience = Column(JSON, nullable=True, default=list)        # [{company, role, start_date, end_date, description}]
+    projects = Column(JSON, nullable=True, default=list)          # [{name, description, technologies, github_url, live_demo_url}]
+    certifications = Column(JSON, nullable=True, default=list)    # [{name, issuing_organization, date, credential_url}]
+    
+    # Preferences
+    preferred_role = Column(String(255), nullable=True)
+    preferred_location = Column(String(255), nullable=True)
+    work_mode = Column(String(50), nullable=True)                 # "Remote", "Hybrid", "On-site"
+    salary_expectation = Column(String(50), nullable=True)
+    preferred_job_type = Column(String(50), nullable=True)        # "Full-time", "Internship", "Part-time"
+    preferred_industries = Column(JSON, nullable=True, default=list)
+    
+    # Social / Professional Links
     github_url = Column(String(500), nullable=True)
+    linkedin_url = Column(String(500), nullable=True)
     portfolio_url = Column(String(500), nullable=True)
+    leetcode_url = Column(String(500), nullable=True)
+    
+    # Completion
+    profile_completion = Column(Integer, default=0)
+
+    # Legacy fields
     years_of_experience = Column(String(20), nullable=True)
     current_salary = Column(String(50), nullable=True)
     expected_salary = Column(String(50), nullable=True)
     notice_period = Column(String(50), nullable=True)
     job_type_preference = Column(String(50), nullable=True)
     availability = Column(String(50), nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

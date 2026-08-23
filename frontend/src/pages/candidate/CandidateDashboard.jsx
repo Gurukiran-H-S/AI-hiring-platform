@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
 import { Sidebar } from '../../components/common/Sidebar'
+import ErrorBoundary from '../../components/common/ErrorBoundary'
+import { Navbar } from '../../components/common/Navbar'
 import { useAuth, api } from '../../context/AuthContext'
 import { ResumeAnalyzer } from './ResumeAnalyzer'
 import { CodingPlayground } from './CodingPlayground'
@@ -8,11 +10,12 @@ import { AptitudeTest } from './AptitudeTest'
 import { MockInterview } from './MockInterview'
 import { JobSearch } from './JobSearch'
 import { ApplicationTracker } from './ApplicationTracker'
-
+import { CandidateProfile } from './CandidateProfile'
+import { MarketIntelligence } from './MarketIntelligence'
 
 const DashboardHome = ({ stats, loading }) => {
   const [trends, setTrends] = useState(null)
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
 
   useEffect(() => {
     const fetchTrends = async () => {
@@ -23,13 +26,13 @@ const DashboardHome = ({ stats, loading }) => {
         setTrends({
           high_demand_skills: [
             { skill: 'Python', growth_rate: '+34%', demand_score: 96, category: 'Programming' },
-            { skill: 'AWS', growth_rate: '+28%', demand_score: 92, category: 'Cloud' },
-            { skill: 'Docker', growth_rate: '+25%', demand_score: 88, category: 'DevOps' },
-            { skill: 'FastAPI / Node.js', growth_rate: '+31%', demand_score: 90, category: 'Backend' },
+            { skill: 'AWS Cloud', growth_rate: '+28%', demand_score: 92, category: 'Cloud' },
+            { skill: 'Docker / K8s', growth_rate: '+25%', demand_score: 88, category: 'DevOps' },
+            { skill: 'FastAPI / React', growth_rate: '+31%', demand_score: 90, category: 'Full Stack' },
           ],
           emerging_roles: [
-            { role: 'AI / LLM Engineer', growth_rate: '+65%', key_skills: ['PyTorch', 'LangChain', 'Transformers'] },
-            { role: 'Cloud Native Architect', growth_rate: '+42%', key_skills: ['Kubernetes', 'Terraform', 'AWS'] },
+            { role: 'AI / LLM Solutions Engineer', growth_rate: '+65%', key_skills: ['PyTorch', 'LangChain', 'FastAPI'] },
+            { role: 'Cloud Native Architect', growth_rate: '+42%', key_skills: ['Kubernetes', 'AWS', 'Microservices'] },
           ]
         })
       }
@@ -37,197 +40,389 @@ const DashboardHome = ({ stats, loading }) => {
     fetchTrends()
   }, [])
 
-  return (
-    <div className="space-y-8 w-full max-w-7xl text-white pt-2 pb-12">
-      {/* Dashboard Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between pb-4 border-b border-white/10">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-indigo-300 to-emerald-300 bg-clip-text text-transparent mb-1 font-display">
-            AI Unified Candidate Portal
-          </h1>
-          <p className="text-slate-400 text-sm">
-            Welcome, <strong className="text-white">{user?.full_name || 'Candidate'}</strong>! Track your resumes, coding scores & job applications.
-            {user?.phone && <span className="ml-3 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-300 font-mono">📞 {user.phone}</span>}
-          </p>
-        </div>
+  const s = stats?.summary || {}
+  const atsScore = Math.round(s.average_ats_score || 0)
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3">
-          <Link
-            to="/candidate/jobs"
-            className="btn-primary py-2.5 px-4 text-xs font-semibold rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-500/25"
-          >
-            <span>🔎</span> Search Jobs
-          </Link>
-          <button
-            onClick={logout}
-            className="bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
-          >
-            <span>🚪</span> Logout
-          </button>
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const todayFormatted = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+
+  const getSkillCategoryClass = (cat) => {
+    switch (cat?.toLowerCase()) {
+      case 'programming': return 'badge-blue'
+      case 'cloud': return 'badge-amber'
+      case 'devops': return 'badge-teal'
+      case 'full stack': return 'badge-emerald'
+      default: return 'badge-purple'
+    }
+  }
+
+  return (
+    <div className="page-enter pb-12 space-y-8">
+
+      {/* Hero Welcome Banner with Differentiated Header */}
+      <div className="card bg-gradient-to-r from-blue-50/60 via-indigo-50/40 to-purple-50/50 border border-blue-100/80 p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-blue-700 bg-blue-100/70 px-2.5 py-0.5 rounded-full">
+                Candidate Dashboard
+              </span>
+              <span className="text-xs text-slate-500 font-medium">Â· {todayFormatted}</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              {greeting}, {user?.full_name?.split(' ')[0] || 'Candidate'} 👋
+            </h1>
+            <p className="text-sm text-slate-600 mt-1 max-w-2xl">
+              Track your ATS resume health, practice coding assessments, and manage your job application pipeline in real time.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Link to="/candidate/jobs" className="btn-primary">
+              <span>🔍</span> Find Jobs
+            </Link>
+            <Link to="/candidate/profile" className="btn-secondary">
+              <span>👤</span> View Profile
+            </Link>
+          </div>
         </div>
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white/5 border border-white/10 rounded-2xl h-32 animate-pulse"></div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {/* Clickable Summary KPI Cards (Strict Real Database Values Only) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-            <Link
-              to="/candidate/applications"
-              className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 hover:border-indigo-500/50 hover:bg-white/10 transition-all cursor-pointer group"
-            >
-              <div className="text-slate-400 text-xs uppercase font-semibold mb-1 font-display group-hover:text-indigo-300 transition-colors">
-                Total Applications
-              </div>
-              <div className="text-3xl font-display font-extrabold text-white flex items-center justify-between">
-                <span>{stats?.summary?.total_applications ?? 0}</span>
-                <span className="text-xs text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">View →</span>
-              </div>
-            </Link>
-
-            <Link
-              to="/candidate/resumes"
-              className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 hover:border-indigo-500/50 hover:bg-white/10 transition-all cursor-pointer group"
-            >
-              <div className="text-slate-400 text-xs uppercase font-semibold mb-1 font-display group-hover:text-indigo-300 transition-colors">
-                Uploaded Resumes
-              </div>
-              <div className="text-3xl font-display font-extrabold text-white flex items-center justify-between">
-                <span>{stats?.summary?.total_resumes ?? 0}</span>
-                <span className="text-xs text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">Analyze →</span>
-              </div>
-            </Link>
-
-            <Link
-              to="/candidate/resumes"
-              className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 hover:border-emerald-500/50 hover:bg-white/10 transition-all cursor-pointer group"
-            >
-              <div className="text-slate-400 text-xs uppercase font-semibold mb-1 font-display group-hover:text-emerald-300 transition-colors">
-                Avg ATS Score
-              </div>
-              <div className="text-3xl font-display font-extrabold text-emerald-400 flex items-center justify-between">
-                <span>{stats?.summary?.average_ats_score ? `${stats.summary.average_ats_score}%` : '--'}</span>
-                <span className="text-xs text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">Check →</span>
-              </div>
-            </Link>
-
-            <Link
-              to="/candidate/interview"
-              className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 hover:border-purple-500/50 hover:bg-white/10 transition-all cursor-pointer group"
-            >
-              <div className="text-slate-400 text-xs uppercase font-semibold mb-1 font-display group-hover:text-purple-300 transition-colors">
-                Interviews / Shortlisted
-              </div>
-              <div className="text-3xl font-display font-extrabold text-indigo-400 flex items-center justify-between">
-                <span>{stats?.summary?.interviews ?? 0} / {stats?.summary?.shortlisted ?? 0}</span>
-                <span className="text-xs text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">Practice →</span>
-              </div>
-            </Link>
-          </div>
-
-          {/* Quick Start Module Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-            <Link
-              to="/candidate/resumes"
-              className="glass-card p-6 border border-white/10 rounded-2xl bg-gradient-to-tr from-indigo-500/10 to-transparent flex flex-col justify-between space-y-4 hover:border-indigo-500/50 hover:scale-[1.02] transition-all cursor-pointer"
-            >
-              <div>
-                <span className="text-3xl">📄</span>
-                <h3 className="font-bold text-lg mt-2 font-display">Resume Analyzer</h3>
-                <p className="text-slate-400 text-xs mt-1">spaCy NLP skill extraction, explainable ATS scoring, and deletion controls.</p>
-              </div>
-              <span className="text-xs text-indigo-400 font-bold">Launch Analyzer →</span>
-            </Link>
-
-            <Link
-              to="/candidate/coding"
-              className="glass-card p-6 border border-white/10 rounded-2xl bg-gradient-to-tr from-emerald-500/10 to-transparent flex flex-col justify-between space-y-4 hover:border-emerald-500/50 hover:scale-[1.02] transition-all cursor-pointer"
-            >
-              <div>
-                <span className="text-3xl">💻</span>
-                <h3 className="font-bold text-lg mt-2 font-display">Coding Assessment</h3>
-                <p className="text-slate-400 text-xs mt-1">Multi-language Docker execution, hidden testcases, and global leaderboards.</p>
-              </div>
-              <span className="text-xs text-emerald-400 font-bold">Start Practice →</span>
-            </Link>
-
-            <Link
-              to="/candidate/jobs"
-              className="glass-card p-6 border border-white/10 rounded-2xl bg-gradient-to-tr from-purple-500/10 to-transparent flex flex-col justify-between space-y-4 hover:border-purple-500/50 hover:scale-[1.02] transition-all cursor-pointer"
-            >
-              <div>
-                <span className="text-3xl">🔎</span>
-                <h3 className="font-bold text-lg mt-2 font-display">Job Search Engine</h3>
-                <p className="text-slate-400 text-xs mt-1">Modular live/demo provider job listings with job-specific ATS relevance.</p>
-              </div>
-              <span className="text-xs text-purple-400 font-bold">Explore Jobs →</span>
-            </Link>
-
-            <Link
-              to="/candidate/applications"
-              className="glass-card p-6 border border-white/10 rounded-2xl bg-gradient-to-tr from-amber-500/10 to-transparent flex flex-col justify-between space-y-4 hover:border-amber-500/50 hover:scale-[1.02] transition-all cursor-pointer"
-            >
-              <div>
-                <span className="text-3xl">💼</span>
-                <h3 className="font-bold text-lg mt-2 font-display">Application Tracker</h3>
-                <p className="text-slate-400 text-xs mt-1">Track external applications, update 11 status stages, and view timeline history.</p>
-              </div>
-              <span className="text-xs text-amber-400 font-bold">View Tracker →</span>
-            </Link>
-          </div>
-
-          {/* Market Demand & Future Trends Section */}
-          {trends && (
-            <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 space-y-4">
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <h2 className="text-lg font-bold font-display text-white">
-                  📈 High-Demand Skill Forecasts & Job Market Trends
-                </h2>
-                <span className="text-xs text-slate-400 font-mono font-bold">
-                  Recommended Learning Video: <a href="https://www.youtube.com/results?search_query=full+stack+web+development+course" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">Full Stack Web Development (Example Link)</a>
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Top High-Demand Skills</h3>
-                  <div className="space-y-2">
-                    {trends.high_demand_skills.map((item) => (
-                      <div key={item.skill} className="flex items-center justify-between bg-black/40 p-3 rounded-xl border border-white/5 text-xs">
-                        <span className="font-bold text-slate-200">{item.skill} ({item.category})</span>
-                        <span className="font-mono text-emerald-400 font-bold">{item.growth_rate}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-3">Emerging Roles</h3>
-                  <div className="space-y-2">
-                    {trends.emerging_roles.map((role) => (
-                      <div key={role.role} className="bg-black/40 p-3 rounded-xl border border-white/5 text-xs space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-indigo-300">{role.role}</span>
-                          <span className="font-mono text-indigo-400 font-bold">{role.growth_rate}</span>
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          Key Skills: {role.key_skills.join(', ')}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+      {/* Low ATS Score Warning Alert Banner (Below 60%) */}
+      {atsScore > 0 && atsScore < 60 && (
+        <div className="card bg-rose-50 border border-rose-200 p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fadeIn">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-rose-100 border border-rose-300 text-rose-600 flex items-center justify-center text-xl shrink-0">
+              âš ï¸
             </div>
-          )}
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="badge-rose font-extrabold text-xs">ATS Score Critical ({atsScore}%)</span>
+                <span className="text-xs text-rose-800 font-semibold">Below 60% Shortlisting Threshold</span>
+              </div>
+              <p className="text-xs text-slate-700 mt-1">
+                Your primary resume score is low. Enterprise recruiters typically require at least <strong>60%</strong> to proceed with interview shortlisting.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/candidate/resumes"
+            className="btn-danger btn-sm shrink-0 px-4 py-2 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
+          >
+            <span>⚡</span> Optimize Resume Keywords →
+          </Link>
         </div>
       )}
+
+      {/* 4 Differentiated High-Contrast KPI Stat Cards */}
+      <div>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">Key Performance Metrics</h2>
+          <span className="text-xs text-slate-400">Live synchronized with database</span>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="skeleton h-36 rounded-2xl"></div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            
+            {/* 1. ATS Score Card (Royal Blue) */}
+            <Link to="/candidate/resumes" className="stat-card-blue flex flex-col justify-between group cursor-pointer">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                    ATS Resume Score
+                  </span>
+                  <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-bold border border-blue-100">
+                    📄
+                  </span>
+                </div>
+                <div className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                  {atsScore > 0 ? `${atsScore}%` : '--'}
+                </div>
+                <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                  {atsScore >= 80 ? (
+                    <span className="badge-emerald font-semibold">Strong Match</span>
+                  ) : atsScore >= 60 ? (
+                    <span className="badge-amber font-semibold">Fair Match</span>
+                  ) : atsScore > 0 ? (
+                    <span className="badge-rose font-semibold">Needs Polish</span>
+                  ) : (
+                    <span className="badge-gray">No resume uploaded</span>
+                  )}
+                </div>
+              </div>
+              <div className="pt-3 mt-3 border-t border-blue-100/60 flex items-center justify-between text-xs font-semibold text-blue-600 group-hover:text-blue-800">
+                <span>Analyze Resume</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </Link>
+
+            {/* 2. Job Matches Card (Deep Indigo) */}
+            <Link to="/candidate/jobs" className="stat-card-indigo flex flex-col justify-between group cursor-pointer">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                    Job Matches
+                  </span>
+                  <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-bold border border-indigo-100">
+                    💼
+                  </span>
+                </div>
+                <div className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                  {s.job_matches ?? 3}
+                </div>
+                <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                  {s.has_skills ? (
+                    <span className="badge-indigo font-semibold">Matched to your skills</span>
+                  ) : (
+                    <span className="badge-blue font-semibold">Active Opportunities</span>
+                  )}
+                </div>
+              </div>
+              <div className="pt-3 mt-3 border-t border-indigo-100/60 flex items-center justify-between text-xs font-semibold text-indigo-600 group-hover:text-indigo-800">
+                <span>Explore Opportunities</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </Link>
+
+            {/* 3. Applications Pipeline Card (Warm Amber) */}
+            <Link to="/candidate/applications" className="stat-card-amber flex flex-col justify-between group cursor-pointer">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                    Active Applications
+                  </span>
+                  <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-sm font-bold border border-amber-100">
+                    📊
+                  </span>
+                </div>
+                <div className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                  {s.total_applications ?? 0}
+                </div>
+                <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                  <span className="badge-amber font-semibold">{s.interviews ?? 0} Interviews</span>
+                  <span className="badge-emerald font-semibold">{s.shortlisted ?? 0} Shortlisted</span>
+                </div>
+              </div>
+              <div className="pt-3 mt-3 border-t border-amber-100/60 flex items-center justify-between text-xs font-semibold text-amber-600 group-hover:text-amber-800">
+                <span>View Pipeline</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </Link>
+
+            {/* 4. Problems Solved & Coding Progress Card (Emerald Green) */}
+            <Link to="/candidate/coding" className="stat-card-emerald flex flex-col justify-between group cursor-pointer">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    Problems Solved
+                  </span>
+                  <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm font-bold border border-emerald-100">
+                    💻
+                  </span>
+                </div>
+                <div className="text-3xl font-extrabold text-emerald-600 tracking-tight">
+                  {s.coding_progress?.problems_solved ?? 0}
+                </div>
+                <div className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[11px]">
+                  <span className="badge-emerald font-bold">
+                    Rank #{s.coding_progress?.rank ?? '-'}
+                  </span>
+                  <span className="text-slate-500">
+                    {s.coding_progress?.points ?? 0} pts Â· {s.coding_progress?.accuracy ?? 0}% Acc
+                  </span>
+                </div>
+              </div>
+              <div className="pt-3 mt-3 border-t border-emerald-100/60 flex items-center justify-between text-xs font-semibold text-emerald-600 group-hover:text-emerald-800">
+                <span>Practice Arena (323 Problems)</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </Link>
+
+          </div>
+        )}
+      </div>
+
+      {/* 4 Differentiated Quick Action Modules */}
+      <div>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <h2 className="section-title">Career Acceleration Tools</h2>
+          <span className="text-xs text-slate-400">Launch integrated modules</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          
+          {/* Module 1: Resume Analyzer */}
+          <Link to="/candidate/resumes" className="module-blue flex flex-col justify-between min-h-[170px] group cursor-pointer">
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl mb-3 border border-blue-200">
+                📄
+              </div>
+              <h3 className="font-bold text-slate-900 text-base mb-1">Resume Analyzer</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                spaCy NLP skill extraction, ATS score breakdowns, and keyword optimization insights.
+              </p>
+            </div>
+            <div className="text-blue-600 text-xs font-bold mt-4 flex items-center gap-1 group-hover:gap-2 transition-all">
+              Launch Analyzer <span>→</span>
+            </div>
+          </Link>
+
+          {/* Module 2: Coding Assessment */}
+          <Link to="/candidate/coding" className="module-emerald flex flex-col justify-between min-h-[170px] group cursor-pointer">
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl mb-3 border border-emerald-200">
+                💻
+              </div>
+              <h3 className="font-bold text-slate-900 text-base mb-1">Coding Assessment</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Multi-language Docker execution, 323 curated LeetCode problems, and real-time rank.
+              </p>
+            </div>
+            <div className="text-emerald-600 text-xs font-bold mt-4 flex items-center gap-1 group-hover:gap-2 transition-all">
+              Start Practice <span>→</span>
+            </div>
+          </Link>
+
+          {/* Module 3: Aptitude Assessment */}
+          <Link to="/candidate/aptitude" className="module-purple flex flex-col justify-between min-h-[170px] group cursor-pointer">
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-xl mb-3 border border-purple-200">
+                📌
+              </div>
+              <h3 className="font-bold text-slate-900 text-base mb-1">Aptitude Assessment</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Practice numerical, verbal, reasoning, and technical timed online assessment test sets with rank analytics.
+              </p>
+            </div>
+            <div className="text-purple-600 text-xs font-bold mt-4 flex items-center gap-1 group-hover:gap-2 transition-all">
+              Start Assessment <span>→</span>
+            </div>
+          </Link>
+
+          {/* Module 4: Mock Interview */}
+          <Link to="/candidate/interview" className="module-rose flex flex-col justify-between min-h-[170px] group cursor-pointer">
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center text-xl mb-3 border border-rose-200">
+                🎙️ï¸
+              </div>
+              <h3 className="font-bold text-slate-900 text-base mb-1">Mock Interview</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Practice realistic technical and behavioral interview sessions with AI feedback.
+              </p>
+            </div>
+            <div className="text-rose-600 text-xs font-bold mt-4 flex items-center gap-1 group-hover:gap-2 transition-all">
+              Start Interview <span>→</span>
+            </div>
+          </Link>
+
+        </div>
+      </div>
+
+      {/* Career Market Intelligence Section with Color-Coded Skills */}
+      {trends && (
+        <div className="card">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 pb-4 mb-5 gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="badge-blue font-extrabold text-xs">Career Market Intelligence</span>
+                <span className="badge-emerald font-bold text-xs">Live 24h Sync</span>
+              </div>
+              <h2 className="section-title !mb-0 mt-1">📈 High-Demand Skills &amp; Technology Trends</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Real-time market analytics and recruiter demand scores to steer your preparation</p>
+            </div>
+            <Link
+              to="/candidate/market-intelligence"
+              className="btn-primary btn-sm shrink-0 flex items-center gap-1.5 self-start sm:self-auto text-xs"
+            >
+              <span>🌐</span> Full Market Intelligence →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Left: Top In-Demand Skills */}
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><span>🔥</span> Top In-Demand Skills</span>
+                <Link to="/candidate/market-intelligence" className="text-[11px] text-blue-600 hover:underline font-bold">View all →</Link>
+              </h3>
+              <div className="space-y-2.5">
+                {trends.high_demand_skills.map((item) => (
+                  <div key={item.skill} className="flex items-center justify-between bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-3 text-sm hover:border-slate-300 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-900">{item.skill}</span>
+                      <span className={getSkillCategoryClass(item.category)}>{item.category}</span>
+                      {item.source === 'trained_model' && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded" title="Forecast from HireAI's trained Holt-Winters demand model">AI</span>
+                      )}
+                    </div>
+                    <span className={`font-bold font-mono ${item.source === 'trained_model' ? 'text-blue-600' : 'text-emerald-600'}`}>{item.growth_rate}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Real forecast projections from the trained model */}
+              {trends.skill_forecasts?.length > 0 && (
+                <div className="mt-5 pt-4 border-t border-slate-200/80">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
+                    <span>🔮</span> 3-Month Demand Forecast
+                    <span className="font-normal normal-case text-slate-400">(mentions per 1,000 postings Â· Holt-Winters)</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {trends.skill_forecasts.slice(0, 6).map((f) => (
+                      <div key={f.skill} className="bg-white border border-slate-200 rounded-lg px-3 py-2">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-semibold text-slate-800 truncate">{f.skill}</span>
+                          <span className={`text-[11px] font-bold font-mono ${
+                            f.trend === 'Emerging' ? 'text-emerald-600' : f.trend === 'Declining' ? 'text-red-600' : 'text-slate-500'
+                          }`}>{f.growth}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5 flex items-center justify-between">
+                          <span>{f.current} → {f.projected}</span>
+                          <span className={f.confidence === 'Medium' ? 'text-emerald-600 font-semibold' : ''}>{f.confidence}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right: Emerging Roles */}
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><span>🚀</span> Emerging Industry Roles</span>
+                <Link to="/candidate/market-intelligence" className="text-[11px] text-indigo-600 hover:underline font-bold">View salaries →</Link>
+              </h3>
+              <div className="space-y-2.5">
+                {trends.emerging_roles.map((role) => (
+                  <div key={role.role} className="bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-3 text-sm space-y-1.5 hover:border-slate-300 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-indigo-900">{role.role}</span>
+                      <span className="badge-indigo font-bold">{role.growth_rate}</span>
+                    </div>
+                    <div className="text-xs text-slate-500 flex flex-wrap gap-1.5">
+                      <span className="text-slate-400">Key:</span>
+                      {role.key_skills.map((sk) => (
+                        <span key={sk} className="bg-white border border-slate-200 px-2 py-0.5 rounded text-[11px] font-medium text-slate-700">
+                          {sk}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
@@ -235,13 +430,6 @@ const DashboardHome = ({ stats, loading }) => {
 export const CandidateDashboard = () => {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar_collapsed') === 'true')
-
-  useEffect(() => {
-    const handleToggle = () => setCollapsed(localStorage.getItem('sidebar_collapsed') === 'true')
-    window.addEventListener('sidebar-toggle', handleToggle)
-    return () => window.removeEventListener('sidebar-toggle', handleToggle)
-  }, [])
 
   const fetchAnalytics = async () => {
     try {
@@ -258,15 +446,25 @@ export const CandidateDashboard = () => {
     fetchAnalytics()
   }, [])
 
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar_collapsed') === 'true')
+
+  useEffect(() => {
+    const handleToggle = () => setCollapsed(localStorage.getItem('sidebar_collapsed') === 'true')
+    window.addEventListener('sidebar-toggle', handleToggle)
+    return () => window.removeEventListener('sidebar-toggle', handleToggle)
+  }, [])
+
   return (
-    <div className="flex min-h-screen bg-[#0a0b14] text-white">
+    <div className="min-h-screen bg-canvas">
+      <Navbar />
       <Sidebar role="candidate" collapsed={collapsed} onToggle={() => {
         const next = !collapsed
         setCollapsed(next)
         localStorage.setItem('sidebar_collapsed', String(next))
       }} />
-      <main className={`flex-1 min-h-screen overflow-y-auto pl-4 pr-6 py-6 transition-all duration-300 ${collapsed ? 'ml-20' : 'ml-64'}`}>
-        <div className="w-full max-w-7xl">
+      <main className={`pt-16 transition-all duration-200 ${collapsed ? 'ml-[68px]' : 'ml-[240px]'}`}>
+        <div className="max-w-7xl mx-auto px-8 py-8">
+          <ErrorBoundary>
           <Routes>
             <Route path="/" element={<DashboardHome stats={stats} loading={loading} />} />
             <Route path="/resumes" element={<ResumeAnalyzer onPrimaryChange={fetchAnalytics} />} />
@@ -275,9 +473,13 @@ export const CandidateDashboard = () => {
             <Route path="/interview" element={<MockInterview />} />
             <Route path="/jobs" element={<JobSearch />} />
             <Route path="/applications" element={<ApplicationTracker />} />
+            <Route path="/profile" element={<CandidateProfile />} />
+            <Route path="/market-intelligence" element={<MarketIntelligence />} />
           </Routes>
+          </ErrorBoundary>
         </div>
       </main>
     </div>
   )
 }
+

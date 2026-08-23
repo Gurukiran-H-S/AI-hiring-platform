@@ -30,5 +30,5 @@ def get_db():
 
 def create_tables():
     """Create all database tables."""
-    from app.models import user, resume, job, application, notification, interview, coding, aptitude  # noqa
+    from app.models import user, resume, job, application, notification, interview, coding, aptitude, market  # noqa
     Base.metadata.create_all(bind=engine)

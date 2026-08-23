@@ -1,0 +1,131 @@
+month,skill,demand_count
+2023-08,AWS,2583
+2023-08,Azure,408
+2023-08,Data Analysis,756
+2023-08,Deep Learning,59
+2023-08,Docker,168
+2023-08,Git,163
+2023-08,Java,373
+2023-08,JavaScript,350
+2023-08,Kubernetes,144
+2023-08,Linux,320
+2023-08,Machine Learning,236
+2023-08,NLP,84
+2023-08,Python,655
+2023-08,REST API,164
+2023-08,React,41
+2023-08,SQL,864
+2023-10,AWS,38
+2023-10,Azure,12
+2023-10,Data Analysis,8
+2023-10,Deep Learning,2
+2023-10,Docker,5
+2023-10,Git,2
+2023-10,Java,1
+2023-10,JavaScript,5
+2023-10,Kubernetes,2
+2023-10,Linux,3
+2023-10,Machine Learning,7
+2023-10,NLP,1
+2023-10,Python,10
+2023-10,REST API,3
+2023-10,SQL,14
+2023-11,AWS,3062
+2023-11,Azure,411
+2023-11,Data Analysis,764
+2023-11,Deep Learning,66
+2023-11,Docker,186
+2023-11,Git,178
+2023-11,Java,333
+2023-11,JavaScript,315
+2023-11,Kubernetes,177
+2023-11,Linux,263
+2023-11,Machine Learning,219
+2023-11,NLP,48
+2023-11,Python,633
+2023-11,REST API,138
+2023-11,React,41
+2023-11,SQL,769
+2024-03,Management,1
+2024-03,Manufacturing,1
+2024-04,Accounting/Auditing,4999
+2024-04,Administrative,4787
+2024-04,Advertising,652
+2024-04,Analyst,3775
+2024-04,Art/Creative,1637
+2024-04,Business Development,13304
+2024-04,Consulting,2241
+2024-04,Customer Service,4167
+2024-04,Design,2207
+2024-04,Distribution,409
+2024-04,Education,2217
+2024-04,Engineering,12530
+2024-04,Finance,8011
+2024-04,General Business,1929
+2024-04,Health Care Provider,16675
+2024-04,Human Resources,2608
+2024-04,Information Technology,25256
+2024-04,Legal,2229
+2024-04,Management,20384
+2024-04,Manufacturing,17727
+2024-04,Marketing,5400
+2024-04,Other,12314
+2024-04,Product Management,1313
+2024-04,Production,753
+2024-04,Project Management,3825
+2024-04,Public Relations,1258
+2024-04,Purchasing,599
+2024-04,Quality Assurance,1752
+2024-04,Research,2928
+2024-04,Sales,21193
+2024-04,Science,782
+2024-04,Strategy/Planning,1158
+2024-04,Supply Chain,1167
+2024-04,Training,2164
+2024-04,Writing/Editing,1426
+2025-04,AWS,99
+2025-04,Azure,52
+2025-04,Data Analysis,184
+2025-04,Deep Learning,35
+2025-04,Docker,17
+2025-04,Git,29
+2025-04,Java,31
+2025-04,JavaScript,7
+2025-04,Kubernetes,19
+2025-04,Linux,4
+2025-04,Machine Learning,142
+2025-04,NLP,24
+2025-04,Python,258
+2025-04,REST API,8
+2025-04,SQL,271
+2025-05,AWS,83
+2025-05,Azure,40
+2025-05,Data Analysis,181
+2025-05,Deep Learning,28
+2025-05,Docker,17
+2025-05,Git,23
+2025-05,Java,15
+2025-05,JavaScript,9
+2025-05,Kubernetes,15
+2025-05,Linux,5
+2025-05,Machine Learning,122
+2025-05,NLP,24
+2025-05,Python,211
+2025-05,REST API,5
+2025-05,SQL,215
+2025-06,AWS,114
+2025-06,Azure,67
+2025-06,Data Analysis,218
+2025-06,Deep Learning,41
+2025-06,Docker,24
+2025-06,Git,26
+2025-06,Java,21
+2025-06,JavaScript,12
+2025-06,Kubernetes,16
+2025-06,Linux,12
+2025-06,Machine Learning,123
+2025-06,NLP,43
+2025-06,Python,217
+2025-06,REST API,18
+2025-06,React,2
+2025-06,SQL,238

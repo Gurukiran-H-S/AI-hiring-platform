@@ -18,20 +18,19 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             toastOptions={{
               duration: 4000,
               style: {
-                background: 'rgba(15, 16, 35, 0.95)',
-                color: '#f8fafc',
-                border: '1px solid rgba(99, 102, 241, 0.3)',
-                borderRadius: '12px',
-                backdropFilter: 'blur(20px)',
-                boxShadow: '0 8px 32px rgba(31, 38, 135, 0.37)',
+                background: '#FFFFFF',
+                color: '#172B4D',
+                border: '1px solid #E1E5EB',
+                borderRadius: '10px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                 fontFamily: 'Inter, sans-serif',
                 fontSize: '14px',
               },
               success: {
-                iconTheme: { primary: '#10b981', secondary: '#fff' },
+                iconTheme: { primary: '#057642', secondary: '#fff' },
               },
               error: {
-                iconTheme: { primary: '#ef4444', secondary: '#fff' },
+                iconTheme: { primary: '#D92D20', secondary: '#fff' },
               },
             }}
           />

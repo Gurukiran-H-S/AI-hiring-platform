@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from uuid import UUID
@@ -12,6 +13,7 @@ from app.models.coding import (
     TestCase,
     CandidateSubmission,
     CandidateCodingStats,
+    CodingUserProgress,
     WeeklyAssessment,
     RecruiterAssessment,
     RecruiterAssessmentAttempt,
@@ -23,11 +25,11 @@ from app.models.coding import (
 )
 from app.models.job import Job
 from app.models.application import Application
-from app.middleware.auth_middleware import get_current_user, require_role
+from app.middleware.auth_middleware import get_current_user, require_role, get_optional_current_user
 from app.services.ai_coding_service import ai_coding_service
 from app.services.dataset_importer import seed_default_problems, import_huggingface_dataset
 
-router = APIRouter(prefix="/api/coding", tags=["Coding Assessment"])
+router = APIRouter(prefix="/api/coding", tags=["Coding Assessment & IDE"])
 
 # Pydantic Schemas
 class CodeRunRequest(BaseModel):
@@ -103,9 +105,10 @@ def get_problems(
     category: Optional[str] = None,
     difficulty: Optional[str] = None,
     search: Optional[str] = None,
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
-    """Retrieve paginated problem list."""
+    """Retrieve paginated problem list with optional candidate solved status."""
     query = db.query(CodingProblem).filter(CodingProblem.is_active == True)
     
     if category and category != "All":
@@ -116,6 +119,18 @@ def get_problems(
         query = query.filter(CodingProblem.title.ilike(f"%{search}%"))
 
     problems = query.all()
+
+    # If candidate is authenticated, fetch their progress per problem
+    solved_problem_ids = set()
+    attempted_problem_ids = set()
+    if current_user:
+        progs = db.query(CodingUserProgress).filter(CodingUserProgress.user_id == current_user.id).all()
+        for p in progs:
+            if p.status == "SOLVED":
+                solved_problem_ids.add(p.problem_id)
+            elif p.attempts and p.attempts > 0:
+                attempted_problem_ids.add(p.problem_id)
+
     return [
         {
             "id": str(p.id),
@@ -126,6 +141,8 @@ def get_problems(
             "tags": p.tags or [],
             "acceptance_rate": p.acceptance_rate,
             "total_submissions": p.total_submissions,
+            "is_solved": p.id in solved_problem_ids,
+            "is_attempted": p.id in attempted_problem_ids or p.id in solved_problem_ids,
         }
         for p in problems
     ]
@@ -212,8 +229,12 @@ def generate_starter_codes(problem):
 
 
 @router.get("/problems/{problem_id}")
-def get_problem_detail(problem_id: str, db: Session = Depends(get_db)):
-    """Get single problem detail with PUBLIC sample testcases (hidden test cases are filtered out)."""
+def get_problem_detail(
+    problem_id: str,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get single problem detail with public sample testcases and candidate's saved solution code if exists."""
     problem = db.query(CodingProblem).filter(CodingProblem.id == problem_id).first()
     if not problem:
         raise HTTPException(status_code=404, detail="Problem not found")
@@ -221,6 +242,43 @@ def get_problem_detail(problem_id: str, db: Session = Depends(get_db)):
     sample_tests = db.query(TestCase).filter(TestCase.problem_id == problem.id, TestCase.is_hidden == False).all()
 
     py_code, java_code, cpp_code, js_code = generate_starter_codes(problem)
+
+    saved_code = None
+    saved_language = None
+    is_solved = False
+    attempts = 0
+    submissions_list = []
+
+    if current_user:
+        submissions = db.query(CandidateSubmission).filter(
+            CandidateSubmission.candidate_id == current_user.id,
+            CandidateSubmission.problem_id == problem.id
+        ).order_by(CandidateSubmission.submitted_at.desc()).all()
+
+        attempts = len(submissions)
+        last_accepted = next((s for s in submissions if s.status == SubmissionStatus.ACCEPTED), None)
+        is_solved = last_accepted is not None
+        
+        if last_accepted:
+            saved_code = last_accepted.code
+            saved_language = last_accepted.language
+        elif submissions:
+            saved_code = submissions[0].code
+            saved_language = submissions[0].language
+
+        submissions_list = [
+            {
+                "id": str(s.id),
+                "language": s.language,
+                "code": s.code,
+                "status": s.status.value if hasattr(s.status, "value") else str(s.status),
+                "passed_test_cases": s.passed_test_cases,
+                "total_test_cases": s.total_test_cases,
+                "execution_time": s.execution_time_seconds,
+                "submitted_at": s.submitted_at.isoformat() if s.submitted_at else None
+            }
+            for s in submissions
+        ]
 
     return {
         "id": str(problem.id),
@@ -240,6 +298,11 @@ def get_problem_detail(problem_id: str, db: Session = Depends(get_db)):
         "starter_code_java": java_code,
         "starter_code_cpp": cpp_code,
         "starter_code_javascript": js_code,
+        "saved_code": saved_code,
+        "saved_language": saved_language,
+        "is_solved": is_solved,
+        "attempts": attempts,
+        "user_submissions": submissions_list,
         "sample_test_cases": [
             {
                 "id": str(tc.id),
@@ -288,6 +351,144 @@ def run_code_sample(
         "total_test_cases": run_res["total_test_cases"],
         "execution_time": run_res["execution_time"],
         "test_cases": test_results
+    }
+
+
+def get_candidate_coding_rank(db: Session, candidate_id):
+    """Compute 1-based global rank for a candidate based on points and solved count."""
+    stats = db.query(CandidateCodingStats).filter(CandidateCodingStats.candidate_id == candidate_id).first()
+    if not stats or (stats.total_score == 0 and stats.total_solved == 0):
+        return None
+    
+    higher_candidates = db.query(CandidateCodingStats).join(User, CandidateCodingStats.candidate_id == User.id).filter(
+        User.role == UserRole.CANDIDATE,
+        (CandidateCodingStats.total_score > stats.total_score) |
+        ((CandidateCodingStats.total_score == stats.total_score) & (CandidateCodingStats.total_solved > stats.total_solved))
+    ).count()
+    return higher_candidates + 1
+
+
+def sync_candidate_coding_stats(db: Session, candidate_id) -> Dict[str, Any]:
+    """Calculate and sync candidate coding statistics from CodingUserProgress and CandidateSubmission."""
+    # 1. Auto-reconcile CodingUserProgress from CandidateSubmission records
+    user_submissions = db.query(CandidateSubmission).filter(
+        CandidateSubmission.candidate_id == candidate_id
+    ).order_by(CandidateSubmission.submitted_at.asc()).all()
+
+    submissions_by_problem = {}
+    for sub in user_submissions:
+        if sub.problem_id not in submissions_by_problem:
+            submissions_by_problem[sub.problem_id] = []
+        submissions_by_problem[sub.problem_id].append(sub)
+
+    for problem_id, subs in submissions_by_problem.items():
+        prog = db.query(CodingUserProgress).filter(
+            CodingUserProgress.user_id == candidate_id,
+            CodingUserProgress.problem_id == problem_id
+        ).first()
+
+        problem = db.query(CodingProblem).filter(CodingProblem.id == problem_id).first()
+        if not problem:
+            continue
+
+        attempts = len(subs)
+        accepted_subs = [s for s in subs if s.status == SubmissionStatus.ACCEPTED]
+        is_solved = len(accepted_subs) > 0
+        diff = problem.difficulty.value if hasattr(problem.difficulty, 'value') else str(problem.difficulty)
+        points_per_diff = 100 if diff == "Easy" else 200 if diff == "Medium" else 300
+        points_awarded = points_per_diff if is_solved else 0
+        first_accepted_at = accepted_subs[0].submitted_at if accepted_subs else None
+        last_sub_id = subs[-1].id
+
+        if not prog:
+            prog = CodingUserProgress(
+                user_id=candidate_id,
+                problem_id=problem_id,
+                status="SOLVED" if is_solved else "ATTEMPTED",
+                attempts=attempts,
+                accepted_attempts=len(accepted_subs),
+                points_awarded=points_awarded,
+                solved_at=first_accepted_at,
+                last_submission_id=last_sub_id
+            )
+            db.add(prog)
+        else:
+            prog.attempts = max(prog.attempts or 0, attempts)
+            prog.accepted_attempts = max(prog.accepted_attempts or 0, len(accepted_subs))
+            if is_solved:
+                prog.status = "SOLVED"
+                prog.points_awarded = points_per_diff
+                if not prog.solved_at:
+                    prog.solved_at = first_accepted_at
+            prog.last_submission_id = last_sub_id
+
+    db.commit()
+
+    # 2. Total unique problems attempted
+    attempted_count = db.query(CodingUserProgress).filter(
+        CodingUserProgress.user_id == candidate_id
+    ).count()
+
+    # 3. Total unique problems solved
+    solved_progress = db.query(CodingUserProgress).join(
+        CodingProblem, CodingUserProgress.problem_id == CodingProblem.id
+    ).filter(
+        CodingUserProgress.user_id == candidate_id,
+        CodingUserProgress.status == "SOLVED"
+    ).all()
+
+    total_solved = len(solved_progress)
+    easy_solved = 0
+    medium_solved = 0
+    hard_solved = 0
+    total_points = 0
+
+    for p in solved_progress:
+        total_points += (p.points_awarded or 0)
+        diff = p.problem.difficulty.value if hasattr(p.problem.difficulty, 'value') else p.problem.difficulty
+        if diff == "Easy":
+            easy_solved += 1
+        elif diff == "Medium":
+            medium_solved += 1
+        elif diff == "Hard":
+            hard_solved += 1
+
+    # 4. Overall Accuracy percentage based on all submissions
+    total_submissions = len(user_submissions)
+    accepted_submissions = sum(1 for s in user_submissions if s.status == SubmissionStatus.ACCEPTED)
+    accuracy = round((accepted_submissions / max(1, total_submissions)) * 100.0, 1) if total_submissions > 0 else 0.0
+
+    # 5. Upsert CandidateCodingStats
+    stats = db.query(CandidateCodingStats).filter(CandidateCodingStats.candidate_id == candidate_id).first()
+    if not stats:
+        stats = CandidateCodingStats(candidate_id=candidate_id)
+        db.add(stats)
+
+    stats.total_solved = total_solved
+    stats.easy_solved = easy_solved
+    stats.medium_solved = medium_solved
+    stats.hard_solved = hard_solved
+    stats.total_score = total_points
+    stats.accuracy_percentage = accuracy
+    stats.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(stats)
+
+    # 6. Global Rank
+    rank = get_candidate_coding_rank(db, candidate_id)
+    stats.global_rank = rank
+    db.commit()
+
+    return {
+        "candidate_id": str(candidate_id),
+        "problems_solved": total_solved,
+        "problems_attempted": attempted_count,
+        "easy_solved": easy_solved,
+        "medium_solved": medium_solved,
+        "hard_solved": hard_solved,
+        "total_points": total_points,
+        "accuracy": accuracy,
+        "rank": rank
     }
 
 
@@ -345,45 +546,46 @@ def submit_code(
         problem.total_accepted += 1
     problem.acceptance_rate = round((problem.total_accepted / max(1, problem.total_submissions)) * 100, 1)
 
-    # Update candidate coding stats
-    stats = db.query(CandidateCodingStats).filter(CandidateCodingStats.candidate_id == current_user.id).first()
-    if not stats:
-        stats = CandidateCodingStats(
-            candidate_id=current_user.id,
-            total_solved=0,
-            easy_solved=0,
-            medium_solved=0,
-            hard_solved=0,
-            longest_streak=0,
-            current_streak=0,
-            total_score=0,
-            accuracy_percentage=0.0
+    # Upsert CodingUserProgress record
+    progress = db.query(CodingUserProgress).filter(
+        CodingUserProgress.user_id == current_user.id,
+        CodingUserProgress.problem_id == problem.id
+    ).first()
+
+    if not progress:
+        progress = CodingUserProgress(
+            user_id=current_user.id,
+            problem_id=problem.id,
+            status="ATTEMPTED",
+            attempts=0,
+            accepted_attempts=0,
+            points_awarded=0
         )
-        db.add(stats)
+        db.add(progress)
+
+    progress.attempts += 1
+    progress.last_submission_id = submission.id
 
     if status_enum == SubmissionStatus.ACCEPTED:
-        prev_accepted = db.query(CandidateSubmission).filter(
-            CandidateSubmission.candidate_id == current_user.id,
-            CandidateSubmission.problem_id == problem.id,
-            CandidateSubmission.status == SubmissionStatus.ACCEPTED,
-            CandidateSubmission.id != submission.id
-        ).count()
-
-        # Idempotent scoring: Award points ONLY on first accepted solve
-        if prev_accepted == 0:
-            stats.total_solved += 1
+        progress.accepted_attempts += 1
+        # Award points ONLY once on first ACCEPTED solution (Idempotency)
+        if progress.status != "SOLVED":
+            progress.status = "SOLVED"
+            progress.solved_at = datetime.utcnow()
             diff_val = problem.difficulty.value if hasattr(problem.difficulty, 'value') else problem.difficulty
             if diff_val == "Easy":
-                stats.easy_solved += 1
-                stats.total_score += 100
+                progress.points_awarded = 100
             elif diff_val == "Medium":
-                stats.medium_solved += 1
-                stats.total_score += 200
+                progress.points_awarded = 200
             elif diff_val == "Hard":
-                stats.hard_solved += 1
-                stats.total_score += 300
+                progress.points_awarded = 300
+            else:
+                progress.points_awarded = 100
 
     db.commit()
+
+    # Calculate and sync candidate coding statistics
+    coding_stats = sync_candidate_coding_stats(db, current_user.id)
 
     # Trigger AI Review
     ai_res = ai_coding_service.review_submission(
@@ -413,7 +615,9 @@ def submit_code(
         "passed_test_cases": passed_count,
         "total_test_cases": len(test_cases),
         "execution_time": round(total_time, 3),
-        "score": stats.total_score if stats else 0,
+        "score": coding_stats["total_points"],
+        "problems_solved": coding_stats["problems_solved"],
+        "accuracy": coding_stats["accuracy"],
         "error_message": first_error,
         "ai_review": ai_res
     }
@@ -477,7 +681,7 @@ def get_leaderboard(db: Session = Depends(get_db)):
     stats_list = (
         db.query(CandidateCodingStats)
         .join(User, CandidateCodingStats.candidate_id == User.id)
-        .filter(User.role == UserRole.CANDIDATE)
+        .filter(User.role == UserRole.CANDIDATE, (CandidateCodingStats.total_score > 0) | (CandidateCodingStats.total_solved > 0))
         .order_by(CandidateCodingStats.total_score.desc(), CandidateCodingStats.total_solved.desc())
         .limit(50)
         .all()
@@ -487,12 +691,16 @@ def get_leaderboard(db: Session = Depends(get_db)):
         user = db.query(User).filter(User.id == s.candidate_id).first()
         result.append({
             "rank": idx,
+            "candidate_id": str(s.candidate_id),
             "candidate_name": user.full_name if user and user.full_name else f"Candidate {idx}",
             "total_solved": s.total_solved or 0,
+            "problems_solved": s.total_solved or 0,
             "easy_solved": s.easy_solved or 0,
             "medium_solved": s.medium_solved or 0,
             "hard_solved": s.hard_solved or 0,
             "total_score": s.total_score or 0,
+            "total_points": s.total_score or 0,
+            "accuracy": s.accuracy_percentage or 0.0,
             "streak": s.current_streak or 0,
         })
     return result
@@ -530,19 +738,26 @@ def get_problem_progress(
     attempts = len(submissions)
     best_time = min((s.execution_time_seconds for s in submissions if s.execution_time_seconds is not None), default=0.0)
 
+    last_accepted = next((s for s in submissions if s.status == SubmissionStatus.ACCEPTED), None)
+    saved_code = last_accepted.code if last_accepted else (submissions[0].code if submissions else None)
+    saved_language = last_accepted.language if last_accepted else (submissions[0].language if submissions else None)
+
     return {
         "solved": solved,
         "attempts": attempts,
         "best_time_seconds": best_time,
+        "saved_code": saved_code,
+        "saved_language": saved_language,
         "submissions": [
             {
                 "id": str(s.id),
                 "language": s.language,
-                "status": s.status.value if hasattr(s.status, "value") else s.status,
+                "code": s.code,
+                "status": s.status.value if hasattr(s.status, "value") else str(s.status),
                 "passed_test_cases": s.passed_test_cases,
                 "total_test_cases": s.total_test_cases,
                 "execution_time": s.execution_time_seconds,
-                "submitted_at": s.submitted_at.isoformat()
+                "submitted_at": s.submitted_at.isoformat() if s.submitted_at else None
             }
             for s in submissions
         ]
@@ -554,8 +769,9 @@ def get_coding_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Retrieve detailed coding profile stats for candidate dashboard."""
-    stats = db.query(CandidateCodingStats).filter(CandidateCodingStats.candidate_id == current_user.id).first()
+    """Retrieve detailed coding profile stats for candidate dashboard & profile."""
+    stats_data = sync_candidate_coding_stats(db, current_user.id)
+    
     recent = db.query(CandidateSubmission).filter(
         CandidateSubmission.candidate_id == current_user.id
     ).order_by(CandidateSubmission.submitted_at.desc()).limit(5).all()
@@ -567,12 +783,19 @@ def get_coding_profile(
             problems_dict[s.problem_id] = prob.title
 
     return {
-        "total_score": stats.total_score if stats else 0,
-        "total_solved": stats.total_solved if stats else 0,
-        "easy_solved": stats.easy_solved if stats else 0,
-        "medium_solved": stats.medium_solved if stats else 0,
-        "hard_solved": stats.hard_solved if stats else 0,
-        "current_streak": stats.current_streak if stats else 0,
+        "candidate_id": str(current_user.id),
+        "total_score": stats_data["total_points"],
+        "total_points": stats_data["total_points"],
+        "points": stats_data["total_points"],
+        "total_solved": stats_data["problems_solved"],
+        "problems_solved": stats_data["problems_solved"],
+        "problems_attempted": stats_data["problems_attempted"],
+        "easy_solved": stats_data["easy_solved"],
+        "medium_solved": stats_data["medium_solved"],
+        "hard_solved": stats_data["hard_solved"],
+        "accuracy": stats_data["accuracy"],
+        "rank": stats_data["rank"],
+        "current_streak": 0,
         "recent_submissions": [
             {
                 "id": str(s.id),

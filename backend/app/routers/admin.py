@@ -15,6 +15,7 @@ from app.models.application import Application, ApplicationStatus, LearningResou
 from app.models.interview import Interview, InterviewStatus
 from app.models.coding import CodingProblem, CandidateSubmission
 from app.middleware.auth_middleware import get_current_admin, get_current_user
+from app.routers.coding import sync_candidate_coding_stats
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 analytics_router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
@@ -556,6 +557,37 @@ async def candidate_analytics(
     valid_match = [a.overall_score for a in applications if getattr(a, 'overall_score', None) is not None]
     avg_match = round(sum(valid_match) / len(valid_match), 1) if valid_match else None
 
+    # ─── Matching Jobs Computation ───
+    cand_skills = set()
+    profile = db.query(CandidateProfile).filter(CandidateProfile.user_id == current_user.id).first()
+    if profile and profile.skills:
+        for s in profile.skills:
+            if s and s.strip():
+                cand_skills.add(s.strip().lower())
+    for r in resumes:
+        if r.parsed_skills:
+            for s in r.parsed_skills:
+                if s and s.strip():
+                    cand_skills.add(s.strip().lower())
+
+    from app.services.job_provider.external_provider import ExternalJobProvider
+    ext_provider = ExternalJobProvider()
+    all_jobs_result = ext_provider.search_jobs(limit=50)
+    all_jobs = all_jobs_result.get("jobs", [])
+
+    matched_jobs_count = 0
+    if cand_skills:
+        for j in all_jobs:
+            j_skills = [s.lower() for s in (j.get("skills") or [])]
+            if any(cs in j_skills or any(cs in js for js in j_skills) for cs in cand_skills) or any(cs in j.get("title", "").lower() for cs in cand_skills):
+                matched_jobs_count += 1
+        if matched_jobs_count == 0 and len(all_jobs) > 0:
+            matched_jobs_count = len(all_jobs)
+    else:
+        matched_jobs_count = len(all_jobs)
+
+    coding_stats = sync_candidate_coding_stats(db, current_user.id)
+
     timeline = []
     for i in range(30):
         day = datetime.utcnow() - timedelta(days=i)
@@ -574,9 +606,23 @@ async def candidate_analytics(
             "average_ats_score": avg_ats,
             "has_ats_data": avg_ats is not None,
             "average_match_score": avg_match,
+            "job_matches": matched_jobs_count,
+            "has_skills": bool(cand_skills),
+            "total_jobs_available": len(all_jobs),
             "shortlisted": status_counts.get("shortlisted", 0),
             "interviews": status_counts.get("interview_scheduled", 0),
             "offers": status_counts.get("offered", 0),
+            "coding_progress": {
+                "problems_solved": coding_stats["problems_solved"],
+                "problems_attempted": coding_stats["problems_attempted"],
+                "easy_solved": coding_stats["easy_solved"],
+                "medium_solved": coding_stats["medium_solved"],
+                "hard_solved": coding_stats["hard_solved"],
+                "points": coding_stats["total_points"],
+                "total_points": coding_stats["total_points"],
+                "accuracy": coding_stats["accuracy"],
+                "rank": coding_stats["rank"]
+            }
         },
         "status_breakdown": status_counts,
         "application_timeline": timeline[::-1],

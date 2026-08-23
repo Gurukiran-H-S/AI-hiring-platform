@@ -119,6 +119,23 @@ class ATSScorer:
     def _compute_semantic_score(self, resume: Dict, job_desc: Optional[str]) -> float:
         if not job_desc:
             return 70.0
+
+        # Preferred path: real transformer embeddings (all-MiniLM-L6-v2)
+        try:
+            from app.ai.semantic_matcher import semantic_matcher
+            resume_text = semantic_matcher._resume_to_text(resume) or str(resume)[:5000]
+            similarity = semantic_matcher.compute_similarity(
+                semantic_matcher.encode(resume_text[:5000]),
+                semantic_matcher.encode(job_desc[:5000]),
+            )
+            # Cosine similarity of MiniLM typically lands in [-0.1, 1]; rescale
+            # to a useful 0-100 band (0.0 -> 0, 0.4 -> 50, >=0.8 -> 100).
+            scaled = max(0.0, min(100.0, (similarity / 0.8) * 100.0))
+            return scaled
+        except Exception as e:
+            logger.warning(f"Embedding-based semantic score unavailable ({e}); using token-overlap fallback.")
+
+        # Fallback: token overlap heuristic
         resume_text = str(resume).lower()
         job_terms = set(re.findall(r'\b[a-zA-Z]{3,}\b', job_desc.lower()))
         resume_terms = set(re.findall(r'\b[a-zA-Z]{3,}\b', resume_text))

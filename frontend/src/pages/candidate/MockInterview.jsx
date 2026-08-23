@@ -59,139 +59,149 @@ export const MockInterview = () => {
   }
 
   return (
-    <div className="space-y-6 w-full max-w-5xl mx-auto text-white">
+    <div className="space-y-6 pb-12 w-full max-w-5xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-emerald-400 bg-clip-text text-transparent font-display">
-          AI Mock Interview & Speech Analytics
-        </h1>
-        <p className="text-slate-400 text-sm mt-1">
+        <h1 className="text-page-title text-ink">AI Mock Interview</h1>
+        <p className="text-sm text-ink-soft mt-1">
           Simulate professional interviews with real-time feedback on speaking speed, fillers, and grammar.
         </p>
       </div>
 
       {!stream ? (
-        <div className="glass-card p-8 border border-white/10 rounded-2xl bg-white/5 max-w-md mx-auto space-y-6 text-center">
-          <h2 className="text-lg font-bold font-display">Select Interview Stream</h2>
-          <p className="text-xs text-slate-400">Choose a specialization to focus your preparation.</p>
+        <div className="card p-8 max-w-md mx-auto space-y-6 text-center">
+          <div>
+            <h2 className="section-title">Select Interview Stream</h2>
+            <p className="text-xs text-ink-muted mt-1">Choose a specialization to focus your preparation.</p>
+          </div>
           <div className="space-y-3">
             <button
               onClick={() => setStream('HR')}
-              className="w-full bg-indigo-500/20 border border-indigo-500/30 p-4 rounded-xl hover:bg-indigo-500/30 font-bold transition-all text-sm"
+              className="w-full bg-brand-light border border-brand/30 text-brand p-4 rounded-[10px] hover:border-brand hover:bg-canvas font-semibold transition-colors text-sm"
             >
               💼 HR / Cultural Interview
             </button>
             <button
               onClick={() => setStream('Technical')}
-              className="w-full bg-emerald-500/20 border border-emerald-500/30 p-4 rounded-xl hover:bg-emerald-500/30 font-bold transition-all text-sm"
+              className="w-full bg-brand-light border border-brand/30 text-brand p-4 rounded-[10px] hover:border-brand hover:bg-canvas font-semibold transition-colors text-sm"
             >
               💻 Software Engineering Technical
             </button>
           </div>
         </div>
       ) : !completed ? (
-        <div className="glass-card p-8 border border-white/10 rounded-2xl bg-white/5 space-y-6">
-          <div className="flex justify-between items-center text-xs text-slate-500">
-            <span>Specialization: <strong>{stream}</strong></span>
+        <div className="card p-8 space-y-6">
+          <div className="flex justify-between items-center text-xs text-ink-muted border-b border-line-soft pb-3">
+            <span>Specialization: <strong className="text-ink">{stream}</strong></span>
             <span>Question {currentIdx + 1} of {MOCK_QUESTIONS[stream].length}</span>
           </div>
 
-          <div className="bg-black/40 border border-white/5 p-6 rounded-2xl text-center">
-            <span className="text-sm font-semibold text-slate-400 block mb-2">Interview Prompt:</span>
-            <p className="text-lg text-white font-medium leading-relaxed font-display">
+          {/* Question area */}
+          <div className="bg-canvas border border-line p-6 rounded-[10px] text-center">
+            <span className="text-xs font-semibold text-ink-muted block mb-2 uppercase tracking-wide">Interview Prompt</span>
+            <p className="text-lg text-ink font-medium leading-relaxed">
               "{MOCK_QUESTIONS[stream][currentIdx]}"
             </p>
           </div>
 
           {/* Interactive simulator controls */}
-          <div className="flex flex-col items-center gap-4 py-4">
+          <div className="flex flex-col items-center gap-3 py-2">
             {!recording ? (
               <button
                 onClick={handleStartRecording}
-                className="w-16 h-16 rounded-full bg-indigo-500 hover:bg-indigo-600 flex items-center justify-center text-xl transition-all shadow-lg shadow-indigo-500/30 animate-pulse"
+                className="btn-primary w-16 h-16 rounded-full flex items-center justify-center text-xl"
+                title="Start recording"
               >
                 🎙️
               </button>
             ) : (
               <button
                 onClick={handleStopRecording}
-                className="w-16 h-16 rounded-full bg-rose-500 hover:bg-rose-600 flex items-center justify-center text-xl transition-all shadow-lg shadow-rose-500/30"
+                className="btn-danger w-16 h-16 rounded-full flex items-center justify-center text-xl animate-pulse"
+                title="Stop recording"
               >
                 ⏹️
               </button>
             )}
-            <span className="text-xs text-slate-400 font-medium">
+            <span className="text-xs text-ink-muted font-medium">
               {recording ? 'Recording audio... Speak now.' : 'Click to begin answer recording'}
             </span>
           </div>
 
+          {/* Answer transcript / answer input */}
           {transcript && (
-            <div className="space-y-2 bg-white/5 border border-white/10 p-4 rounded-xl">
-              <span className="text-xs text-slate-400 block font-semibold">Speech-to-Text Transcript:</span>
-              <p className="text-xs text-slate-300 italic font-mono leading-relaxed">{transcript}</p>
+            <div className="space-y-2 bg-canvas border border-line p-4 rounded-[10px]">
+              <span className="text-xs text-ink-muted block font-semibold">Your Answer:</span>
+              <textarea
+                readOnly
+                value={transcript}
+                rows={4}
+                className="input italic font-mono leading-relaxed resize-none"
+              />
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+          <div className="flex justify-end gap-3 pt-4 border-t border-line">
             <button
               onClick={() => {
                 setStream(null)
                 setCurrentIdx(0)
                 setTranscript('')
               }}
-              className="btn-secondary py-2 px-4 rounded-xl text-xs"
+              className="btn-secondary btn-sm"
             >
               Cancel
             </button>
             <button
               onClick={handleNext}
-              className="bg-indigo-500 hover:bg-indigo-600 px-5 py-2 rounded-xl text-xs font-bold"
+              className="btn-primary btn-sm"
             >
               {currentIdx < MOCK_QUESTIONS[stream].length - 1 ? 'Next Question' : 'Finish & Evaluate'}
             </button>
           </div>
         </div>
       ) : (
-        <div className="glass-card p-8 border border-white/10 rounded-2xl bg-white/5 max-w-xl mx-auto space-y-6">
+        <div className="card p-8 max-w-xl mx-auto space-y-6">
           <div className="text-center space-y-2">
-            <span className="text-5xl">📊</span>
-            <h2 className="text-2xl font-bold font-display">AI Speech Feedback Report</h2>
-            <p className="text-xs text-slate-400">Analysis completed based on language delivery and vocabulary strength.</p>
+            <span className="w-14 h-14 mx-auto mb-2 rounded-full bg-brand-light flex items-center justify-center text-2xl">📊</span>
+            <h2 className="section-title">AI Speech Feedback Report</h2>
+            <p className="text-sm text-ink-soft mt-1">Analysis completed based on language delivery and vocabulary strength.</p>
           </div>
 
+          {/* Feedback sections */}
           {aiFeedback && (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-black/30 border border-white/5 p-3 rounded-xl">
-                  <span className="text-[10px] text-slate-500 block">Overall Score</span>
-                  <strong className="text-lg text-emerald-400">{aiFeedback.score}%</strong>
+                <div className="bg-canvas border border-line p-3 rounded-[10px]">
+                  <span className="text-[10px] text-ink-muted block uppercase tracking-wide">Overall Score</span>
+                  <strong className="text-lg text-ok">{aiFeedback.score}%</strong>
                 </div>
-                <div className="bg-black/30 border border-white/5 p-3 rounded-xl">
-                  <span className="text-[10px] text-slate-500 block">Fluency / Pace</span>
-                  <strong className="text-lg text-indigo-400">{aiFeedback.pace}</strong>
+                <div className="bg-canvas border border-line p-3 rounded-[10px]">
+                  <span className="text-[10px] text-ink-muted block uppercase tracking-wide">Fluency / Pace</span>
+                  <strong className="text-lg text-brand">{aiFeedback.pace}</strong>
                 </div>
-                <div className="bg-black/30 border border-white/5 p-3 rounded-xl">
-                  <span className="text-[10px] text-slate-500 block">Grammar Grade</span>
-                  <strong className="text-lg text-amber-400">{aiFeedback.grammarScore}</strong>
+                <div className="bg-canvas border border-line p-3 rounded-[10px]">
+                  <span className="text-[10px] text-ink-muted block uppercase tracking-wide">Grammar Grade</span>
+                  <strong className="text-lg text-warn">{aiFeedback.grammarScore}</strong>
                 </div>
               </div>
 
-              <div className="bg-black/30 border border-white/5 p-4 rounded-xl">
-                <span className="text-xs text-slate-400 block font-semibold mb-2">Speech Filler Words Detected:</span>
+              <div className="bg-canvas border border-line p-4 rounded-[10px]">
+                <span className="text-xs text-ink-soft block font-semibold mb-2">Speech Filler Words Detected:</span>
                 <div className="flex flex-wrap gap-2">
                   {aiFeedback.fillers.map((f, i) => (
-                    <span key={i} className="text-xs bg-rose-500/10 text-rose-300 border border-rose-500/20 px-2 py-0.5 rounded">
+                    <span key={i} className="badge badge-danger">
                       {f}
                     </span>
                   ))}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <span className="text-xs text-slate-400 block font-semibold">AI Improvement Plan:</span>
-                <ul className="space-y-1.5 text-xs text-slate-300">
+              <div className="bg-canvas border border-line p-4 rounded-[10px]">
+                <span className="text-xs text-ink-soft block font-semibold mb-2">AI Improvement Plan:</span>
+                <ul className="space-y-1.5 text-sm text-ink-soft">
                   {aiFeedback.suggestions.map((s, idx) => (
                     <li key={idx} className="flex gap-2">
-                      <span className="text-indigo-400">•</span> {s}
+                      <span className="text-brand">•</span> {s}
                     </li>
                   ))}
                 </ul>
@@ -207,9 +217,9 @@ export const MockInterview = () => {
               setTranscript('')
               setAiFeedback(null)
             }}
-            className="w-full bg-gradient-to-r from-indigo-500 to-emerald-500 font-bold py-2.5 rounded-xl text-sm"
+            className="btn-primary w-full py-2.5 rounded-[10px] text-sm font-semibold"
           >
-            Start New Interview Sessions
+            Start New Interview Session
           </button>
         </div>
       )}

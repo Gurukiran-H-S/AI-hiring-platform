@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { api } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
+const atsColor = (score) => (score >= 80 ? 'progress-green' : score >= 60 ? 'progress-orange' : 'progress-red')
+const atsLabel = (score) => (score >= 80 ? 'Good Match' : score >= 60 ? 'Fair Match' : 'Needs Improvement')
+
 export const ResumeAnalyzer = ({ onPrimaryChange }) => {
   const [resumes, setResumes] = useState([])
   const [selectedResume, setSelectedResume] = useState(null)
@@ -9,13 +12,11 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
   const [uploading, setUploading] = useState(false)
   const [title, setTitle] = useState('')
   const [file, setFile] = useState(null)
-
-  // Modals
   const [showImprovementModal, setShowImprovementModal] = useState(false)
   const [showLowAtsPopup, setShowLowAtsPopup] = useState(false)
   const [resumeToDelete, setResumeToDelete] = useState(null)
 
-  // AI Cover Letter States
+  // AI Cover Letter
   const [jobDescription, setJobDescription] = useState('')
   const [coverLetter, setCoverLetter] = useState('')
   const [generatingLetter, setGeneratingLetter] = useState(false)
@@ -24,7 +25,7 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
     try {
       const { data } = await api.get('/resumes/')
       setResumes(data)
-      if (data.length > 0 && !selectedResume) {
+      if (data.length > 0) {
         loadResumeAnalysis(data[0].id)
       }
     } catch (err) {
@@ -37,13 +38,18 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
     fetchResumes()
   }, [])
 
-  const loadResumeAnalysis = async (id) => {
+  const loadResumeAnalysis = async (id, autoAlert = true) => {
     try {
       const { data } = await api.get(`/resumes/${id}`)
       setAnalysisDetails(data)
       setSelectedResume(resumes.find(r => r.id === id) || data)
-      if (data.ats_score < 60) {
+      const score = data.ats_score ?? 0
+      if (autoAlert && score > 0 && score < 60) {
         setShowLowAtsPopup(true)
+        toast.error(`⚠️ Low ATS Score Detected: ${score}%. Improve your resume to pass recruiter screening.`, {
+          id: 'low-ats-toast',
+          duration: 6000
+        })
       }
     } catch (err) {
       console.error(err)
@@ -69,11 +75,15 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
 
     try {
       const { data } = await api.post('/resumes/upload', formData)
-      toast.success('Resume parsed & analyzed with spaCy NLP!')
+      toast.success('Resume parsed & analyzed!')
       setResumes([data, ...resumes])
-      loadResumeAnalysis(data.id)
+      await loadResumeAnalysis(data.id, true)
       setFile(null)
       setTitle('')
+      if (data.ats_score > 0 && data.ats_score < 60) {
+        setShowLowAtsPopup(true)
+      }
+      if (onPrimaryChange) onPrimaryChange()
     } catch (err) {
       console.error(err)
       toast.error(err.response?.data?.detail || 'Failed to process resume')
@@ -86,15 +96,11 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
     if (!resumeToDelete) return
     try {
       await api.delete(`/resumes/${resumeToDelete.id}`)
-      toast.success(`Resume '${resumeToDelete.title}' deleted successfully.`)
+      toast.success(`Resume '${resumeToDelete.title}' deleted.`)
       const updated = resumes.filter(r => r.id !== resumeToDelete.id)
       setResumes(updated)
-      if (updated.length > 0) {
-        loadResumeAnalysis(updated[0].id)
-      } else {
-        setSelectedResume(null)
-        setAnalysisDetails(null)
-      }
+      if (updated.length > 0) loadResumeAnalysis(updated[0].id)
+      else { setSelectedResume(null); setAnalysisDetails(null) }
       setResumeToDelete(null)
     } catch (err) {
       toast.error('Failed to delete resume.')
@@ -104,11 +110,9 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
   const handleSetPrimary = async (resumeId) => {
     try {
       await api.put(`/resumes/${resumeId}/primary`)
-      toast.success('Set as primary resume for recommendations!')
+      toast.success('Set as primary resume!')
       fetchResumes()
-      if (onPrimaryChange) {
-        onPrimaryChange()
-      }
+      if (onPrimaryChange) onPrimaryChange()
     } catch (err) {
       toast.error('Failed to set primary resume.')
     }
@@ -118,176 +122,161 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
     if (!jobDescription) return toast.error('Please enter a Job Description')
     setGeneratingLetter(true)
     try {
-      await new Promise(r => setTimeout(r, 1500))
+      await new Promise(r => setTimeout(r, 1200))
       const simulatedLetter = `Dear Hiring Manager,
 
-I am writing to express my enthusiastic interest in the open role. Having reviewed the position requirements, my background aligns closely with key technical expectations including ${selectedResume?.parsed_skills?.slice(0, 5).join(', ')}.
+I am writing to express my interest in this role. My background aligns closely with key technical requirements including ${selectedResume?.parsed_skills?.slice(0, 5).join(', ') || 'software development'}.
 
 My hands-on project experience in "${selectedResume?.parsed_projects?.[0]?.name || 'Software Development'}" demonstrates my capacity to build scalable applications.
 
 Sincerely,
 ${selectedResume?.parsed_name || 'Applicant'}`
       setCoverLetter(simulatedLetter)
-      toast.success('AI Cover Letter Generated!')
-    } catch (err) {
-      toast.error('Failed to generate cover letter')
+      toast.success('Cover letter generated!')
     } finally {
       setGeneratingLetter(false)
     }
   }
 
   const atsScore = analysisDetails?.ats_score || selectedResume?.ats_score || 0
-  const isBelowThreshold = atsScore < 60
+  const isBelowThreshold = atsScore > 0 && atsScore < 60
+  const breakdown = analysisDetails?.score_breakdown
 
   return (
-    <div className="space-y-8 w-full max-w-7xl mx-auto text-white">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent font-display">
-            AI Hybrid Resume Analyzer & ATS Diagnostic System
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">
-            spaCy NLP Parsing, PyMuPDF Extraction, Skill Normalization & Explainable ATS Diagnostics.
-          </p>
-        </div>
+    <div className="page-enter">
 
+      {/* Header */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="page-title mb-1">Resume Analysis</h1>
+          <p className="text-sm text-ink-2">Upload your resume for an explainable ATS evaluation.</p>
+        </div>
         {atsScore > 0 && (
-          <button
-            onClick={() => setShowImprovementModal(true)}
-            className="btn-primary py-2.5 px-5 text-sm font-semibold rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-500/25"
-          >
-            <span>⚡</span> Improve My ATS Score
+          <button onClick={() => setShowImprovementModal(true)} className="btn-secondary btn-sm">
+            ⚡ Improve My ATS Score
           </button>
         )}
-      </div>
+      </header>
 
-      {/* Prominent < 60 ATS Score Warning Banner */}
-      {isBelowThreshold && atsScore > 0 && (
-        <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-3 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚠️</span>
-            <div>
-              <h3 className="font-bold text-base font-display">ATS SCORE: {atsScore}% — Needs Improvement</h3>
-              <p className="text-xs text-amber-200/90 mt-0.5">
-                Your current profile matches {atsScore}% of this job's requirements (Target: 60%+). Learn the missing skills below to boost your ATS compatibility!
+      {/* Low ATS inline warning banner */}
+      {isBelowThreshold && (
+        <div className="bg-warn-bg border border-warn/20 rounded-[10px] p-5 mb-6">
+          <div className="flex items-start gap-3">
+            <span className="text-lg">⚠️</span>
+            <div className="flex-1">
+              <h3 className="font-semibold text-warn text-sm">Resume Needs Improvement</h3>
+              <p className="text-[13px] text-ink-2 mt-1">
+                Your ATS score is <strong>{atsScore}%</strong>. Recommended skills to add:
               </p>
+              {analysisDetails?.missing_skills?.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {analysisDetails.missing_skills.map((skill) => (
+                    <a
+                      key={skill}
+                      href={`https://www.youtube.com/results?search_query=learn+${encodeURIComponent(skill)}+tutorial`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="badge bg-white !text-warn border border-warn/25 hover:border-warn transition-colors"
+                    >
+                      + {skill}
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {analysisDetails?.recommended_market_skills?.length > 0 && (
+                <>
+                  <p className="text-[13px] text-ink-2 mt-4">
+                    🔥 <strong>{analysisDetails.recommended_market_skills.length} market-trending skills</strong> not on your resume
+                    (ranked by real job-market demand) — click any skill to open a free beginner course on YouTube:
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {analysisDetails.recommended_market_skills.map((rec) => (
+                      <a
+                        key={rec.skill}
+                        href={rec.youtube_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Beginner tutorial for ${rec.skill}${rec.growth ? ` · demand ${rec.growth}` : ''}`}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-white text-brand border border-brand/30 hover:bg-brand hover:text-white transition-colors"
+                      >
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4L15.8 12z"/></svg>
+                        {rec.skill}
+                        {rec.growth && <span className="text-[10px] opacity-75">{rec.growth}</span>}
+                      </a>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button onClick={() => setShowImprovementModal(true)} className="btn-primary btn-sm">Improve Skills</button>
             </div>
           </div>
-
-          {analysisDetails?.missing_skills?.length > 0 && (
-            <div className="pt-2 border-t border-amber-500/20 text-xs">
-              <span className="font-bold uppercase tracking-wider text-amber-400 block mb-1.5">Missing Skills & Example YouTube Tutorials:</span>
-              <div className="flex flex-wrap gap-2">
-                {analysisDetails.missing_skills.map((skill) => (
-                  <a
-                    key={skill}
-                    href={`https://www.youtube.com/results?search_query=learn+${encodeURIComponent(skill)}+tutorial+course`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 px-2.5 py-1 rounded-lg font-mono font-semibold flex items-center gap-1 transition-colors"
-                  >
-                    <span>▶</span> + {skill} (Example Link)
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Upload & Resumes List with Delete & Set Primary */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Left column: upload + list */}
         <div className="space-y-6">
-          <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 backdrop-blur-md">
-            <h2 className="text-lg font-bold mb-4 font-display">Upload Resume (PDF/DOCX)</h2>
+          <div className="card">
+            <h2 className="section-title !text-[16px] mb-4">Upload Resume</h2>
             <form onSubmit={handleUpload} className="space-y-4">
-              <div className="border-2 border-dashed border-white/20 rounded-xl p-6 text-center hover:border-indigo-500/50 transition-colors relative cursor-pointer">
-                <input
-                  type="file"
-                  accept=".pdf,.docx,.doc"
-                  onChange={handleFileChange}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                />
-                <span className="text-3xl block mb-2">📁</span>
-                <p className="text-xs text-slate-400">
-                  {file ? file.name : 'Drag & Drop or Click to Upload PDF/DOCX'}
-                </p>
-              </div>
+              <label className="block border-2 border-dashed border-line rounded-lg p-8 text-center hover:border-brand hover:bg-brand-subtle transition-all cursor-pointer">
+                <input type="file" accept=".pdf,.docx,.doc" onChange={handleFileChange} className="hidden" />
+                <svg className="w-9 h-9 mx-auto mb-2.5 text-ink-3" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" />
+                  <polyline points="17 8 12 3 7 8" strokeLinecap="round" strokeLinejoin="round" />
+                  <line x1="12" y1="3" x2="12" y2="15" strokeLinecap="round" />
+                </svg>
+                <p className="text-[13px] font-medium text-ink">{file ? file.name : 'Click to upload'}</p>
+                <p className="text-xs text-ink-3 mt-0.5">PDF or DOCX, max 10MB</p>
+              </label>
               {file && (
-                <input
-                  type="text"
-                  placeholder="Resume Title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                />
+                <input type="text" placeholder="Resume Title" value={title} onChange={(e) => setTitle(e.target.value)} className="input" />
               )}
-              <button
-                type="submit"
-                disabled={uploading}
-                className="w-full btn-primary font-semibold p-2.5 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {uploading ? 'Parsing with NLP...' : 'Analyze Resume'}
+              <button type="submit" disabled={uploading || !file} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
+                {uploading ? 'Analyzing…' : 'Analyze Resume'}
               </button>
             </form>
           </div>
 
-          <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 backdrop-blur-md">
-            <h2 className="text-lg font-bold mb-4 font-display">Uploaded Resumes</h2>
+          <div className="card">
+            <h2 className="section-title !text-[16px] mb-4">My Resumes</h2>
             {resumes.length === 0 ? (
-              <p className="text-sm text-slate-500">No resumes uploaded yet.</p>
+              <div className="empty-state !py-6">
+                <h3>No Resume Uploaded</h3>
+                <p className="text-[13px] mb-4">Upload your resume to start AI analysis.</p>
+              </div>
             ) : (
-              <div className="space-y-3 max-h-[350px] overflow-y-auto">
+              <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
                 {resumes.map((r) => (
                   <div
                     key={r.id}
-                    className={`p-3 rounded-xl border transition-all space-y-2 ${
+                    onClick={() => loadResumeAnalysis(r.id)}
+                    className={`rounded-lg border px-3.5 py-3 cursor-pointer transition-all ${
                       selectedResume?.id === r.id
-                        ? 'bg-indigo-500/20 border-indigo-500 text-white'
-                        : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'
+                        ? 'bg-brand-light border-brand/30'
+                        : 'bg-white border-line hover:bg-page'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-sm truncate max-w-[140px]">{r.title}</span>
-                      <div className="flex items-center gap-2">
-                        {r.is_primary && (
-                          <span className="text-[10px] bg-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded font-mono">
-                            ★ Primary
-                          </span>
-                        )}
-                        <span className={`text-xs font-mono px-2 py-0.5 rounded font-bold ${
-                          (r.ats_score || 0) >= 75 ? 'bg-emerald-500/20 text-emerald-400' : (r.ats_score || 0) >= 60 ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/20 text-amber-400'
-                        }`}>
-                          ATS: {r.ats_score}%
-                        </span>
-                      </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[13px] font-semibold text-ink truncate">{r.title}</span>
+                      <span className={`badge ${(r.ats_score || 0) >= 80 ? 'badge-green' : (r.ats_score || 0) >= 60 ? 'badge-orange' : 'badge-red'}`}>
+                        {r.ats_score ?? 0}%
+                      </span>
                     </div>
-
-                    <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[11px]">
-                      <button
-                        onClick={() => loadResumeAnalysis(r.id)}
-                        className="text-indigo-400 hover:underline font-semibold"
-                      >
-                        [View & Analyze]
-                      </button>
-
-                      <div className="flex items-center gap-2">
-                        {!r.is_primary && (
-                          <button
-                            onClick={() => handleSetPrimary(r.id)}
-                            className="text-emerald-400 hover:underline"
-                          >
-                            [Set Primary]
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setResumeToDelete(r)}
-                          className="text-rose-400 hover:underline"
-                        >
-                          [Delete]
+                    <div className="flex items-center gap-2 mt-2 text-[11px]">
+                      {r.is_primary && <span className="badge badge-blue">★ Primary</span>}
+                      {!r.is_primary && (
+                        <button onClick={(e) => { e.stopPropagation(); handleSetPrimary(r.id) }} className="text-brand hover:underline font-medium">
+                          Set Primary
                         </button>
-                      </div>
+                      )}
+                      <button onClick={(e) => { e.stopPropagation(); setResumeToDelete(r) }} className="text-err hover:underline ml-auto">
+                        Delete
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -296,255 +285,283 @@ ${selectedResume?.parsed_name || 'Applicant'}`
           </div>
         </div>
 
-        {/* Right Column: Detailed Analysis */}
+        {/* Right column: analysis */}
         <div className="lg:col-span-2 space-y-6">
           {selectedResume ? (
             <>
-              {/* ATS Score */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="glass-card p-6 text-center border border-white/10 rounded-2xl bg-white/5">
-                  <div className="text-xs text-slate-400 uppercase tracking-wider mb-2 font-display">Explainable ATS Score</div>
-                  <div className={`text-5xl font-extrabold font-display ${atsScore >= 75 ? 'text-emerald-400' : atsScore >= 60 ? 'text-indigo-400' : 'text-amber-400'}`}>
-                    {atsScore}%
-                  </div>
-                  <div className="text-xs font-semibold text-indigo-300 mt-2 font-mono">
-                    {analysisDetails?.level || 'Needs Improvement'}
-                  </div>
+              {/* ATS Score card */}
+              <div className="card">
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="section-title !text-[16px]">ATS Resume Score</h2>
+                  <span className={`badge ${atsScore >= 80 ? 'badge-green' : atsScore >= 60 ? 'badge-orange' : 'badge-red'}`}>
+                    {atsLabel(atsScore)}
+                  </span>
+                </div>
+                <div className="flex items-end gap-2 mb-3">
+                  <span className={`text-4xl font-bold tracking-tight ${
+                    atsScore >= 80 ? 'text-ok' : atsScore >= 60 ? 'text-warn' : 'text-err'
+                  }`}>{atsScore}</span>
+                  <span className="text-ink-3 text-lg font-medium pb-0.5">/ 100</span>
+                </div>
+                <div className="progress-track h-2.5">
+                  <div className={`progress-fill ${atsColor(atsScore)}`} style={{ width: `${atsScore}%` }}></div>
                 </div>
 
-                <div className="glass-card p-6 text-center border border-white/10 rounded-2xl bg-white/5">
-                  <div className="text-xs text-slate-400 uppercase tracking-wider mb-2 font-display">Resume Consistency</div>
-                  <div className="text-3xl font-extrabold text-emerald-400 font-display my-1">
-                    {analysisDetails?.consistency_analysis?.consistency_score || 92}%
-                  </div>
-                  <div className="text-xs text-slate-400 font-mono">
-                    Status: <strong className="text-emerald-300">{analysisDetails?.consistency_analysis?.concern_level || 'Low Concern'}</strong>
-                  </div>
-                </div>
-
-                <div className="glass-card p-6 text-center border border-white/10 rounded-2xl bg-white/5">
-                  <div className="text-xs text-slate-400 uppercase tracking-wider mb-2 font-display">Normalized Skills</div>
-                  <div className="text-5xl font-extrabold text-amber-400 font-display">
-                    {selectedResume.parsed_skills?.length || 0}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-2">spaCy NLP Verified</div>
-                </div>
-              </div>
-
-              {/* Explainable Weight Breakdown */}
-              {analysisDetails?.score_breakdown && (
-                <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 space-y-4">
-                  <h2 className="text-md font-bold font-display text-slate-200">
-                    Weighted ATS Score Formula Breakdown
-                  </h2>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                    <div className="bg-black/30 p-3 rounded-xl border border-white/5">
-                      <span className="text-slate-400 block mb-1">Skills (30%)</span>
-                      <strong className="text-emerald-400 text-base">{analysisDetails.score_breakdown.skill_score}%</strong>
-                    </div>
-                    <div className="bg-black/30 p-3 rounded-xl border border-white/5">
-                      <span className="text-slate-400 block mb-1">Semantic (20%)</span>
-                      <strong className="text-indigo-400 text-base">{analysisDetails.score_breakdown.semantic_score}%</strong>
-                    </div>
-                    <div className="bg-black/30 p-3 rounded-xl border border-white/5">
-                      <span className="text-slate-400 block mb-1">Experience (15%)</span>
-                      <strong className="text-amber-400 text-base">{analysisDetails.score_breakdown.experience_score}%</strong>
-                    </div>
-                    <div className="bg-black/30 p-3 rounded-xl border border-white/5">
-                      <span className="text-slate-400 block mb-1">Education (10%)</span>
-                      <strong className="text-purple-400 text-base">{analysisDetails.score_breakdown.education_score}%</strong>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Beginner-Level Skill Tutorials & Roadmap with Example Links */}
-              {analysisDetails?.missing_skills?.length > 0 && (
-                <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 space-y-4">
-                  <h2 className="text-md font-bold font-display text-emerald-400 flex items-center gap-2">
-                    <span>📚</span> Beginner-Level Skill Tutorials & Roadmap (Example YouTube Links)
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    {analysisDetails.missing_skills.map((skill) => (
-                      <div key={skill} className="bg-black/40 p-4 rounded-xl border border-white/10 flex flex-col justify-between space-y-2">
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-bold text-indigo-300">{skill}</span>
-                            <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono uppercase font-bold">
-                              HIGH PRIORITY GAP
-                            </span>
-                          </div>
-                          <h4 className="font-semibold text-white">Learn {skill} Crash Course</h4>
-                          <p className="text-[11px] text-slate-400 mt-1">Master key concepts, CLI/API syntax, and hands-on starter projects.</p>
+                {breakdown && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-5 border-t border-line">
+                    {[
+                      { label: 'Skills', value: breakdown.skill_score },
+                      { label: 'Semantic', value: breakdown.semantic_score },
+                      { label: 'Experience', value: breakdown.experience_score },
+                      { label: 'Education', value: breakdown.education_score },
+                    ].map((b) => (
+                      <div key={b.label}>
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="text-ink-2 font-medium">{b.label}</span>
+                          <span className="font-semibold text-ink">{b.value}%</span>
                         </div>
-                        <a
-                          href={`https://www.youtube.com/results?search_query=learn+${encodeURIComponent(skill)}+course+tutorial`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-emerald-400 font-bold hover:underline inline-flex items-center gap-1 pt-2 border-t border-white/5"
-                        >
-                          Watch YouTube Tutorial ({skill} Example Link) →
-                        </a>
+                        <div className="progress-track !h-1.5">
+                          <div className="progress-fill progress-blue" style={{ width: `${b.value}%` }}></div>
+                        </div>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* AI Cover Letter Generator */}
-              <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 space-y-4">
-                <h2 className="text-md font-bold flex items-center gap-2 font-display">
-                  <span>✉️</span> Tailored AI Cover Letter
+                {analysisDetails?.consistency_analysis && (
+                  <div className="mt-5 pt-5 border-t border-line flex items-center justify-between text-[13px]">
+                    <span className="text-ink-2">Resume Consistency</span>
+                    <span className="badge badge-green">
+                      {analysisDetails.consistency_analysis.consistency_score || 92}% · {analysisDetails.consistency_analysis.concern_level || 'Low Concern'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Skills found */}
+              <div className="card">
+                <h2 className="section-title !text-[16px] mb-4">
+                  Skills Found <span className="text-ink-3 font-normal text-sm">({selectedResume.parsed_skills?.length || 0})</span>
                 </h2>
+                {selectedResume.parsed_skills?.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedResume.parsed_skills.map((s) => (
+                      <span key={s} className="skill-pill">{s}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-ink-3">No skills extracted yet.</p>
+                )}
+
+                {analysisDetails?.missing_skills?.length > 0 && (
+                  <>
+                    <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-3 mt-6 mb-3">Recommended Skills</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {analysisDetails.missing_skills.map((s) => (
+                        <a
+                          key={s}
+                          href={`https://www.youtube.com/results?search_query=learn+${encodeURIComponent(s)}+tutorial`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="skill-pill skill-pill-missing hover:!border-brand hover:!text-brand transition-colors"
+                        >
+                          + Learn {s}
+                        </a>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Cover Letter */}
+              <div className="card">
+                <h2 className="section-title !text-[16px] mb-4">✉️ AI Cover Letter</h2>
                 <textarea
                   rows={3}
                   value={jobDescription}
                   onChange={(e) => setJobDescription(e.target.value)}
-                  placeholder="Paste target job description..."
-                  className="w-full bg-[#0a0b14] border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  placeholder="Paste the target job description..."
+                  className="input mb-3"
                 />
-                <button
-                  onClick={generateCoverLetter}
-                  disabled={generatingLetter}
-                  className="btn-primary px-4 py-2 text-xs font-semibold rounded-xl"
-                >
-                  {generatingLetter ? 'Generating Letter...' : 'Generate Cover Letter'}
+                <button onClick={generateCoverLetter} disabled={generatingLetter} className="btn-primary btn-sm">
+                  {generatingLetter ? 'Generating…' : 'Generate Cover Letter'}
                 </button>
-
                 {coverLetter && (
-                  <div className="p-4 rounded-xl border border-white/10 bg-black/40">
-                    <h3 className="text-xs font-bold text-emerald-400 mb-2">Generated Cover Letter:</h3>
-                    <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">{coverLetter}</pre>
-                  </div>
+                  <pre className="mt-4 bg-page rounded-lg p-4 text-[12.5px] text-ink-2 whitespace-pre-wrap font-sans leading-relaxed border border-line">
+                    {coverLetter}
+                  </pre>
                 )}
               </div>
             </>
           ) : (
-            <div className="glass-card p-12 text-center border border-white/10 rounded-2xl bg-white/5 flex flex-col items-center justify-center h-full min-h-[350px]">
-              <span className="text-5xl mb-4">📂</span>
-              <p className="text-slate-400 text-sm">Select or upload a resume to view explainable ATS diagnostics & learning recommendations.</p>
+            <div className="card empty-state min-h-[350px] flex flex-col items-center justify-center">
+              <svg className="w-12 h-12 mx-auto mb-4 text-ink-3" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+              </svg>
+              <h3>No Resume Uploaded</h3>
+              <p className="text-sm mb-5">Upload your resume to start AI analysis.</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Low ATS Score Popup Modal */}
+      {/* Low ATS Score Alert Popup Modal (When ATS Score < 60%) */}
       {showLowAtsPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-scale-up">
-          <div className="glass-card p-6 rounded-2xl max-w-lg w-full bg-[#0d0e19] border border-amber-500/40 space-y-4 text-xs">
-            <div className="flex items-center justify-between border-b border-amber-500/30 pb-3">
-              <h2 className="text-base font-bold text-amber-300 font-display flex items-center gap-2">
-                <span>⚠️</span> ATS SCORE BELOW TARGET ({atsScore}%)
-              </h2>
-              <button onClick={() => setShowLowAtsPopup(false)} className="text-slate-400 hover:text-white text-base">✕</button>
-            </div>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fadeIn" onClick={() => setShowLowAtsPopup(false)}>
+          <div className="bg-white rounded-2xl border border-rose-200 shadow-2xl max-w-lg w-full p-6 space-y-5 page-slide-up relative max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            
+            {/* Top Close Button */}
+            <button
+              onClick={() => setShowLowAtsPopup(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-lg"
+            >
+              ✕
+            </button>
 
-            <div className="space-y-2 text-slate-300">
-              <p>
-                Your current resume match score is <strong className="text-amber-400">{atsScore}%</strong>. Recommended target is <strong className="text-emerald-400">60%+</strong>.
-              </p>
-              <p>We identified critical skills you can learn to significantly boost your score:</p>
-              <div className="space-y-1.5 pt-1">
-                {analysisDetails?.missing_skills?.map((skill) => (
-                  <div key={skill} className="flex items-center justify-between bg-black/40 p-2.5 rounded-xl border border-white/5 text-xs">
-                    <span className="font-bold text-white">{skill}</span>
-                    <a
-                      href={`https://www.youtube.com/results?search_query=learn+${encodeURIComponent(skill)}+tutorial`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-emerald-400 hover:underline font-semibold text-[11px]"
-                    >
-                      Watch Tutorial (Example Link) →
-                    </a>
-                  </div>
-                ))}
+            {/* Warning Header */}
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-rose-100 border border-rose-200 text-rose-600 flex items-center justify-center text-2xl shrink-0">
+                ⚠️
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-rose-100 text-rose-800 border border-rose-200 mb-1">
+                  ATS Score Below 60% Threshold
+                </div>
+                <h2 className="text-lg font-extrabold text-slate-900 leading-snug">
+                  Resume Needs Optimization ({atsScore}%)
+                </h2>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
-              <button
-                onClick={() => setShowLowAtsPopup(false)}
-                className="px-4 py-2 bg-white/10 hover:bg-white/15 rounded-xl text-slate-300 font-semibold"
-              >
-                Dismiss
-              </button>
+            {/* Notice Description */}
+            <div className="bg-rose-50/70 border border-rose-100 rounded-xl p-4 text-xs text-slate-700 leading-relaxed space-y-2">
+              <p>
+                Your analyzed resume scored <strong className="text-rose-700 font-bold">{atsScore}%</strong>, which is below the recommended <strong>60% recruiter shortlisting benchmark</strong>.
+              </p>
+              <p className="text-slate-600">
+                Resumes below 60% often get automatically filtered out by enterprise ATS algorithms. Adding missing technical skills and quantifiable impact bullets will quickly elevate your score above 80%.
+              </p>
+            </div>
+
+            {/* Job-specific missing skills (if available) */}
+            {analysisDetails?.missing_skills && analysisDetails.missing_skills.length > 0 && (
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Missing for This Job:
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {analysisDetails.missing_skills.map((sk) => (
+                    <span key={sk} className="badge bg-white !text-warn border border-warn/25 font-bold text-xs">
+                      + {sk}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 20 Market-Trending Skills -> clickable YouTube beginner courses */}
+            {analysisDetails?.recommended_market_skills?.length > 0 ? (
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  🔥 {analysisDetails.recommended_market_skills.length} Trending Skills Not on Your Resume
+                </h3>
+                <p className="text-[11px] text-slate-500 mb-2.5">
+                  Ranked by real job-market demand — click any skill to open a free beginner course on YouTube:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {analysisDetails.recommended_market_skills.map((rec, i) => (
+                    <a
+                      key={rec.skill}
+                      href={rec.youtube_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Beginner tutorial for ${rec.skill}${rec.growth ? ` · demand ${rec.growth}` : ''}`}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                        i < 10
+                          ? 'bg-brand-light text-brand border border-brand/30 hover:bg-brand hover:text-white'
+                          : 'bg-white text-slate-600 border border-slate-300 hover:border-brand hover:text-brand'
+                      }`}
+                    >
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4L15.8 12z"/></svg>
+                      {rec.skill}
+                      {rec.growth && <span className="text-[10px] opacity-70">{rec.growth}</span>}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              analysisDetails?.missing_skills?.length === 0 && (
+                <p className="text-xs text-slate-500">Loading skill recommendations...</p>
+              )
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
               <button
                 onClick={() => {
                   setShowLowAtsPopup(false)
                   setShowImprovementModal(true)
                 }}
-                className="btn-primary px-4 py-2 rounded-xl text-xs font-semibold"
+                className="btn-primary w-full sm:flex-1 py-2.5 font-bold flex items-center justify-center gap-2"
               >
-                View Skill Improvement Plan ⚡
+                <span>⚡</span> View Improvement Guide
+              </button>
+              <button
+                onClick={() => setShowLowAtsPopup(false)}
+                className="btn-secondary w-full sm:w-auto py-2.5 font-semibold"
+              >
+                Dismiss &amp; Continue
               </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Delete Confirmation Modal */}
-      {resumeToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="glass-card p-6 rounded-2xl max-w-md w-full bg-[#0d0e19] border border-rose-500/30 space-y-4 text-xs">
-            <h2 className="text-base font-bold text-rose-400 font-display flex items-center gap-2">
-              <span>⚠️</span> Delete Resume Confirmation
-            </h2>
-            <p className="text-slate-300">
-              Are you sure you want to delete <strong className="text-white">'{resumeToDelete.title}'</strong>?
-              This action cannot be undone and will delete all associated embeddings.
-            </p>
-            <div className="flex justify-end gap-3 pt-3">
-              <button
-                onClick={() => setResumeToDelete(null)}
-                className="px-4 py-2 bg-white/10 hover:bg-white/15 rounded-xl text-slate-300 font-semibold"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteResume}
-                className="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-4 py-2 rounded-xl transition-all"
-              >
-                Delete Resume 🗑️
-              </button>
-            </div>
           </div>
         </div>
       )}
 
       {/* Improvement Modal */}
       {showImprovementModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="glass-card p-6 rounded-2xl max-w-2xl w-full bg-[#0d0e19] border border-white/15 space-y-4 text-xs">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h2 className="text-lg font-bold text-white font-display">ATS Score Action Plan & Improvement Suggestions</h2>
-              <button onClick={() => setShowImprovementModal(false)} className="text-slate-400 hover:text-white text-base">✕</button>
-            </div>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setShowImprovementModal(false)}>
+          <div className="bg-white rounded-xl border border-line shadow-xl max-w-xl w-full p-6 page-slide-up" onClick={(e) => e.stopPropagation()}>
+            <h2 className="section-title !text-[17px] mb-1">ATS Improvement Plan</h2>
+            <p className="text-sm text-ink-3 mb-5">Actionable suggestions to raise your score above 80.</p>
 
-            <div className="space-y-3">
-              <h3 className="font-bold text-amber-400 uppercase tracking-wider">Recommended Wording Enhancements:</h3>
-              <div className="bg-black/40 p-3 rounded-xl border border-white/5 space-y-2">
-                <div>
-                  <span className="text-slate-400 block text-[11px]">Before:</span>
-                  <span className="text-rose-300 italic">"Worked on a project using Python."</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[11px]">Suggested Reword:</span>
-                  <span className="text-emerald-300 font-semibold">"Developed scalable Python REST APIs, optimizing backend execution and dataset processing."</span>
-                </div>
+            <div className="bg-page rounded-lg p-4 space-y-3 text-[13px]">
+              <div>
+                <span className="text-ink-3 block text-xs mb-0.5">Before:</span>
+                <span className="text-err italic">"Worked on a project using Python."</span>
               </div>
-
-              <h3 className="font-bold text-emerald-400 uppercase tracking-wider pt-2">Priority Missing Skills to Master:</h3>
-              <ul className="list-disc list-inside space-y-1 text-slate-300">
-                {analysisDetails?.missing_skills?.map((s) => (
-                  <li key={s}><strong className="text-indigo-300">{s}</strong> — High demand across technical job listings.</li>
-                ))}
-              </ul>
+              <div>
+                <span className="text-ink-3 block text-xs mb-0.5">Suggested:</span>
+                <span className="text-ok font-medium">"Developed scalable Python REST APIs, optimizing backend execution and dataset processing."</span>
+              </div>
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-white/10">
-              <button onClick={() => setShowImprovementModal(false)} className="btn-primary px-5 py-2 rounded-xl text-xs">
-                Close Action Plan
-              </button>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-3 mt-5 mb-2.5">Priority Skills</h3>
+            <ul className="space-y-1.5 text-[13px] text-ink-2">
+              {analysisDetails?.missing_skills?.map((s) => (
+                <li key={s}>• <strong className="text-ink">{s}</strong> — high demand across technical job listings.</li>
+              )) || <li>Add more measurable achievements and relevant keywords.</li>}
+            </ul>
+
+            <div className="flex justify-end mt-6">
+              <button onClick={() => setShowImprovementModal(false)} className="btn-primary btn-sm px-5">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {resumeToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setResumeToDelete(null)}>
+          <div className="bg-white rounded-xl border border-line shadow-xl max-w-md w-full p-6 page-slide-up" onClick={(e) => e.stopPropagation()}>
+            <h2 className="section-title !text-[16px] mb-2 text-err">Delete resume?</h2>
+            <p className="text-sm text-ink-2 leading-relaxed">
+              Are you sure you want to delete <strong className="text-ink">'{resumeToDelete.title}'</strong>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2.5 mt-6">
+              <button onClick={() => setResumeToDelete(null)} className="btn-ghost btn-sm px-4">Cancel</button>
+              <button onClick={handleDeleteResume} className="btn-danger btn-sm px-4">Delete</button>
             </div>
           </div>
         </div>

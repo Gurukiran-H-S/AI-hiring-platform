@@ -201,6 +201,15 @@ async def get_resume_analysis(
     ats_result = ats_scorer.score(parsed)
     verifier_result = resume_verifier.verify(parsed)
 
+    # Market-trending skill recommendations when ATS is below target
+    from app.ai.skill_recommender import get_trending_skill_recommendations
+    recommended_market_skills = get_trending_skill_recommendations(
+        resume_skills=parsed["skills"],
+        ats_score=ats_result["ats_score"],
+        threshold=60.0,
+        count=20,
+    )
+
     missing = ats_result.get("missing_skills", [])
     learning_resources = []
     if missing:
@@ -227,6 +236,7 @@ async def get_resume_analysis(
         "score_breakdown": ats_result["score_breakdown"],
         "matched_skills": ats_result["matched_skills"],
         "missing_skills": ats_result["missing_skills"],
+        "recommended_market_skills": recommended_market_skills,
         "threshold_warning": ats_result["threshold_warning"],
         "consistency_analysis": verifier_result,
         "learning_resources": learning_resources,

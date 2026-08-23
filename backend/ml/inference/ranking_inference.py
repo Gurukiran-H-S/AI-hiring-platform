@@ -7,33 +7,49 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 MODEL_FILE = os.path.join("ml", "models", "ranking", "candidate_ranker.joblib")
 
+DEFAULT_FEATURES = [
+    "ats_score", "skill_score", "keyword_score", "semantic_score",
+    "experience_score", "education_score", "project_score",
+    "coding_score", "aptitude_score", "interview_score",
+]
+
+
 class RankingInference:
-    """Loads XGBoost/Random Forest candidate ranker model and infers selection compatibility."""
+    """Loads the trained GradientBoosting candidate ranker and infers selection fit.
+    Falls back to a deterministic threshold rule when no trained model exists yet."""
 
     def __init__(self):
         self.model = None
+        self.features: List[str] = DEFAULT_FEATURES
+        self.version = None
         self._load_model()
 
     def _load_model(self):
-        if os.path.exists(MODEL_FILE):
-            try:
-                self.model = joblib.load(MODEL_FILE)
-            except Exception:
-                self.model = None
+        if not os.path.exists(MODEL_FILE):
+            return
+        try:
+            loaded = joblib.load(MODEL_FILE)
+        except Exception:
+            return
+
+        if isinstance(loaded, dict):
+            # New versioned bundle format from ml/training/train_ranking_model.py
+            self.model = loaded.get("model")
+            self.features = loaded.get("features") or DEFAULT_FEATURES
+            self.version = loaded.get("version")
+            if loaded.get("type") == "rule_based_fallback":
+                self.model = None  # explicit stub -> use rule fallback below
+        else:
+            # Legacy raw estimator files
+            self.model = loaded
 
     def predict_selected(self, features: Dict[str, float]) -> Dict[str, Any]:
         """Predict candidate selected/rejected outcome based on evaluation features."""
-        # Feature columns list
-        cols = ["ats_score", "skill_score", "keyword_score", "semantic_score", 
-                "experience_score", "education_score", "project_score", 
-                "coding_score", "aptitude_score", "interview_score"]
-        
-        # Assemble input vector
-        vec = [features.get(c, 0.0) for c in cols]
+        cols = self.features or DEFAULT_FEATURES
+        vec = [float(features.get(c, 0.0) or 0.0) for c in cols]
 
-        # In case of insufficient data (rule-based stub)
-        if self.model is None or (isinstance(self.model, dict) and self.model.get("type") == "rule_based_fallback"):
-            # Deterministic threshold rule-based fallback
+        # Rule-based fallback (no trained model available yet)
+        if self.model is None:
             overall = sum(vec) / len(cols)
             selected = overall >= 75.0
             prob = overall / 100.0
@@ -41,25 +57,28 @@ class RankingInference:
                 "selected": selected,
                 "selection_probability": round(prob, 2),
                 "is_fallback": True,
-                "overall_fit_index": round(overall, 1)
+                "overall_fit_index": round(overall, 1),
+                "model_version": self.version,
             }
-        
-        # Run inference using the trained XGBoost/RandomForest model
+
+        # Trained model inference
         try:
             pred = self.model.predict([vec])[0]
-            prob = self.model.predict_proba([vec])[0][1]
+            prob = float(self.model.predict_proba([vec])[0][1])
             return {
                 "selected": bool(pred),
-                "selection_probability": round(float(prob), 2),
-                "is_fallback": False
+                "selection_probability": round(prob, 2),
+                "is_fallback": False,
+                "model_version": self.version,
             }
         except Exception:
             overall = sum(vec) / len(cols)
-            selected = overall >= 75.0
             return {
-                "selected": selected,
+                "selected": overall >= 75.0,
                 "selection_probability": round(overall / 100.0, 2),
-                "is_fallback": True
+                "is_fallback": True,
+                "model_version": self.version,
             }
+
 
 ranking_inference = RankingInference()

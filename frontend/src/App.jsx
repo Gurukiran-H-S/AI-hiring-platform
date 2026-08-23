@@ -13,8 +13,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0b14] flex items-center justify-center text-white">
-        Loading...
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
+        <div className="skeleton h-12 w-64"></div>
       </div>
     )
   }

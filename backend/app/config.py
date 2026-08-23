@@ -4,10 +4,8 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-# Explicitly load .env file from backend directory and root workspace
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
-load_dotenv(BASE_DIR.parent / ".env")
 
 
 class Settings(BaseSettings):
@@ -46,6 +44,16 @@ class Settings(BaseSettings):
     JOB_PROVIDER: str = "demo"
     JOB_API_KEY: str = ""
     JOB_API_URL: str = ""
+
+    # AI Job Market Intelligence & Technology Trend Analyzer
+    MARKET_API_KEY: str = ""
+    GITHUB_TOKEN: str = ""
+    GOOGLE_TRENDS_API_KEY: str = ""
+    MARKET_DATA_ENABLED: bool = True
+    GITHUB_ENABLED: bool = True
+    GOOGLE_TRENDS_ENABLED: bool = False
+    MARKET_COLLECTION_INTERVAL: int = 86400  # Default: 24 hours (86,400 seconds)
+    MARKET_DATA_PROVIDER: str = "remoteok,arbeitnow,adzuna,internal"
 
     # AI Models
     SENTENCE_TRANSFORMER_MODEL: str = "all-MiniLM-L6-v2"

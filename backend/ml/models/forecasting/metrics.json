@@ -1,7 +1,33 @@
 {
-    "status": "SKIPPED_INSUFFICIENT_DATA",
-    "reason": "No historical job postings file found. Minimum required is 6 months data.",
-    "MAE": 4.2,
-    "RMSE": 5.8,
-    "MAPE": 12.5
+    "status": "SUCCESS",
+    "model_type": "HoltWinters_damped_trend_per_skill",
+    "version": "v20260823_160737",
+    "trained_at": "2026-08-23T16:07:37.500804",
+    "history_months": 8,
+    "date_range": "2023-08..2025-06",
+    "demand_unit": "per-1k-postings",
+    "normalized": true,
+    "short_history": true,
+    "skills_trained": [
+        "AWS",
+        "Azure",
+        "Data Analysis",
+        "Deep Learning",
+        "Docker",
+        "Git",
+        "Java",
+        "JavaScript",
+        "Kubernetes",
+        "Linux",
+        "Machine Learning",
+        "NLP",
+        "Python",
+        "REST API",
+        "SQL"
+    ],
+    "backtest_evaluated_skills": 15,
+    "MAE": 91.55,
+    "RMSE": 157.37,
+    "MAPE": 39.1,
+    "note": "Backtest holds out the most recent month; short histories make these wide."
 }

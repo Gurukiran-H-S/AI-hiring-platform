@@ -1,0 +1,66 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - node: true
+            path: "."
+          - python: true
+            path: "backend"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        if: matrix.python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Python dependencies
+        if: matrix.python
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Python tests
+        if: matrix.python
+        run: |
+          cd backend
+          python -m pytest tests/ -v
+
+      - name: Setup Node.js
+        if: matrix.node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Node.js dependencies
+        if: matrix.node
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run Node.js lint
+        if: matrix.node
+        run: |
+          cd frontend
+          npm run lint
+
+      - name: Build Node.js
+        if: matrix.node
+        run: |
+          cd frontend
+          npm run build

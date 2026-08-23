@@ -28,15 +28,15 @@ export const InteractiveAvatar = () => {
       title="Click anywhere to open Login!"
     >
       <div className="relative flex flex-col items-center group">
-        {/* Animated Speech Bubble saying HI */}
-        <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 text-white font-bold px-4 py-2 rounded-2xl shadow-xl border border-white/20 text-xs animate-bounce flex items-center gap-2 mb-2 font-display">
+        {/* Speech bubble */}
+        <div className="bg-brand text-white font-semibold px-4 py-2 rounded-xl shadow-card-hover text-xs flex items-center gap-2 mb-2">
           <span className="text-lg">👋</span>
           <span>Hi! Click anywhere to Sign In!</span>
         </div>
 
-        {/* Floating Animated Avatar Graphic */}
-        <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-500 to-emerald-400 flex items-center justify-center text-3xl shadow-2xl border-2 border-white/30 shadow-indigo-500/50 animate-pulse">
-          🤖
+        {/* Avatar chip */}
+        <div className="w-14 h-14 rounded-full bg-brand-light border border-brand/20 flex items-center justify-center shadow-card">
+          <svg className="w-7 h-7 text-brand" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
         </div>
       </div>
     </div>

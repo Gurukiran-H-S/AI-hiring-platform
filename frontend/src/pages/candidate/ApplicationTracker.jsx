@@ -1,6 +1,34 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
+
+/* Pipeline stages for the visual tracker */
+const STAGES = ['Applied', 'Under Review', 'Shortlisted', 'Assessment', 'Interview', 'Selected']
+
+const stageIndex = (status) => {
+  const s = (status || '').toLowerCase()
+  if (s === 'rejected') return -1
+  if (['applied', 'submitted'].includes(s)) return 0
+  if (['under_review', 'review', 'screening'].includes(s)) return 1
+  if (['shortlisted'].includes(s)) return 2
+  if (['assessment', 'test'].includes(s)) return 3
+  if (['interview', 'interview_scheduled'].includes(s)) return 4
+  if (['selected', 'hired', 'offer'].includes(s)) return 5
+  return 0
+}
+
+const statusBadgeClass = (status) => {
+  const s = (status || '').toLowerCase()
+  if (['selected', 'hired', 'offer'].includes(s)) return 'badge-emerald font-bold'
+  if (['shortlisted'].includes(s)) return 'badge-purple font-bold'
+  if (['interview', 'interview_scheduled'].includes(s)) return 'badge-amber font-bold'
+  if (['assessment', 'test'].includes(s)) return 'badge-teal font-bold'
+  if (['under_review', 'review', 'screening'].includes(s)) return 'badge-indigo font-bold'
+  if (s === 'rejected') return 'badge-rose font-bold'
+  if (s) return 'badge-blue font-bold'
+  return 'badge-gray'
+}
 
 export const ApplicationTracker = () => {
   const [applications, setApplications] = useState([])
@@ -12,7 +40,7 @@ export const ApplicationTracker = () => {
       setApplications(data || [])
     } catch (err) {
       console.error(err)
-      toast.error('Failed to load applications')
+      toast.error('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -30,135 +58,169 @@ export const ApplicationTracker = () => {
       fetchApplications()
     } catch (err) {
       console.error(err)
-      const errorMsg = err.response?.data?.detail || 'Failed to delete application'
-      toast.error(errorMsg)
-    }
-  }
-
-  const getStatusBadge = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'hired':
-      case 'offer':
-        return 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-      case 'shortlisted':
-      case 'interview':
-      case 'interview_scheduled':
-        return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-      case 'rejected':
-        return 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-      default:
-        return 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+      toast.error('Something went wrong. Please try again.')
     }
   }
 
   return (
-    <div className="space-y-8 w-full max-w-7xl mx-auto text-white">
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent font-display">
-          💼 Candidate Job Application Tracker & Activity Timeline
-        </h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Track application progress across your active job applications.
-        </p>
-      </div>
+    <div className="space-y-6 pb-12">
 
-      {/* Application Reminders Alert Banner */}
-      <div className="bg-white/5 border border-white/10 p-4 rounded-2xl text-xs text-slate-300 flex items-center gap-3">
-        <span className="text-xl">🔔</span>
-        <div>
-          <strong className="text-indigo-300 block font-display">Application Reminder</strong>
-          <span>Recruiters will update status stages and schedule interviews as your application advances.</span>
+      <header>
+        <h1 className="text-page-title text-ink">Application Tracker</h1>
+        <p className="text-sm text-ink-soft mt-1">Track application progress across your active applications.</p>
+      </header>
+
+      {/* Stage pipeline legend */}
+      <div className="card !p-4">
+        <div className="flex items-center flex-wrap gap-y-2">
+          {STAGES.map((stage, i) => (
+            <React.Fragment key={stage}>
+              <span className={`badge ${i === 0 ? 'badge-primary' : 'badge-neutral'}`}>{stage}</span>
+              {i < STAGES.length - 1 && (
+                <span className="text-ink-faint mx-1.5 text-xs shrink-0">→</span>
+              )}
+            </React.Fragment>
+          ))}
         </div>
       </div>
 
       {loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-white/5 rounded-2xl animate-pulse"></div>
+            <div key={i} className="skeleton h-40 rounded-[10px]"></div>
           ))}
         </div>
       ) : applications.length === 0 ? (
-        <div className="glass-card p-12 text-center border border-white/10 rounded-2xl bg-white/5">
-          <span className="text-4xl block mb-2">💼</span>
-          <p className="text-slate-400 text-sm">No tracked job applications found. Search jobs and click 'Apply' to start tracking.</p>
+        <div className="card py-16 text-center">
+          <span className="w-14 h-14 mx-auto mb-4 rounded-full bg-brand-light flex items-center justify-center">
+            <svg className="w-7 h-7 text-brand" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+              <rect x="2" y="7" width="20" height="14" rx="2" />
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+            </svg>
+          </span>
+          <h3 className="font-semibold text-ink mb-1">No Applications Yet</h3>
+          <p className="text-sm text-ink-muted mb-5 max-w-xs mx-auto">Start applying for jobs to track your applications.</p>
+          <Link to="/candidate/jobs" className="btn-primary">Find Jobs</Link>
         </div>
       ) : (
-        <div className="space-y-6">
-          {applications.map((app) => (
-            <div key={app.id} className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-white font-display">{app.job_title}</h3>
-                  <p className="text-xs text-indigo-300 font-medium">{app.company} • Applied on {app.applied_at}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-mono font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${getStatusBadge(app.status)}`}>
-                    ● {app.status?.replace('_', ' ')}
-                  </span>
-                  <button
-                    onClick={() => handleDeleteApplication(app.id)}
-                    className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition-all cursor-pointer"
-                    title="Delete Application"
-                  >
-                    🗑️ Delete
-                  </button>
-                </div>
-              </div>
+        <div className="space-y-5">
+          {applications.map((app) => {
+            const idx = stageIndex(app.status)
+            const rejected = idx === -1
+            return (
+              <div key={app.id} className="card">
 
-              {/* Recruiter Notes / Status Feedback */}
-              {app.recruiter_notes && (
-                <div className={`p-3 rounded-xl text-xs border ${
-                  app.status?.toLowerCase() === 'rejected' 
-                    ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' 
-                    : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300'
-                }`}>
-                  <strong className="block font-semibold mb-0.5">Recruiter Feedback / Note:</strong>
-                  <span>{app.recruiter_notes}</span>
-                </div>
-              )}
+                {/* Card header */}
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 pb-4 border-b border-line">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-[15px] text-ink">{app.job_title}</h3>
+                    <p className="text-[13px] text-ink-soft mt-0.5">{app.company}</p>
 
-              {/* Interview Meeting Link for Shortlisted / Interview Candidates */}
-              {app.meeting_link && (app.status?.toLowerCase() === 'shortlisted' || app.status?.toLowerCase() === 'interview' || app.status?.toLowerCase() === 'interview_scheduled') && (
-                <div className="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-                  <div>
-                    <div className="flex items-center gap-2 font-bold text-emerald-300 text-sm font-display">
-                      <span>📹</span> Interview Meeting Link Reflected
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 mt-2.5 text-xs text-ink-muted">
+                      <span>Job: <strong className="text-ink font-medium">{app.job_title}</strong></span>
+                      <span>Company: <strong className="text-ink font-medium">{app.company}</strong></span>
+                      <span>Applied Date: <strong className="text-ink font-medium">{app.applied_at}</strong></span>
+                      <span className="flex items-center gap-1.5">
+                        Current Status:
+                        <span className={`badge ${rejected ? 'badge-danger' : statusBadgeClass(app.status)} uppercase`}>
+                          {rejected ? '✕' : '●'} {app.status?.replace('_', ' ') || 'Applied'}
+                        </span>
+                      </span>
                     </div>
-                    <p className="text-slate-300 text-[11px] mt-0.5">
-                      {app.scheduled_at ? `Scheduled for: ${app.scheduled_at}` : 'Shortlisted for Interview Round'}
-                      {app.interview_type ? ` • Round: ${app.interview_type.toUpperCase()}` : ''}
-                    </p>
+
+                    {/* Next step */}
+                    {!rejected && idx < STAGES.length - 1 && (
+                      <p className="text-xs text-ink-muted mt-2">
+                        Next Step: <span className="text-brand font-medium">{STAGES[idx + 1]}</span>
+                      </p>
+                    )}
+                    {rejected && (
+                      <p className="text-xs text-bad mt-2">This application was not selected.</p>
+                    )}
                   </div>
-                  <a
-                    href={app.meeting_link.startsWith('http') ? app.meeting_link : `https://${app.meeting_link}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-primary bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-500/20 text-xs transition-all transform hover:scale-[1.02] cursor-pointer"
-                  >
-                    <span>🔗</span> Join Interview Meeting →
-                  </a>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleDeleteApplication(app.id)}
+                      className="btn-danger btn-sm"
+                      title="Delete Application"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              )}
 
-              {/* Activity Timeline */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-display">
-                  Application Timeline & History
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  {app.timeline?.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-                      <div>
-                        <span className="font-bold text-white block">{item.event}</span>
-                        <span className="text-[11px] text-slate-400 font-mono">{item.date}</span>
-                      </div>
+                {/* Status pipeline */}
+                {!rejected && (
+                  <div className="flex items-center flex-wrap gap-y-2 py-4">
+                    {STAGES.map((stage, i) => (
+                      <React.Fragment key={stage}>
+                        <span
+                          className={`badge ${i < idx ? 'badge-success' : i === idx ? 'badge-primary' : 'badge-neutral'}`}
+                          title={stage}
+                        >
+                          {i < idx ? '✓ ' : ''}{stage}
+                        </span>
+                        {i < STAGES.length - 1 && (
+                          <span className="text-ink-faint mx-1.5 text-xs shrink-0">→</span>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
+
+                {/* Recruiter notes */}
+                {app.recruiter_notes && (
+                  <div className={`rounded-lg px-4 py-3 text-[13px] border ${
+                    app.status?.toLowerCase() === 'rejected'
+                      ? 'bg-bad-soft border-bad/15 text-ink-soft'
+                      : 'bg-brand-subtle border-line text-ink-soft'
+                  }`}>
+                    <strong className="block font-semibold mb-0.5 text-ink">Recruiter Feedback</strong>
+                    {app.recruiter_notes}
+                  </div>
+                )}
+
+                {/* Interview meeting link */}
+                {app.meeting_link && ['shortlisted', 'interview', 'interview_scheduled'].includes(app.status?.toLowerCase()) && (
+                  <div className="bg-ok-soft border border-ok/15 p-4 rounded-lg mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="font-semibold text-ok text-[13px]">📹 Interview Scheduled</div>
+                      <p className="text-xs text-ink-soft mt-0.5">
+                        {app.scheduled_at ? `Scheduled for ${app.scheduled_at}` : 'You have been shortlisted'}
+                        {app.interview_type ? ` · Round: ${app.interview_type.toUpperCase()}` : ''}
+                      </p>
                     </div>
-                  ))}
-                </div>
+                    <a
+                      href={app.meeting_link.startsWith('http') ? app.meeting_link : `https://${app.meeting_link}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-success btn-sm shrink-0"
+                    >
+                      🔗 Join Meeting
+                    </a>
+                  </div>
+                )}
+
+                {/* Timeline */}
+                {app.timeline?.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-line">
+                    <h4 className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted mb-3">Activity Timeline</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                      {app.timeline.map((item, tidx) => (
+                        <div key={tidx} className="flex items-center gap-3 bg-canvas rounded-lg px-3.5 py-2.5">
+                          <span className="w-2 h-2 rounded-full bg-ok shrink-0"></span>
+                          <div className="min-w-0">
+                            <span className="text-[13px] font-medium text-ink block truncate">{item.event}</span>
+                            <span className="text-[11px] text-ink-muted">{item.date}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

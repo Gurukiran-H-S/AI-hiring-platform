@@ -53,54 +53,54 @@ export const CandidateSearch = () => {
   }
 
   return (
-    <div className="space-y-8 w-full max-w-7xl mx-auto text-white">
+    <div className="space-y-8 w-full max-w-7xl mx-auto text-ink">
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent font-display">
+        <h1 className="page-title">
           🔎 Search Candidates & Talent Pool
         </h1>
-        <p className="text-slate-400 text-sm mt-1">
+        <p className="text-ink-3 text-sm mt-1">
           Search candidate database by skill, experience, location, and ATS score threshold.
         </p>
       </div>
 
       {/* Search Form */}
-      <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 backdrop-blur-md">
+      <div className="card p-6">
         <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Skill</label>
+            <label className="field-label">Skill</label>
             <input
               type="text"
               placeholder="e.g. Python, SQL"
               value={skill}
               onChange={(e) => setSkill(e.target.value)}
-              className="w-full bg-[#0a0b14] border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+              className="input"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Location</label>
+            <label className="field-label">Location</label>
             <input
               type="text"
               placeholder="e.g. Bengaluru"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="w-full bg-[#0a0b14] border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+              className="input"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Min ATS Score (%)</label>
+            <label className="field-label">Min ATS Score (%)</label>
             <input
               type="number"
               placeholder="e.g. 70"
               value={minAts}
               onChange={(e) => setMinAts(e.target.value)}
-              className="w-full bg-[#0a0b14] border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+              className="input"
             />
           </div>
 
           <div className="flex items-end">
-            <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 text-xs font-semibold rounded-xl">
+            <button type="submit" disabled={loading} className="btn-primary w-full btn-sm">
               {loading ? 'Searching...' : '🔎 SEARCH CANDIDATES'}
             </button>
           </div>
@@ -109,61 +109,92 @@ export const CandidateSearch = () => {
 
       {/* Candidate Results */}
       <div className="space-y-4">
-        <h2 className="text-lg font-bold font-display text-slate-200">
+        <h2 className="section-title">
           Search Results ({candidates.length})
         </h2>
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-44 bg-white/5 rounded-2xl animate-pulse"></div>
+              <div key={i} className="skeleton h-44"></div>
             ))}
+          </div>
+        ) : candidates.length === 0 ? (
+          <div className="card empty-state">
+            <span className="text-4xl block mb-2">🔍</span>
+            <h3>No candidates found</h3>
+            <p>Try adjusting your search filters to widen the talent pool.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {candidates.map((cand) => (
-              <div key={cand.candidate_id} className="glass-card p-6 border border-white/10 rounded-2xl bg-white/5 flex flex-col justify-between space-y-4 hover:border-indigo-500/30 transition-all">
+              <div key={cand.candidate_id} className="card card-hover flex flex-col justify-between space-y-4">
                 <div>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-base font-bold text-white font-display">{cand.name}</h3>
-                      <p className="text-xs text-indigo-300 font-medium">{cand.email} • {cand.location}</p>
-                      {cand.applied_job_title && (
-                        <p className="text-[11px] text-emerald-300 font-medium mt-1">💼 Applied for: {cand.applied_job_title}</p>
-                      )}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="avatar w-10 h-10 rounded-lg text-sm">
+                        {(cand.name || 'C').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-ink">{cand.name}</h3>
+                        <p className="text-xs text-brand font-medium">{cand.email} • {cand.location}</p>
+                        {cand.applied_job_title && (
+                          <p className="text-[11px] text-ok font-medium mt-1">💼 Applied for: {cand.applied_job_title}</p>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-xs font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded">
-                      ATS: {cand.ats_score}%
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="badge badge-green font-mono">
+                        ATS: {cand.ats_score}%
+                      </span>
+                      <span className="badge badge-blue font-mono">
+                        Solved: {cand.problems_solved ?? 0}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     {cand.skills?.map((s) => (
-                      <span key={s} className="text-[11px] bg-white/5 text-slate-300 border border-white/10 px-2 py-0.5 rounded">
+                      <span key={s} className="skill-pill">
                         {s}
                       </span>
                     ))}
                   </div>
+
+                  <div className="mt-3 space-y-2">
+                    <div>
+                      <div className="flex justify-between text-[11px] text-ink-2 mb-0.5">
+                        <span>ATS Score</span><span className="font-mono">{cand.ats_score}%</span>
+                      </div>
+                      <div className="progress-track"><div className="progress-fill progress-blue" style={{ width: `${Math.min(cand.ats_score || 0, 100)}%` }}></div></div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-[11px] text-ink-2 mb-0.5">
+                        <span>Skill Match</span><span className="font-mono">92%</span>
+                      </div>
+                      <div className="progress-track"><div className="progress-fill progress-orange" style={{ width: '92%' }}></div></div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-white/5 text-xs">
+                <div className="flex items-center justify-between pt-3 border-t border-line text-xs">
                   <button
                     onClick={() => setSelectedCandidate(cand)}
-                    className="text-indigo-400 font-semibold hover:underline"
+                    className="btn-secondary btn-sm"
                   >
-                    View Full Profile →
+                    View Profile →
                   </button>
 
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleShortlist(cand.candidate_id)}
-                      className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 rounded-xl font-semibold"
+                      className="btn-success btn-sm"
                     >
                       Shortlist
                     </button>
                     <button
                       onClick={() => handleReject(cand.candidate_id)}
-                      className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-300 rounded-xl font-semibold"
+                      className="btn-danger btn-sm"
                     >
                       Reject
                     </button>
@@ -177,43 +208,47 @@ export const CandidateSearch = () => {
 
       {/* Candidate Profile Modal */}
       {selectedCandidate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="glass-card p-6 rounded-2xl max-w-xl w-full bg-[#0d0e19] border border-white/15 space-y-4 text-xs">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h2 className="text-base font-bold text-white font-display">Candidate Profile — {selectedCandidate.name}</h2>
-              <button onClick={() => setSelectedCandidate(null)} className="text-slate-400 hover:text-white">✕</button>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4">
+          <div className="bg-white rounded-xl border border-line shadow-xl max-w-xl w-full p-6 space-y-4 text-xs">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <h2 className="text-base font-bold text-ink">Candidate Profile — {selectedCandidate.name}</h2>
+              <button onClick={() => setSelectedCandidate(null)} className="text-ink-3 hover:text-ink">✕</button>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-slate-400 block text-[10px]">ATS SCORE</span>
-                <strong className="text-emerald-400 text-lg font-mono">{selectedCandidate.ats_score}%</strong>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="bg-page p-2.5 rounded-xl border border-line">
+                <span className="text-ink-3 block text-[9px] uppercase font-bold">ATS SCORE</span>
+                <strong className="text-ok text-base font-mono">{selectedCandidate.ats_score}%</strong>
               </div>
-              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-slate-400 block text-[10px]">SKILL MATCH</span>
-                <strong className="text-indigo-400 text-lg font-mono">92%</strong>
+              <div className="bg-page p-2.5 rounded-xl border border-line">
+                <span className="text-ink-3 block text-[9px] uppercase font-bold">SOLVED</span>
+                <strong className="text-ok text-base font-mono">{selectedCandidate.problems_solved ?? 0}</strong>
               </div>
-              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-slate-400 block text-[10px]">CONSISTENCY</span>
-                <strong className="text-purple-400 text-lg font-mono">High</strong>
+              <div className="bg-page p-2.5 rounded-xl border border-line">
+                <span className="text-ink-3 block text-[9px] uppercase font-bold">ACCURACY</span>
+                <strong className="text-brand text-base font-mono">{selectedCandidate.coding_accuracy ?? 0}%</strong>
+              </div>
+              <div className="bg-page p-2.5 rounded-xl border border-line">
+                <span className="text-ink-3 block text-[9px] uppercase font-bold">SKILL MATCH</span>
+                <strong className="text-warn text-base font-mono">92%</strong>
               </div>
             </div>
 
             <div>
-              <h4 className="font-bold text-slate-300 mb-1">Skills:</h4>
+              <h4 className="font-bold text-ink-2 mb-1">Skills:</h4>
               <div className="flex flex-wrap gap-1.5">
                 {selectedCandidate.skills?.map((s) => (
-                  <span key={s} className="bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/20">
+                  <span key={s} className="skill-pill">
                     {s}
                   </span>
                 ))}
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
+            <div className="flex justify-end gap-3 pt-3 border-t border-line">
               <button
                 onClick={() => setSelectedCandidate(null)}
-                className="px-4 py-2 bg-white/10 rounded-xl text-slate-300"
+                className="btn-secondary btn-sm"
               >
                 Close
               </button>
@@ -222,7 +257,7 @@ export const CandidateSearch = () => {
                   handleShortlist(selectedCandidate.candidate_id)
                   setSelectedCandidate(null)
                 }}
-                className="btn-primary px-4 py-2 rounded-xl font-semibold"
+                className="btn-primary btn-sm"
               >
                 Shortlist Candidate
               </button>

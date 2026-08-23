@@ -24,6 +24,9 @@ from app.routers.trends import router as trends_router
 from app.routers.applications import router as applications_router
 from app.routers.recruiter import router as recruiter_router
 from app.routers.aptitude import router as aptitude_router
+from app.routers.candidates import router as candidates_router
+from app.routers.market import router as market_router
+from app.services.market_data.scheduler import start_market_scheduler, stop_market_scheduler
 
 
 logging.basicConfig(
@@ -49,6 +52,7 @@ def create_application() -> FastAPI:
 - 🧠 **Skill Gap Analysis** + Course Recommendations
 - 📅 **Interview Scheduling** with notifications
 - 📈 **Analytics Dashboards**
+- 🌐 **AI Job Market Intelligence & Technology Trend Analyzer**
 
 ### Built With:
 FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
@@ -75,13 +79,20 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
         logger.info(f"{request.method} {request.url.path} → {response.status_code} ({duration:.3f}s)")
         return response
 
-    # ─── Startup ──────────────────────────────────────────────────────────────
+    # ─── Startup & Shutdown ───────────────────────────────────────────────────
     @app.on_event("startup")
     async def on_startup():
         logger.info("🚀 Starting AI Hiring Platform...")
         create_tables()
         logger.info("✅ Database tables created/verified")
+        start_market_scheduler()
+        logger.info("✅ AI Job Market Intelligence Scheduler activated")
         logger.info("✅ Application ready!")
+
+    @app.on_event("shutdown")
+    async def on_shutdown():
+        logger.info("Shutting down background services...")
+        stop_market_scheduler()
 
     # ─── Health Check ─────────────────────────────────────────────────────────
     @app.get("/", tags=["Health"])
@@ -110,6 +121,8 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
     app.include_router(applications_router)
     app.include_router(recruiter_router)
     app.include_router(aptitude_router)
+    app.include_router(candidates_router)
+    app.include_router(market_router)
 
 
     # ─── Global Exception Handler ─────────────────────────────────────────────

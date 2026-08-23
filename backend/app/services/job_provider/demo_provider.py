@@ -56,14 +56,19 @@ class DemoJobProvider(BaseJobProvider):
         try:
             db = SessionLocal()
             db_jobs = db.query(Job).filter(Job.status == JobStatus.ACTIVE).order_by(Job.created_at.desc()).all()
+            from app.services.market_data.normalizer import tech_normalizer
             for j in db_jobs:
+                extracted = tech_normalizer.extract_technologies(f"{j.title} {j.description or ''} {' '.join(j.required_skills or [])}")
+                all_skills = list(dict.fromkeys((j.required_skills or []) + extracted))
+                if not all_skills:
+                    all_skills = ["Python", "SQL"]
                 combined_jobs.append({
                     "id": str(j.id),
                     "title": j.title,
                     "company": j.company,
                     "location": j.location,
                     "description": j.description,
-                    "skills": j.required_skills or ["Python", "SQL"],
+                    "skills": all_skills,
                     "salary": f"₹{j.salary_min or 600000:,} - ₹{j.salary_max or 1200000:,} / year",
                     "employment_type": j.job_type.value if hasattr(j.job_type, 'value') else str(j.job_type),
                     "remote_type": "Remote" if j.is_remote else "On-site",

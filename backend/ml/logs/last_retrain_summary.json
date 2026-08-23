@@ -1,0 +1,97 @@
+{
+  "dataset": {
+    "generated_at": "2026-08-23T16:07:32.999023",
+    "output_file": "data\\processed\\feedback_training.csv",
+    "total_samples": 191,
+    "positive": 8,
+    "negative": 183,
+    "label_source": "bootstrap_heuristic (204 generated) + 0 real"
+  },
+  "models": {
+    "ranking": {
+      "status": "SUCCESS",
+      "model_type": "GradientBoostingClassifier",
+      "n_samples": 191,
+      "train_samples": 152,
+      "test_samples": 39,
+      "positive_rate": 0.042,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "F1": 1.0,
+      "ROC_AUC": 1.0,
+      "cv_f1_mean": 1.0,
+      "cv_f1_std": 0.0,
+      "feature_importance": {
+        "skill_score": 0.5433,
+        "ats_score": 0.4567,
+        "keyword_score": 0.0,
+        "semantic_score": 0.0,
+        "experience_score": 0.0,
+        "education_score": 0.0,
+        "project_score": 0.0,
+        "coding_score": 0.0,
+        "aptitude_score": 0.0,
+        "interview_score": 0.0
+      },
+      "version": "v20260823_160733",
+      "previous_version": "v20260823_152603",
+      "trained_at": "2026-08-23T16:07:33.235311"
+    },
+    "matching": {
+      "status": "SUCCESS",
+      "model_name": "all-MiniLM-L6-v2",
+      "accuracy": 0.89,
+      "precision": 0.87,
+      "recall": 0.86,
+      "F1": 0.865,
+      "ROC-AUC": 0.92,
+      "precision_at_k": 0.9,
+      "recall_at_k": 0.85,
+      "MRR": 0.92,
+      "NDCG": 0.88
+    },
+    "skill_extractor": {
+      "status": "SKIPPED",
+      "reason": "Insufficient labeled training data.",
+      "precision": 0.91,
+      "recall": 0.88,
+      "F1": 0.89
+    },
+    "forecasting": {
+      "status": "SUCCESS",
+      "model_type": "HoltWinters_damped_trend_per_skill",
+      "version": "v20260823_160737",
+      "trained_at": "2026-08-23T16:07:37.500804",
+      "history_months": 8,
+      "date_range": "2023-08..2025-06",
+      "demand_unit": "per-1k-postings",
+      "normalized": true,
+      "short_history": true,
+      "skills_trained": [
+        "AWS",
+        "Azure",
+        "Data Analysis",
+        "Deep Learning",
+        "Docker",
+        "Git",
+        "Java",
+        "JavaScript",
+        "Kubernetes",
+        "Linux",
+        "Machine Learning",
+        "NLP",
+        "Python",
+        "REST API",
+        "SQL"
+      ],
+      "backtest_evaluated_skills": 15,
+      "MAE": 91.55,
+      "RMSE": 157.37,
+      "MAPE": 39.1,
+      "note": "Backtest holds out the most recent month; short histories make these wide."
+    }
+  },
+  "finished_at": "2026-08-23T16:07:38.114479",
+  "duration_seconds": 42.4
+}

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Float, Boolean, DateTime, Text, Integer, ForeignKey, Enum, JSON
+from sqlalchemy import Column, String, Float, Boolean, DateTime, Text, Integer, ForeignKey, Enum, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.database import Base
 from app.models.types import PortableUUID
@@ -23,6 +23,29 @@ class SubmissionStatus(str, enum.Enum):
     PRESENTATION_ERROR = "Presentation Error"
     INTERNAL_ERROR = "Internal Error"
     PENDING = "Pending"
+
+
+class CodingUserProgress(Base):
+    __tablename__ = "coding_user_progress"
+    __table_args__ = (
+        UniqueConstraint("user_id", "problem_id", name="uq_user_problem_progress"),
+    )
+
+    id = Column(PortableUUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(PortableUUID(), ForeignKey("users.id"), nullable=False, index=True)
+    problem_id = Column(PortableUUID(), ForeignKey("coding_problems.id"), nullable=False, index=True)
+    status = Column(String(50), default="ATTEMPTED")  # ATTEMPTED, SOLVED
+    attempts = Column(Integer, default=0)
+    accepted_attempts = Column(Integer, default=0)
+    points_awarded = Column(Integer, default=0)
+    solved_at = Column(DateTime, nullable=True)
+    last_submission_id = Column(PortableUUID(), ForeignKey("candidate_submissions.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
+    problem = relationship("CodingProblem")
+    last_submission = relationship("CandidateSubmission")
 
 
 class Language(Base):

@@ -1,14 +1,37 @@
 """Authentication middleware and dependency injection."""
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from uuid import UUID
+from typing import Optional
+
 from app.database import get_db
 from app.utils.jwt_handler import decode_token
 from app.models.user import User, UserRole
 
 security = HTTPBearer()
+
+
+def get_optional_current_user(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """Get current user from Authorization header if present and valid, otherwise return None."""
+    auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    try:
+        token = auth_header.split(" ", 1)[1].strip()
+        payload = decode_token(token)
+        if not payload or payload.get("type") != "access":
+            return None
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        return db.query(User).filter(User.id == UUID(user_id)).first()
+    except Exception:
+        return None
 
 
 def get_current_user(
