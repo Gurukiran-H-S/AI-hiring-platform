@@ -345,17 +345,15 @@ def compute_coding(db: Session, candidate_id: Any, job: Optional[Job]) -> Dict[s
 
 
 def compute_interview(db: Session, job_id: Any, candidate_id: Any) -> Dict[str, Any]:
-    """Interview score from completed interview feedback (1-10 scales -> 0-100)."""
+    """Interview score from completed interview feedback (1-10 scales -> 0-100) or completed AI Mock Interviews."""
+    from app.models.interview import MockInterview
+
     interviews = (
         db.query(Interview)
         .filter(Interview.job_id == job_id, Interview.candidate_id == candidate_id)
         .all()
     )
     completed = [i for i in interviews if i.status == InterviewStatus.COMPLETED]
-    if not completed:
-        status = "NOT_ATTEMPTED" if not interviews else "PENDING"
-        return {"score": None, "status": status, "interviews_total": len(interviews)}
-
     scores = []
     for i in completed:
         parts = [i.technical_score, i.communication_score, i.overall_rating]
@@ -363,16 +361,31 @@ def compute_interview(db: Session, job_id: Any, candidate_id: Any) -> Dict[str, 
         if parts:
             scores.append(sum(parts) / len(parts) * 10.0)  # 1-10 -> 0-100
 
+    # Also check completed AI Mock Interviews
+    mock_ints = (
+        db.query(MockInterview)
+        .filter(
+            MockInterview.candidate_id == candidate_id,
+            MockInterview.status == "completed",
+            MockInterview.final_score.isnot(None)
+        )
+        .all()
+    )
+    job_mock = [m for m in mock_ints if str(m.job_id) == str(job_id)]
+    if job_mock:
+        scores.append(job_mock[-1].final_score)
+    elif mock_ints:
+        scores.append(mock_ints[-1].final_score)
+
     if not scores:
-        return {"score": None, "status": "PENDING",
-                "note": "Interview completed but feedback scores missing",
-                "interviews_total": len(interviews)}
+        status = "NOT_ATTEMPTED" if not interviews and not mock_ints else "PENDING"
+        return {"score": None, "status": status, "interviews_total": len(interviews) + len(mock_ints)}
 
     return {
         "score": _clamp(sum(scores) / len(scores)),
         "status": "SCORED",
-        "interviews_total": len(interviews),
-        "formula": f"average of {len(scores)} completed interview feedback score(s) x 10",
+        "interviews_total": len(interviews) + len(mock_ints),
+        "formula": f"average of {len(scores)} completed interview score(s)",
     }
 
 

@@ -26,6 +26,7 @@ from app.routers.recruiter import router as recruiter_router
 from app.routers.aptitude import router as aptitude_router
 from app.routers.candidates import router as candidates_router
 from app.routers.market import router as market_router
+from app.routers.interview import router as mock_interview_router
 from app.services.market_data.scheduler import start_market_scheduler, stop_market_scheduler
 
 
@@ -123,6 +124,7 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
     app.include_router(aptitude_router)
     app.include_router(candidates_router)
     app.include_router(market_router)
+    app.include_router(mock_interview_router)
 
 
     # ─── Global Exception Handler ─────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, Enum, Integer, JSON
+from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, Enum, Integer, Float, JSON
 from sqlalchemy.orm import relationship
 from app.database import Base
 from app.models.types import PortableUUID
@@ -77,3 +77,83 @@ class Interview(Base):
 
     def __repr__(self):
         return f"<Interview {self.interview_type} on {self.scheduled_at}>"
+
+
+# ─── AI MOCK INTERVIEW MODELS ────────────────────────────────────────────────
+
+class MockInterview(Base):
+    __tablename__ = "mock_interviews"
+
+    id = Column(PortableUUID(), primary_key=True, default=uuid.uuid4)
+    candidate_id = Column(PortableUUID(), ForeignKey("users.id"), nullable=False, index=True)
+    job_id = Column(PortableUUID(), ForeignKey("jobs.id"), nullable=True, index=True)
+
+    role_title = Column(String(255), nullable=False, default="Software Engineer")
+    interview_type = Column(String(50), nullable=False, default="Technical")  # Technical, HR, Behavioral, Mixed
+    status = Column(String(50), nullable=False, default="in_progress")  # in_progress, completed, cancelled
+
+    total_questions = Column(Integer, default=5)
+    completed_questions = Column(Integer, default=0)
+
+    final_score = Column(Float, nullable=True)  # 0 - 100
+    technical_score = Column(Float, nullable=True)
+    coverage_score = Column(Float, nullable=True)
+    relevance_score = Column(Float, nullable=True)
+    communication_score = Column(Float, nullable=True)
+
+    strengths = Column(JSON, nullable=True, default=list)  # List of strength bullet strings
+    improvements = Column(JSON, nullable=True, default=list)  # List of improvement bullet strings
+    missing_topics = Column(JSON, nullable=True, default=list)  # List of unmentioned topic strings
+
+    started_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    candidate = relationship("User", foreign_keys=[candidate_id])
+    job = relationship("Job", foreign_keys=[job_id])
+    questions = relationship("MockInterviewQuestion", back_populates="interview", cascade="all, delete-orphan", order_by="MockInterviewQuestion.question_number")
+    responses = relationship("MockInterviewResponse", back_populates="interview", cascade="all, delete-orphan")
+
+
+class MockInterviewQuestion(Base):
+    __tablename__ = "mock_interview_questions"
+
+    id = Column(PortableUUID(), primary_key=True, default=uuid.uuid4)
+    interview_id = Column(PortableUUID(), ForeignKey("mock_interviews.id"), nullable=False, index=True)
+    question_number = Column(Integer, nullable=False)
+    question_text = Column(Text, nullable=False)
+    question_type = Column(String(50), default="Technical")  # Technical, Behavioral, HR, Situational, Project-based
+    category = Column(String(100), default="Core Concepts")
+    difficulty = Column(String(50), default="Medium")
+    expected_points = Column(JSON, nullable=False, default=list)  # [{"id": 1, "point": "...", "weight": 1.0}]
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    interview = relationship("MockInterview", back_populates="questions")
+    responses = relationship("MockInterviewResponse", back_populates="question", cascade="all, delete-orphan")
+
+
+class MockInterviewResponse(Base):
+    __tablename__ = "mock_interview_responses"
+
+    id = Column(PortableUUID(), primary_key=True, default=uuid.uuid4)
+    interview_id = Column(PortableUUID(), ForeignKey("mock_interviews.id"), nullable=False, index=True)
+    question_id = Column(PortableUUID(), ForeignKey("mock_interview_questions.id"), nullable=False, index=True)
+    candidate_id = Column(PortableUUID(), ForeignKey("users.id"), nullable=False, index=True)
+
+    transcript = Column(Text, nullable=False, default="")
+    duration_seconds = Column(Integer, default=0)
+    answer_score = Column(Float, default=0.0)  # 0 - 100
+    coverage_score = Column(Float, default=0.0)  # 0 - 100
+    semantic_score = Column(Float, default=0.0)  # 0 - 100
+    filler_words_count = Column(Integer, default=0)
+
+    # Point results: [{"expected_point": "...", "matched": true, "confidence": 0.95, "evidence_text": "..."}]
+    point_results = Column(JSON, nullable=False, default=list)
+    response_status = Column(String(50), default="COMPLETED")  # COMPLETED, NO_SPEECH, TRANSCRIPTION_FAILED
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    interview = relationship("MockInterview", back_populates="responses")
+    question = relationship("MockInterviewQuestion", back_populates="responses")
+    candidate = relationship("User", foreign_keys=[candidate_id])
+

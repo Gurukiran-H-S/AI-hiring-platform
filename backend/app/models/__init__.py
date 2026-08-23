@@ -7,7 +7,10 @@ from app.models.resume import Resume
 from app.models.job import Job, JobStatus, JobType, ExperienceLevel
 from app.models.application import Application, ApplicationStatus, SkillAssessment, CourseRecommendation
 from app.models.notification import Notification, NotificationType
-from app.models.interview import Interview, InterviewType, InterviewStatus
+from app.models.interview import (
+    Interview, InterviewType, InterviewStatus,
+    MockInterview, MockInterviewQuestion, MockInterviewResponse
+)
 from app.models.aptitude import AptitudeScore
 from app.models.coding import CodingProblem, TestCase, CandidateSubmission, CandidateCodingStats, ProblemDifficulty
 from app.models.evaluation import EvaluationWeight, CandidateScore, CandidateSkillEvaluation
@@ -25,6 +28,7 @@ __all__ = [
     "Application", "ApplicationStatus", "SkillAssessment", "CourseRecommendation",
     "Notification", "NotificationType",
     "Interview", "InterviewType", "InterviewStatus",
+    "MockInterview", "MockInterviewQuestion", "MockInterviewResponse",
     "AptitudeScore",
     "CodingProblem", "TestCase", "CandidateSubmission", "CandidateCodingStats", "ProblemDifficulty",
     "EvaluationWeight", "CandidateScore", "CandidateSkillEvaluation",
