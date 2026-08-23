@@ -85,6 +85,16 @@ def _load_raw_weights(db: Session, job_id: Any) -> Dict[str, float]:
     # Legacy migration: rows stored as decimals (0.20/0.25/... sum≈1.0)
     if 0 < sum(raw.values()) <= 1.001:
         raw = {k: round(v * 100.0, 2) for k, v in raw.items()}
+    tot = sum(raw.values())
+    if tot <= 0:
+        return dict(DEFAULT_WEIGHTS)
+    if abs(tot - 100.0) > 1e-4:
+        # Scale/normalize cleanly to 100.0%
+        raw = {k: round(v / tot * 100.0, 2) for k, v in raw.items()}
+        diff = round(100.0 - sum(raw.values()), 2)
+        if abs(diff) > 1e-4:
+            first_k = WEIGHT_KEYS[0]
+            raw[first_k] = round(raw[first_k] + diff, 2)
     return raw
 
 
@@ -237,6 +247,34 @@ def compute_coding(db: Session, candidate_id: Any, job: Optional[Job]) -> Dict[s
         .all()
     )
     if not subs:
+        from app.models.coding import CandidateCodingStats
+        stats = db.query(CandidateCodingStats).filter(CandidateCodingStats.candidate_id == candidate_id).first()
+        if stats and (stats.total_solved or 0) > 0:
+            accuracy = float(stats.accuracy_percentage or 100.0)
+            points = float(stats.total_score or (stats.total_solved * 100))
+            score = min(100.0, max(50.0, accuracy))
+            return {
+                "score": _clamp(score),
+                "status": "SCORED",
+                "source": "practice_stats",
+                "earned_points": points,
+                "max_points": max(points, 100.0),
+                "formula": f"solved {stats.total_solved} problems ({accuracy}% accuracy)",
+                "problems_solved": stats.total_solved,
+                "problems_attempted": stats.total_solved,
+                "solved_by_difficulty": {
+                    "Easy": stats.easy_solved or 0,
+                    "Medium": stats.medium_solved or 0,
+                    "Hard": stats.hard_solved or 0,
+                },
+                "total_points": int(points),
+                "total_submissions": stats.total_solved,
+                "accepted_submissions": stats.total_solved,
+                "wrong_answers": 0,
+                "runtime_errors": 0,
+                "compile_errors": 0,
+                "accuracy": round(accuracy, 1),
+            }
         return {"score": None, "status": "NOT_ATTEMPTED", "source": "practice"}
 
     problem_ids = {s.problem_id for s in subs}
@@ -375,7 +413,7 @@ def calculate_overall(
 
 
 def get_match_level(score: float) -> str:
-    """Centralized thresholds (spec #24)."""
+    """Centralized thresholds."""
     if score >= 90: return "Excellent Match"
     if score >= 80: return "Strong Match"
     if score >= 70: return "Potential Match"
@@ -392,11 +430,11 @@ def get_recommendation(score: float) -> str:
 
 def get_eligibility(ats: Dict, coding: Dict, interview: Dict) -> str:
     """Ranking eligibility per spec #16."""
-    if ats["status"] in ("NOT_ATTEMPTED",):
-        return "INCOMPLETE" if coding["status"] == "NOT_ATTEMPTED" else "PENDING_ASSESSMENT"
-    if coding["status"] in ("NOT_ATTEMPTED", "PENDING"):
+    if ats.get("status") in ("NOT_ATTEMPTED",):
+        return "INCOMPLETE" if coding.get("status") == "NOT_ATTEMPTED" else "PENDING_ASSESSMENT"
+    if coding.get("status") in ("NOT_ATTEMPTED", "PENDING"):
         return "PENDING_ASSESSMENT"
-    if interview["status"] in ("NOT_ATTEMPTED", "PENDING"):
+    if interview.get("status") in ("NOT_ATTEMPTED", "PENDING"):
         return "PENDING_ASSESSMENT"
     return "READY_FOR_RANKING"
 
@@ -478,11 +516,11 @@ def rank_candidates(evaluations: List[Dict[str, Any]], applied_at: Dict[str, dat
 
 
 def summarize(evaluations: List[Dict[str, Any]], weights: Dict[str, float], job_id: Any) -> Dict[str, Any]:
-    """Aggregate stats per spec #40."""
+    """Aggregate stats."""
     ranked = [e for e in evaluations if e["eligibility"] == "READY_FOR_RANKING"]
     pending = [e for e in evaluations if e["eligibility"] != "READY_FOR_RANKING"]
 
-    def avg(values: List[float]) -> Optional[float]:
+    def avg(values: List[Optional[float]]) -> Optional[float]:
         vals = [v for v in values if v is not None]
         return round(sum(vals) / len(vals), 1) if vals else None
 
@@ -491,10 +529,10 @@ def summarize(evaluations: List[Dict[str, Any]], weights: Dict[str, float], job_
         "total_applicants": len(evaluations),
         "ranked_candidates": len(ranked),
         "pending_candidates": len(pending),
-        "average_ats": avg([e["ats"]["score"] for e in ranked]),
-        "average_coding": avg([e["coding"]["score"] for e in ranked]),
-        "average_skill": avg([e["skill"]["score"] for e in ranked]),
-        "average_interview": avg([e["interview"]["score"] for e in ranked]),
-        "average_overall": avg([e["overall_score"] for e in ranked]),
+        "average_ats": avg([e["ats"]["score"] for e in evaluations]),
+        "average_coding": avg([e["coding"]["score"] for e in evaluations]),
+        "average_skill": avg([e["skill"]["score"] for e in evaluations]),
+        "average_interview": avg([e["interview"]["score"] for e in evaluations]),
+        "average_overall": avg([e["overall_score"] for e in evaluations]),
         "weights": {k: round(float(weights.get(k, 0.0)), 2) for k in WEIGHT_KEYS},
     }

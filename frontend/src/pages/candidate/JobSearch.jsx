@@ -273,18 +273,36 @@ export const JobSearch = () => {
 
   const confirmTrackApplication = async () => {
     if (!selectedJobForModal) return
+    const isInternalJob = selectedJobForModal.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedJobForModal.id)
     try {
-      await api.post('/applications/track-external', {
-        job_title: selectedJobForModal.title,
-        company: selectedJobForModal.company,
-        application_url: selectedJobForModal.application_url,
-        notes: `Applied via ${selectedJobForModal.source || 'External Portal'}`
-      })
-      toast.success('Application tracked successfully!')
+      if (isInternalJob && !selectedJobForModal.application_url) {
+        await api.post(`/jobs/${selectedJobForModal.id}/apply`, {
+          cover_letter: `Applied via Find Jobs portal for ${selectedJobForModal.title}`,
+        })
+        toast.success(`Application submitted for ${selectedJobForModal.title}!`)
+      } else {
+        await api.post('/applications/track-external', {
+          job_id: isInternalJob ? selectedJobForModal.id : undefined,
+          job_title: selectedJobForModal.title,
+          company: selectedJobForModal.company,
+          application_url: selectedJobForModal.application_url,
+          source_job_id: selectedJobForModal.source_job_id || selectedJobForModal.id,
+          notes: `Applied via ${selectedJobForModal.source || 'Portal'}`
+        })
+        toast.success('Application tracked successfully!')
+      }
       setSelectedJobForModal(null)
       navigate('/candidate/applications')
     } catch (err) {
-      toast.error('Failed to track application.')
+      const errorMsg = err.response?.data?.detail || err.message || 'Failed to submit application.'
+      if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('already applied')) {
+        toast.success('You have already applied to this job!')
+        setSelectedJobForModal(null)
+        navigate('/candidate/applications')
+      } else {
+        console.error(err)
+        toast.error(typeof errorMsg === 'string' ? errorMsg : 'Failed to track application.')
+      }
     }
   }
 

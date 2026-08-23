@@ -113,13 +113,13 @@ async def create_new_job(
     db.commit()
     db.refresh(job)
 
-    # Initialize default weights for job (30% ATS, 40% Coding, 20% Skill Match, 10% Interview)
+    # Initialize default weights for job (20% ATS, 30% Coding, 30% Skill Match, 20% Interview = 100%)
     weights = EvaluationWeight(
         job_id=job.id,
-        ats_weight=0.30,
-        coding_weight=0.40,
-        skill_weight=0.20,
-        interview_weight=0.10
+        ats_weight=20.0,
+        coding_weight=30.0,
+        skill_weight=30.0,
+        interview_weight=20.0
     )
     db.add(weights)
     db.commit()
@@ -481,6 +481,11 @@ async def get_candidate_rankings(
 
     applied_at = {str(a.candidate_id): a.applied_at for a in apps}
     evaluations = evaluation_engine.rank_candidates(evaluations, applied_at)
+
+    for ev in evaluations:
+        _persist_candidate_score(db, ev, job_id)
+    db.commit()
+
     summary = evaluation_engine.summarize(evaluations, weights, job_id)
 
     try:

@@ -156,18 +156,25 @@ async def apply_to_job(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    resume = db.query(Resume).filter(Resume.id == app_data.resume_id).first()
+    resume = None
+    if app_data.resume_id:
+        resume = db.query(Resume).filter(Resume.id == app_data.resume_id).first()
     if not resume:
-        raise HTTPException(status_code=404, detail="Resume not found")
+        resume = db.query(Resume).filter(
+            Resume.user_id == current_user.id,
+            Resume.is_parsed == True
+        ).order_by(Resume.created_at.desc()).first()
+    if not resume:
+        resume = db.query(Resume).filter(Resume.user_id == current_user.id).order_by(Resume.created_at.desc()).first()
 
     parsed_resume = {
-        "name": resume.parsed_name,
-        "summary": resume.parsed_summary,
-        "skills": resume.parsed_skills or [],
-        "experience": resume.parsed_experience or [],
-        "education": resume.parsed_education or [],
-        "certifications": resume.parsed_certifications or [],
-        "projects": resume.parsed_projects or [],
+        "name": (resume.parsed_name if resume else None) or current_user.full_name,
+        "summary": (resume.parsed_summary if resume else "") or (current_user.candidate_profile.title if current_user.candidate_profile else ""),
+        "skills": (resume.parsed_skills if resume else None) or (current_user.candidate_profile.skills if current_user.candidate_profile else []) or [],
+        "experience": (resume.parsed_experience if resume else None) or [],
+        "education": (resume.parsed_education if resume else None) or [],
+        "certifications": (resume.parsed_certifications if resume else None) or [],
+        "projects": (resume.parsed_projects if resume else None) or [],
     }
     job_dict = {
         "title": job.title,
@@ -180,30 +187,39 @@ async def apply_to_job(
 
     match_result = semantic_matcher.match_resume_to_job(parsed_resume, job_dict)
 
-    ats = resume.ats_score or 0
-    semantic = match_result["semantic_score"]
-    skills = match_result["skills_score"]
+    ats = (resume.ats_score if resume else 75.0) or 75.0
+    semantic = match_result.get("semantic_score", 70.0)
+    skills = match_result.get("skills_score", 70.0)
     overall = ats * 0.25 + semantic * 0.40 + skills * 0.35
 
     application = Application(
         candidate_id=current_user.id,
         job_id=job_id,
-        resume_id=app_data.resume_id,
-        cover_letter=app_data.cover_letter,
+        resume_id=resume.id if resume else None,
+        cover_letter=app_data.cover_letter or "Applied via Platform",
         ats_score=ats,
         semantic_match_score=semantic,
         skills_match_score=skills,
         overall_score=round(overall, 1),
-        score_explanation=match_result["explanation"],
-        matched_skills=match_result["matched_skills"],
-        missing_skills=match_result["missing_skills"],
+        score_explanation=match_result.get("explanation", "Candidate application submitted."),
+        matched_skills=match_result.get("matched_skills", []),
+        missing_skills=match_result.get("missing_skills", []),
         status=ApplicationStatus.APPLIED
     )
     db.add(application)
 
-    job.total_applications += 1
+    job.total_applications = (job.total_applications or 0) + 1
     db.commit()
     db.refresh(application)
+
+    from app.services import evaluation_engine
+    from app.routers.recruiter import _persist_candidate_score
+    from app.routers.coding import sync_candidate_coding_stats
+
+    sync_candidate_coding_stats(db, current_user.id)
+    ev = evaluation_engine.evaluate_application(db, application, job)
+    _persist_candidate_score(db, ev, job_id)
+    db.commit()
 
     return ApplicationResponse.from_orm(application)
 

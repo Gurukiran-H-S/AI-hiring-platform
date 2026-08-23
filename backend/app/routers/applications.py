@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/applications", tags=["Applications"])
 class ExternalApplicationCreate(BaseModel):
     job_title: str
     company: str
+    job_id: Optional[UUID] = None
     application_url: Optional[str] = None
     notes: Optional[str] = "Applied via external provider link"
     source: Optional[str] = "External"
@@ -90,23 +91,67 @@ async def track_external_application(
     db: Session = Depends(get_db),
 ):
     """Create application record when candidate confirms external job application."""
-    # Find or create placeholder job ID if missing
-    dummy_job = db.query(Job).first()
-    job_id = dummy_job.id if dummy_job else None
+    from app.models.resume import Resume
+
+    target_job = None
+    if req.job_id:
+        target_job = db.query(Job).filter(Job.id == req.job_id).first()
+    elif req.source_job_id:
+        try:
+            target_job = db.query(Job).filter(Job.id == UUID(req.source_job_id)).first()
+        except Exception:
+            target_job = db.query(Job).filter(Job.title == req.job_title).first()
+
+    if not target_job:
+        target_job = db.query(Job).first()
+
+    job_id = target_job.id if target_job else None
+
+    # Check for existing application
+    if job_id:
+        existing = db.query(Application).filter(
+            Application.candidate_id == current_user.id,
+            Application.job_id == job_id,
+        ).first()
+        if existing:
+            return {
+                "message": f"Already tracking application for {req.job_title} at {req.company}!",
+                "application_id": str(existing.id),
+                "status": existing.status.value,
+            }
+
+    resume = db.query(Resume).filter(
+        Resume.user_id == current_user.id,
+        Resume.is_parsed == True
+    ).order_by(Resume.created_at.desc()).first()
 
     app = Application(
         candidate_id=current_user.id,
         job_id=job_id,
+        resume_id=resume.id if resume else None,
+        ats_score=resume.ats_score if resume else 75.0,
         status=ApplicationStatus.APPLIED,
-        recruiter_notes=f"External Application: {req.notes} ({req.company})",
+        recruiter_notes=f"Application: {req.notes} ({req.company})",
         applied_at=datetime.utcnow(),
     )
     db.add(app)
+    if target_job:
+        target_job.total_applications = (target_job.total_applications or 0) + 1
     db.commit()
     db.refresh(app)
 
+    if target_job:
+        from app.services import evaluation_engine
+        from app.routers.recruiter import _persist_candidate_score
+        from app.routers.coding import sync_candidate_coding_stats
+
+        sync_candidate_coding_stats(db, current_user.id)
+        ev = evaluation_engine.evaluate_application(db, app, target_job)
+        _persist_candidate_score(db, ev, target_job.id)
+        db.commit()
+
     return {
-        "message": f"Successfully tracking application for {req.job_title} at {req.company}!",
+        "message": f"Successfully applied and tracking application for {req.job_title} at {req.company}!",
         "application_id": str(app.id),
         "status": app.status.value
     }

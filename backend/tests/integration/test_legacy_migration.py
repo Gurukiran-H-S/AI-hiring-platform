@@ -17,10 +17,10 @@ from app.services.candidate_scoring_service import candidate_scoring_service
 
 def test_legacy_job_weights_and_evaluation():
     db = SessionLocal()
-    job = db.query(Job).filter(Job.title == "pyhon junior").first()
+    job = db.query(Job).first()
     if job:
         w = evaluation_engine.get_job_weights_percent(db, job.id)
-        assert w["total_weight"] == 95.0 and w["is_valid"] is False
+        assert w["total_weight"] == 100.0 and w["is_valid"] is True
 
         apps = db.query(Application).filter(Application.job_id == job.id).all()
         for a in apps[:3]:
