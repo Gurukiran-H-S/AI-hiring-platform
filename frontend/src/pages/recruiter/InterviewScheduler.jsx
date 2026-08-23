@@ -3,9 +3,12 @@ import { api } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
 const statusBadge = (status) => {
-  if (status === 'SCHEDULED') return 'badge-success'
-  if (status === 'RESCHEDULED') return 'badge-primary'
-  return 'badge-danger'
+  const s = (status || '').toLowerCase()
+  if (s === 'scheduled') return 'badge-success font-bold'
+  if (s === 'rescheduled') return 'badge-primary font-bold'
+  if (s === 'completed') return 'badge-emerald font-bold'
+  if (s === 'cancelled') return 'badge-danger font-bold'
+  return 'badge-neutral'
 }
 
 export const InterviewScheduler = () => {
@@ -189,12 +192,18 @@ export const InterviewScheduler = () => {
                   >
                     Reschedule
                   </button>
-                  <button
-                    onClick={() => setInterviewToCancel(item)}
-                    className="btn-danger btn-sm"
-                  >
-                    Cancel
-                  </button>
+                  {item.status?.toLowerCase() === 'cancelled' ? (
+                    <span className="badge badge-danger text-xs font-bold py-1 px-2.5 uppercase">
+                      Cancelled
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setInterviewToCancel(item)}
+                      className="btn-danger btn-sm"
+                    >
+                      Cancel
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

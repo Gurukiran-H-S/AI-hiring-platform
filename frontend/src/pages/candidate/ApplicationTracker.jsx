@@ -180,13 +180,19 @@ export const ApplicationTracker = () => {
                   </div>
                 )}
 
-                {/* Interview meeting link */}
-                {app.meeting_link && ['shortlisted', 'interview', 'interview_scheduled'].includes(app.status?.toLowerCase()) && (
-                  <div className="bg-ok-soft border border-ok/15 p-4 rounded-lg mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                {/* Active Interview Scheduled banner */}
+                {app.meeting_link && app.interview_status?.toLowerCase() !== 'cancelled' && ['shortlisted', 'interview', 'interview_scheduled'].includes(app.status?.toLowerCase()) && (
+                  <div className="bg-ok-soft border border-ok/15 p-4 rounded-xl mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
                     <div>
-                      <div className="font-semibold text-ok text-[13px]">📹 Interview Scheduled</div>
+                      <div className="font-bold text-ok text-[13px] flex items-center gap-2">
+                        <span>📹</span>
+                        <span>{app.interview_status?.toLowerCase() === 'rescheduled' ? 'Interview Rescheduled' : 'Interview Scheduled'}</span>
+                        {app.interview_status?.toLowerCase() === 'rescheduled' && (
+                          <span className="badge badge-primary text-[10px] uppercase font-bold">Rescheduled</span>
+                        )}
+                      </div>
                       <p className="text-xs text-ink-soft mt-0.5">
-                        {app.scheduled_at ? `Scheduled for ${app.scheduled_at}` : 'You have been shortlisted'}
+                        {app.scheduled_at ? `Scheduled for ${app.scheduled_at}` : 'Your interview is scheduled'}
                         {app.interview_type ? ` · Round: ${app.interview_type.toUpperCase()}` : ''}
                       </p>
                     </div>
@@ -194,10 +200,31 @@ export const ApplicationTracker = () => {
                       href={app.meeting_link.startsWith('http') ? app.meeting_link : `https://${app.meeting_link}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn-success btn-sm shrink-0"
+                      className="btn-success btn-sm shrink-0 font-bold"
                     >
                       🔗 Join Meeting
                     </a>
+                  </div>
+                )}
+
+                {/* Cancelled Meeting Notice */}
+                {app.interview_status?.toLowerCase() === 'cancelled' && (
+                  <div className="bg-rose-50 border border-rose-200/80 p-4 rounded-xl mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-start gap-3">
+                      <span className="w-8 h-8 rounded-lg bg-rose-100 border border-rose-300 text-rose-700 flex items-center justify-center font-bold text-sm shrink-0">
+                        ✕
+                      </span>
+                      <div>
+                        <div className="font-bold text-rose-800 text-[13px] flex items-center gap-2">
+                          <span>Interview Meeting Cancelled</span>
+                          <span className="badge badge-rose text-[10px] uppercase font-bold">Cancelled</span>
+                        </div>
+                        <p className="text-xs text-rose-700 mt-0.5">
+                          {app.scheduled_at ? `The interview previously scheduled for ${app.scheduled_at} was cancelled by the recruiter.` : 'The scheduled interview was cancelled by the recruiter.'}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-slate-500 italic shrink-0">Status updated in tracker</span>
                   </div>
                 )}
 

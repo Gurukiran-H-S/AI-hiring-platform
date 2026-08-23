@@ -46,20 +46,42 @@ async def list_candidate_applications(
         job_title = app.job.title if app.job else getattr(app, 'job_title', 'Software Position')
         company = app.job.company if app.job else getattr(app, 'company', 'Tech Company')
 
-        from app.models.interview import Interview
-        interview = db.query(Interview).filter(Interview.application_id == app.id).order_by(Interview.scheduled_at.desc()).first()
+        from app.models.interview import Interview, InterviewStatus
+        interview = db.query(Interview).filter(
+            (Interview.application_id == app.id) |
+            ((Interview.candidate_id == app.candidate_id) & (Interview.job_id == app.job_id))
+        ).order_by(Interview.scheduled_at.desc()).first()
 
         meeting_link = None
         scheduled_at = None
         interview_type = None
+        interview_status = None
 
         if interview:
-            meeting_link = interview.meeting_link
+            interview_status = interview.status.value if hasattr(interview.status, 'value') else str(interview.status).lower()
             scheduled_at = interview.scheduled_at.strftime("%d %b %Y at %I:%M %p") if interview.scheduled_at else None
             interview_type = interview.interview_type.value if hasattr(interview.interview_type, 'value') else str(interview.interview_type)
-        elif app.status.value in ["shortlisted", "interview", "interview_scheduled"]:
+            if interview.status != InterviewStatus.CANCELLED and app.status.value in ["interview", "interview_scheduled"]:
+                meeting_link = interview.meeting_link
+            else:
+                meeting_link = None
+        elif app.status.value in ["interview", "interview_scheduled"]:
             meeting_link = "https://meet.jit.si/hireai-interview"
             interview_type = "technical"
+            interview_status = "scheduled"
+
+        # Build comprehensive activity timeline
+        timeline = [
+            {"date": app.applied_at.strftime("%d %b") if app.applied_at else "Today", "event": "Application submitted"}
+        ]
+        if interview_status == "cancelled":
+            timeline.append({"date": "Recent", "event": "Interview meeting cancelled by recruiter"})
+        elif interview_status == "rescheduled":
+            timeline.append({"date": "Recent", "event": f"Interview rescheduled for {scheduled_at}"})
+        elif interview_status in ["scheduled", "confirmed"]:
+            timeline.append({"date": "Recent", "event": f"Interview scheduled for {scheduled_at}"})
+
+        timeline.append({"date": "Current", "event": f"Status: {app.status.value.replace('_', ' ').title()}"})
 
         results.append({
             "id": str(app.id),
@@ -75,10 +97,8 @@ async def list_candidate_applications(
             "meeting_link": meeting_link,
             "scheduled_at": scheduled_at,
             "interview_type": interview_type,
-            "timeline": [
-                {"date": app.applied_at.strftime("%d %b") if app.applied_at else "Today", "event": "Application submitted"},
-                {"date": "Pending", "event": f"Current Status: {app.status.value.replace('_', ' ').title()}"}
-            ]
+            "interview_status": interview_status,
+            "timeline": timeline
         })
 
     return results

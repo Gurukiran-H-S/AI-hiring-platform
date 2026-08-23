@@ -1066,7 +1066,7 @@ async def cancel_interview(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_recruiter),
 ):
-    """Cancel and delete an interview."""
+    """Cancel an interview, synchronize candidate application pipeline, and dispatch notification."""
     interview = db.query(Interview).filter(
         Interview.id == interview_id,
         Interview.recruiter_id == current_user.id
@@ -1074,14 +1074,34 @@ async def cancel_interview(
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
 
-    # Revert Application status
+    # Mark status as CANCELLED
+    interview.status = InterviewStatus.CANCELLED
+
+    # Revert / Update Application status
     app = db.query(Application).filter(
-        Application.candidate_id == interview.candidate_id,
-        Application.job_id == interview.job_id
+        (Application.id == interview.application_id) |
+        ((Application.candidate_id == interview.candidate_id) & (Application.job_id == interview.job_id))
     ).first()
+
+    job_title = "Position"
     if app:
         app.status = ApplicationStatus.SHORTLISTED
+        app.recruiter_notes = "Previously scheduled interview was cancelled by the recruiter."
+        if app.job:
+            job_title = app.job.title
+    elif interview.job_id:
+        job = db.query(Job).filter(Job.id == interview.job_id).first()
+        if job:
+            job_title = job.title
 
-    db.delete(interview)
+    # Send Notification to Candidate
+    notif = Notification(
+        user_id=interview.candidate_id,
+        type=NotificationType.APPLICATION_STATUS,
+        title="❌ Interview Cancelled",
+        message=f"Your scheduled interview for {job_title} has been cancelled by the recruiter.",
+        link="/candidate/applications"
+    )
+    db.add(notif)
     db.commit()
     return {"message": "Interview cancelled successfully."}
