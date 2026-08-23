@@ -47,22 +47,39 @@ async def list_candidate_applications(
         company = app.job.company if app.job else getattr(app, 'company', 'Tech Company')
 
         from app.models.interview import Interview, InterviewStatus
-        interview = db.query(Interview).filter(
+        all_interviews = db.query(Interview).filter(
             (Interview.application_id == app.id) |
             ((Interview.candidate_id == app.candidate_id) & (Interview.job_id == app.job_id))
-        ).order_by(Interview.scheduled_at.desc()).first()
+        ).order_by(Interview.scheduled_at.desc()).all()
 
+        meeting_logs = []
+        for iv in all_interviews:
+            iv_st = iv.status.value if hasattr(iv.status, 'value') else str(iv.status).lower()
+            iv_tp = iv.interview_type.value if hasattr(iv.interview_type, 'value') else str(iv.interview_type)
+            meeting_logs.append({
+                "id": str(iv.id),
+                "title": iv.title or f"{iv_tp.title()} Interview",
+                "interview_type": iv_tp,
+                "status": iv_st,
+                "scheduled_at": iv.scheduled_at.strftime("%d %b %Y at %I:%M %p") if iv.scheduled_at else "N/A",
+                "duration_minutes": iv.duration_minutes or 45,
+                "meeting_link": iv.meeting_link if iv_st != "cancelled" else None,
+                "location": iv.location or "Online",
+                "notes": iv.notes,
+            })
+
+        latest_interview = all_interviews[0] if all_interviews else None
         meeting_link = None
         scheduled_at = None
         interview_type = None
         interview_status = None
 
-        if interview:
-            interview_status = interview.status.value if hasattr(interview.status, 'value') else str(interview.status).lower()
-            scheduled_at = interview.scheduled_at.strftime("%d %b %Y at %I:%M %p") if interview.scheduled_at else None
-            interview_type = interview.interview_type.value if hasattr(interview.interview_type, 'value') else str(interview.interview_type)
-            if interview.status != InterviewStatus.CANCELLED and app.status.value in ["interview", "interview_scheduled"]:
-                meeting_link = interview.meeting_link
+        if latest_interview:
+            interview_status = latest_interview.status.value if hasattr(latest_interview.status, 'value') else str(latest_interview.status).lower()
+            scheduled_at = latest_interview.scheduled_at.strftime("%d %b %Y at %I:%M %p") if latest_interview.scheduled_at else None
+            interview_type = latest_interview.interview_type.value if hasattr(latest_interview.interview_type, 'value') else str(latest_interview.interview_type)
+            if latest_interview.status != InterviewStatus.CANCELLED and app.status.value in ["interview", "interview_scheduled"]:
+                meeting_link = latest_interview.meeting_link
             else:
                 meeting_link = None
         elif app.status.value in ["interview", "interview_scheduled"]:
@@ -74,12 +91,13 @@ async def list_candidate_applications(
         timeline = [
             {"date": app.applied_at.strftime("%d %b") if app.applied_at else "Today", "event": "Application submitted"}
         ]
-        if interview_status == "cancelled":
-            timeline.append({"date": "Recent", "event": "Interview meeting cancelled by recruiter"})
-        elif interview_status == "rescheduled":
-            timeline.append({"date": "Recent", "event": f"Interview rescheduled for {scheduled_at}"})
-        elif interview_status in ["scheduled", "confirmed"]:
-            timeline.append({"date": "Recent", "event": f"Interview scheduled for {scheduled_at}"})
+        for m in meeting_logs:
+            if m["status"] == "cancelled":
+                timeline.append({"date": "Log", "event": f"Interview meeting cancelled ({m['scheduled_at']})"})
+            elif m["status"] == "rescheduled":
+                timeline.append({"date": "Log", "event": f"Interview rescheduled to {m['scheduled_at']}"})
+            elif m["status"] in ["scheduled", "confirmed"]:
+                timeline.append({"date": "Log", "event": f"Interview scheduled for {m['scheduled_at']}"})
 
         timeline.append({"date": "Current", "event": f"Status: {app.status.value.replace('_', ' ').title()}"})
 
@@ -98,6 +116,7 @@ async def list_candidate_applications(
             "scheduled_at": scheduled_at,
             "interview_type": interview_type,
             "interview_status": interview_status,
+            "meeting_logs": meeting_logs,
             "timeline": timeline
         })
 

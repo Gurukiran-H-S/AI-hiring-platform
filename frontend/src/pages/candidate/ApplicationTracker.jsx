@@ -228,6 +228,101 @@ export const ApplicationTracker = () => {
                   </div>
                 )}
 
+                {/* Meeting History & Audit Log (Scheduled / Rescheduled / Cancelled) */}
+                {app.meeting_logs && app.meeting_logs.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-slate-200/80 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                        <span>📅 Interview &amp; Meeting History Logs ({app.meeting_logs.length})</span>
+                      </h4>
+                      <span className="text-[11px] text-slate-400">Live synchronized with recruiter</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {app.meeting_logs.map((log, lIdx) => {
+                        const st = (log.status || '').toLowerCase()
+                        const isCancelled = st === 'cancelled'
+                        const isRescheduled = st === 'rescheduled'
+                        const isScheduled = st === 'scheduled' || st === 'confirmed'
+                        const isCompleted = st === 'completed'
+
+                        return (
+                          <div
+                            key={log.id || lIdx}
+                            className={`p-3.5 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all ${
+                              isCancelled
+                                ? 'bg-rose-50/60 border-rose-200 text-rose-950'
+                                : isRescheduled
+                                ? 'bg-blue-50/60 border-blue-200 text-blue-950'
+                                : isCompleted
+                                ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                                : 'bg-slate-50 border-slate-200 text-slate-800'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3 min-w-0">
+                              <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
+                                isCancelled
+                                  ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                                  : isRescheduled
+                                  ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                  : isCompleted
+                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                                  : 'bg-slate-200 text-slate-700 border border-slate-300'
+                              }`}>
+                                {isCancelled ? '✕' : isRescheduled ? '🗓️' : isCompleted ? '✓' : '📹'}
+                              </span>
+
+                              <div className="space-y-0.5 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-xs text-slate-900">{log.title || 'Interview Session'}</span>
+                                  <span className={`badge text-[10px] font-extrabold uppercase py-0.5 px-2 ${
+                                    isCancelled
+                                      ? 'badge-danger'
+                                      : isRescheduled
+                                      ? 'badge-primary'
+                                      : isCompleted
+                                      ? 'badge-success'
+                                      : 'badge-amber'
+                                  }`}>
+                                    {log.status}
+                                  </span>
+                                </div>
+
+                                <p className="text-xs text-slate-600">
+                                  <strong className="text-slate-800">Time:</strong> {log.scheduled_at} ({log.duration_minutes} mins) · <span className="capitalize">{log.interview_type}</span> Round
+                                </p>
+
+                                {isCancelled && (
+                                  <p className="text-[11px] text-rose-700 font-semibold italic">
+                                    • This interview meeting was cancelled by the recruiter.
+                                  </p>
+                                )}
+                                {log.notes && !isCancelled && (
+                                  <p className="text-[11px] text-slate-500 italic">
+                                    Notes: {log.notes}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Join button for active meetings */}
+                            {!isCancelled && log.meeting_link && (
+                              <a
+                                href={log.meeting_link.startsWith('http') ? log.meeting_link : `https://${log.meeting_link}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-primary btn-sm shrink-0 font-bold text-xs"
+                              >
+                                🔗 Join
+                              </a>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Timeline */}
                 {app.timeline?.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-line">
