@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
 import { Sidebar } from '../../components/common/Sidebar'
 import ErrorBoundary from '../../components/common/ErrorBoundary'
@@ -20,21 +20,11 @@ const DashboardHome = ({ stats, loading }) => {
   useEffect(() => {
     const fetchTrends = async () => {
       try {
-        const { data } = await api.get('/trends/')
+        const { data } = await api.get('/trends')
         setTrends(data)
       } catch (err) {
-        setTrends({
-          high_demand_skills: [
-            { skill: 'Python', growth_rate: '+34%', demand_score: 96, category: 'Programming' },
-            { skill: 'AWS Cloud', growth_rate: '+28%', demand_score: 92, category: 'Cloud' },
-            { skill: 'Docker / K8s', growth_rate: '+25%', demand_score: 88, category: 'DevOps' },
-            { skill: 'FastAPI / React', growth_rate: '+31%', demand_score: 90, category: 'Full Stack' },
-          ],
-          emerging_roles: [
-            { role: 'AI / LLM Solutions Engineer', growth_rate: '+65%', key_skills: ['PyTorch', 'LangChain', 'FastAPI'] },
-            { role: 'Cloud Native Architect', growth_rate: '+42%', key_skills: ['Kubernetes', 'AWS', 'Microservices'] },
-          ]
-        })
+        console.error('Could not load trends data:', err)
+        setTrends({ high_demand_skills: [], emerging_roles: [] })
       }
     }
     fetchTrends()

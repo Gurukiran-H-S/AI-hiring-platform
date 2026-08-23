@@ -3,7 +3,9 @@ import os
 import logging
 from sqlalchemy import inspect, text
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend")
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 from app.database import engine, Base
 from app.models import user, resume, job, application, notification, interview, coding, evaluation, ml_models
