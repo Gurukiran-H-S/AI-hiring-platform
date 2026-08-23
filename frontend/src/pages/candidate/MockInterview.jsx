@@ -41,14 +41,6 @@ export const MockInterview = () => {
   const [liveFillerCount, setLiveFillerCount] = useState(0)
   const [analyzingLive, setAnalyzingLive] = useState(false)
 
-  // Web Audio Oscilloscope Sound Wave Recording Visualizer
-  const [audioVolume, setAudioVolume] = useState(0)
-  const canvasRef = useRef(null)
-  const audioContextRef = useRef(null)
-  const analyserRef = useRef(null)
-  const mediaStreamRef = useRef(null)
-  const animFrameRef = useRef(null)
-
   // Final Report State
   const [finalReport, setFinalReport] = useState(null)
 
@@ -124,12 +116,10 @@ export const MockInterview = () => {
         } else if (event.error !== 'no-speech') {
           toast.error(`Speech recognition: ${event.error}`)
         }
-        stopAudioVisualizer()
         setRecording(false)
       }
 
       recognition.onend = () => {
-        stopAudioVisualizer()
         setRecording(false)
       }
 
@@ -143,7 +133,6 @@ export const MockInterview = () => {
       if (recognitionRef.current) {
         try { recognitionRef.current.stop() } catch (e) {}
       }
-      stopAudioVisualizer()
     }
   }, [finalTranscript])
 
@@ -160,149 +149,6 @@ export const MockInterview = () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
   }, [recording])
-
-  // Draw Idle Centerline on Canvas
-  const drawIdleWave = () => {
-    if (!canvasRef.current) return
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    const width = canvas.width
-    const height = canvas.height
-
-    ctx.clearRect(0, 0, width, height)
-
-    // Center Baseline
-    ctx.beginPath()
-    ctx.strokeStyle = 'rgba(71, 85, 105, 0.45)'
-    ctx.lineWidth = 1.5
-    ctx.moveTo(0, height / 2)
-    ctx.lineTo(width, height / 2)
-    ctx.stroke()
-  }
-
-  // Draw idle baseline when stage changes or when not recording
-  useEffect(() => {
-    if (!recording && stage === 'interview') {
-      drawIdleWave()
-    }
-  }, [recording, stage])
-
-  // Start Real-Time Web Audio Oscilloscope Sound Wave Recording Visualizer
-  const startAudioVisualizer = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      mediaStreamRef.current = stream
-
-      const AudioCtx = window.AudioContext || window.webkitAudioContext
-      if (!AudioCtx) return
-      const audioCtx = new AudioCtx()
-      audioContextRef.current = audioCtx
-
-      const analyser = audioCtx.createAnalyser()
-      analyser.fftSize = 2048
-      analyser.smoothingTimeConstant = 0.85
-      analyserRef.current = analyser
-
-      const source = audioCtx.createMediaStreamSource(stream)
-      source.connect(analyser)
-
-      const bufferLength = analyser.frequencyBinCount
-      const timeDomainData = new Uint8Array(bufferLength)
-
-      const drawWaveform = () => {
-        if (!canvasRef.current || !analyserRef.current) return
-        const canvas = canvasRef.current
-        const ctx = canvas.getContext('2d')
-        const width = canvas.width
-        const height = canvas.height
-
-        analyserRef.current.getByteTimeDomainData(timeDomainData)
-
-        // Calculate root-mean-square audio volume
-        let sumSquares = 0
-        for (let i = 0; i < bufferLength; i++) {
-          const norm = (timeDomainData[i] - 128) / 128
-          sumSquares += norm * norm
-        }
-        const rms = Math.sqrt(sumSquares / bufferLength)
-        const vol = Math.min(100, Math.round(rms * 320))
-        setAudioVolume(vol)
-
-        // Clear Canvas
-        ctx.clearRect(0, 0, width, height)
-
-        // 1. Draw subtle center grid axis
-        ctx.beginPath()
-        ctx.strokeStyle = 'rgba(51, 65, 85, 0.35)'
-        ctx.lineWidth = 1
-        ctx.setLineDash([4, 4])
-        ctx.moveTo(0, height / 2)
-        ctx.lineTo(width, height / 2)
-        ctx.stroke()
-        ctx.setLineDash([])
-
-        // 2. Draw Live Voice Sound Waveform Curve
-        ctx.lineWidth = vol > 12 ? 2.5 : 2
-        const gradient = ctx.createLinearGradient(0, 0, width, 0)
-        gradient.addColorStop(0, '#0A66C2')
-        gradient.addColorStop(0.3, vol > 15 ? '#38BDF8' : '#6366F1')
-        gradient.addColorStop(0.7, vol > 15 ? '#10B981' : '#38BDF8')
-        gradient.addColorStop(1, '#0A66C2')
-
-        ctx.strokeStyle = gradient
-        ctx.shadowBlur = vol > 12 ? 8 : 2
-        ctx.shadowColor = vol > 12 ? '#38BDF8' : 'transparent'
-
-        ctx.beginPath()
-        const sliceWidth = width / bufferLength
-        let x = 0
-
-        for (let i = 0; i < bufferLength; i++) {
-          const v = timeDomainData[i] / 128.0 // Center is 1.0
-          const y = (v * height) / 2
-
-          if (i === 0) {
-            ctx.moveTo(x, y)
-          } else {
-            ctx.lineTo(x, y)
-          }
-          x += sliceWidth
-        }
-
-        ctx.lineTo(width, height / 2)
-        ctx.stroke()
-        ctx.shadowBlur = 0 // reset shadow for performance
-
-        animFrameRef.current = requestAnimationFrame(drawWaveform)
-      }
-
-      drawWaveform()
-    } catch (err) {
-      console.warn('Audio visualizer stream init warning:', err)
-    }
-  }
-
-  // Stop Real-Time Web Audio Oscilloscope Sound Wave Recording Visualizer
-  const stopAudioVisualizer = () => {
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current)
-      animFrameRef.current = null
-    }
-    if (mediaStreamRef.current) {
-      try {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
-      } catch (e) {}
-      mediaStreamRef.current = null
-    }
-    if (audioContextRef.current) {
-      try {
-        audioContextRef.current.close()
-      } catch (e) {}
-      audioContextRef.current = null
-    }
-    setAudioVolume(0)
-    drawIdleWave()
-  }
 
   const currentQuestion = useMemo(() => {
     if (!interviewSession?.questions?.length) return null
@@ -366,7 +212,6 @@ export const MockInterview = () => {
     setLiveCoverage(0)
     setLiveScore(0)
     setLiveFillerCount(0)
-    stopAudioVisualizer()
     if (questionObj?.expected_points) {
       setLivePointsAnalysis(
         questionObj.expected_points.map((p) => ({
@@ -379,7 +224,7 @@ export const MockInterview = () => {
     }
   }
 
-  // Start Microphone Recording & Oscilloscope Waveform
+  // Start Microphone Recording
   const handleStartRecording = () => {
     if (!speechSupported) {
       return toast.error('Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.')
@@ -390,13 +235,12 @@ export const MockInterview = () => {
       setInterimTranscript('')
       recognitionRef.current.start()
       setRecording(true)
-      startAudioVisualizer()
     } catch (err) {
       console.warn('Recognition start exception:', err)
     }
   }
 
-  // Stop Microphone Recording & Oscilloscope Waveform
+  // Stop Microphone Recording
   const handleStopRecording = () => {
     if (recognitionRef.current && recording) {
       try {
@@ -405,7 +249,6 @@ export const MockInterview = () => {
         console.warn(err)
       }
     }
-    stopAudioVisualizer()
     setRecording(false)
   }
 
@@ -518,11 +361,11 @@ export const MockInterview = () => {
               AI Mock Interview Arena
             </h1>
             <p className="text-sm text-slate-600 mt-1">
-              Speak into your microphone. Experience live speech-to-text, real-time voice recording waveform, expected point detection (`1 Mentioned` vs `0 Not Mentioned`), and explainable scoring.
+              Speak into your microphone. Experience live speech-to-text, expected point detection (`1 Mentioned` vs `0 Not Mentioned`), and explainable scoring.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="badge badge-emerald font-bold">✓ Live Voice Recording Waveform</span>
+            <span className="badge badge-emerald font-bold">✓ Live Speech Recognition Active</span>
           </div>
         </header>
 
@@ -812,20 +655,20 @@ export const MockInterview = () => {
           </div>
         </div>
 
-        {/* Live Audio Recording Waveform & Transcript Box */}
+        {/* Live Transcript Box & Microphone Controls */}
         <div className="card space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h3 className="section-title flex items-center gap-2">
-                <span>🎙️ Live Voice Recording &amp; Transcript</span>
+                <span>🎙️ Live Candidate Transcript</span>
                 {recording && (
                   <span className="inline-flex items-center gap-1.5 text-xs text-rose-600 font-bold bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 animate-pulse">
-                    <span className="w-2 h-2 rounded-full bg-rose-600"></span> Live Recording
+                    <span className="w-2 h-2 rounded-full bg-rose-600"></span> Live Listening
                   </span>
                 )}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Speak into your microphone. Voice audio waveforms undulate live and speech is transcribed continuously.
+                Speak clearly into your microphone. Words are transcribed and evaluated against expected answer points in real time.
               </p>
             </div>
 
@@ -851,53 +694,8 @@ export const MockInterview = () => {
             </div>
           </div>
 
-          {/* Professional Oscilloscope Sound Wave Recorder Screen */}
-          <div className="p-3 sm:p-4 rounded-2xl bg-slate-950 border border-slate-800 shadow-inner flex flex-col gap-2.5">
-            {/* Top Recorder Header Bar */}
-            <div className="flex items-center justify-between text-[11px] px-1">
-              <div className="flex items-center gap-2.5">
-                <span className={`inline-flex items-center gap-1.5 font-bold font-mono px-2 py-0.5 rounded-md ${
-                  recording ? 'bg-rose-950/90 text-rose-400 border border-rose-800' : 'bg-slate-900 text-slate-500 border border-slate-800'
-                }`}>
-                  <span className={`w-2 h-2 rounded-full ${recording ? 'bg-rose-500 animate-ping' : 'bg-slate-600'}`}></span>
-                  {recording ? 'REC AUDIO' : 'STANDBY'}
-                </span>
-                <span className="font-mono text-slate-400 font-semibold">
-                  {formatTime(recordingSeconds)}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className={`font-mono text-[10.5px] px-2.5 py-0.5 rounded-md font-bold transition-colors ${
-                  recording
-                    ? audioVolume > 15
-                      ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-700'
-                      : 'bg-blue-950/80 text-blue-300 border border-blue-700'
-                    : 'bg-slate-900 text-slate-500 border border-slate-800'
-                }`}>
-                  {recording ? (audioVolume > 15 ? '🔊 Voice Active' : '🎙️ Mic Open') : '⏹️ Stopped'}
-                </span>
-              </div>
-            </div>
-
-            {/* Smooth Sound Wave Oscilloscope Canvas */}
-            <div className="w-full h-16 sm:h-20 bg-slate-900/95 rounded-xl border border-slate-800/80 flex items-center justify-center overflow-hidden px-2 relative">
-              <canvas
-                ref={canvasRef}
-                width={700}
-                height={90}
-                className="w-full h-full block"
-              ></canvas>
-              {!recording && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-600 text-xs font-mono">
-                  [ Click "Start Speaking" to Record Audio ]
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Transcript Display Area */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900 text-slate-100 min-h-[120px] font-sans text-sm leading-relaxed border border-slate-800 shadow-inner flex flex-col justify-between">
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900 text-slate-100 min-h-[140px] font-sans text-sm leading-relaxed border border-slate-800 shadow-inner flex flex-col justify-between">
             <div>
               {finalTranscript || interimTranscript ? (
                 <div>
@@ -909,7 +707,7 @@ export const MockInterview = () => {
                   )}
                 </div>
               ) : (
-                <div className="text-slate-500 italic text-xs py-5 text-center">
+                <div className="text-slate-500 italic text-xs py-7 text-center">
                   {recording
                     ? 'Listening... Speak your answer into the microphone...'
                     : 'Click "Start Speaking" above and state your answer clearly.'}
@@ -1098,7 +896,7 @@ export const MockInterview = () => {
                         key={pIdx}
                         className={`p-2.5 rounded-lg text-xs font-semibold flex items-center justify-between border ${
                           pt.matched
-                            ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                            ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
                             : 'bg-slate-50 border-slate-200 text-slate-600'
                         }`}
                       >
