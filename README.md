@@ -1,5 +1,13 @@
 # 🚀 AI Hiring & Candidate Evaluation Platform
 
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-18.2+-61DAFB.svg?style=flat&logo=react&logoColor=black)](https://reactjs.org)
+[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.12-3776AB.svg?style=flat&logo=python&logoColor=white)](https://python.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15.0+-336791.svg?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4+-38B2AC.svg?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://img.shields.io/badge/Pytest-21%20Passed-success.svg?style=flat&logo=pytest)](https://docs.pytest.org)
+
 > An enterprise-grade, full-stack AI recruitment platform featuring automated NLP resume parsing, sandboxed multi-language coding playgrounds, AI mock interviews, and deterministic 4-pillar candidate ranking.
 
 ---
@@ -297,5 +305,57 @@ Use any of the pre-configured accounts below or create a new account on the `/re
 
 ---
 
-## 📄 License
-This project is licensed under the **MIT License**. Built for enterprise recruitment automation and candidate technical evaluation.
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome!
+
+1. **Fork the Project** (`https://github.com/Gurukiran-H-S/AI-hiring-platform/fork`)
+2. **Create your Feature Branch** (`git checkout -b feature/AmazingFeature`)
+3. **Commit your Changes** (`git commit -m "feat: add some AmazingFeature"`)
+4. **Push to the Branch** (`git push origin feature/AmazingFeature`)
+5. **Open a Pull Request**
+
+---
+
+## 👨‍💻 Author & Maintainer
+
+- **Developer**: **Gurukiran H S**
+- **GitHub**: [@Gurukiran-H-S](https://github.com/Gurukiran-H-S)
+- **Repository**: [https://github.com/Gurukiran-H-S/AI-hiring-platform](https://github.com/Gurukiran-H-S/AI-hiring-platform)
+
+---
+
+## 📄 License & Terms
+
+This project is distributed under the **MIT License**.
+
+```text
+MIT License
+
+Copyright (c) 2026 Gurukiran H S
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+---
+
+<p align="center">
+  <strong>⭐ Star this repository if you find it helpful!</strong><br />
+  Built with ❤️ for modern technical recruitment and talent evaluation.
+</p>
