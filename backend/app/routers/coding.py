@@ -1142,10 +1142,6 @@ def link_job_coding_assessment(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    assessment = db.query(RecruiterAssessment).filter(RecruiterAssessment.id == req.assessment_id).first()
-    if not assessment:
-        raise HTTPException(status_code=404, detail="Assessment not found")
-
     job.assessment_id = assessment.id
     db.commit()
 
@@ -1155,4 +1151,44 @@ def link_job_coding_assessment(
         "assessment_id": str(assessment.id),
         "assessment_title": assessment.title
     }
+
+
+class AIHintRequest(BaseModel):
+    problem_id: str
+    code: Optional[str] = ""
+    hint_level: Optional[int] = 1
+
+
+@router.post("/hint")
+@router.post("/ai/hint")
+def get_ai_coding_hint(
+    req: AIHintRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Provide progressive algorithmic AI hints for coding problems."""
+    problem = db.query(CodingProblem).filter(CodingProblem.id == req.problem_id).first()
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+
+    level = max(1, min(4, req.hint_level or 1))
+    category = problem.category or "Algorithms"
+    title = problem.title
+
+    hints_by_level = {
+        1: f"💡 **Conceptual Overview**: For '{title}', consider what data structure allows the fastest lookup or state tracking (e.g. Hash Map, Two Pointers, or Binary Search).",
+        2: f"🔍 **Algorithmic Strategy**: If this problem involves searching or paired values, check if sorting or storing elements in a dictionary with `diff = target - num` reduces complexity from O(N²) to O(N).",
+        3: f"⚡ **Step-by-Step Implementation**: Iterate through the collection once. At each step, compute your lookup key. If present, return your solution; otherwise, insert the current element and index into your state map.",
+        4: f"🎯 **Edge Cases & Complexity**: Be mindful of duplicates, empty inputs, and boundary constraints. The optimal time complexity for this approach is O(N) with O(N) auxiliary space."
+    }
+
+    hint_text = hints_by_level.get(level, hints_by_level[1])
+
+    return {
+        "problem_id": str(problem.id),
+        "hint_level": level,
+        "hint": hint_text,
+        "next_level": min(4, level + 1),
+    }
+
 

@@ -457,7 +457,7 @@ export const CandidateRankings = () => {
           <div className="card space-y-1">
             <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Ranked Candidates</div>
             <div className="text-3xl font-bold text-ok">
-              {rankingData.ranked_candidates ?? 0}
+              {rankingData.ranked_candidates ?? rankingData.rankings?.length ?? 0}
               <span className="text-base text-ink-muted font-semibold"> of {rankingData.total_applicants ?? 0}</span>
             </div>
             <div className="text-[11px] text-ink-muted">Fully evaluated & ready for ranking</div>
@@ -483,7 +483,7 @@ export const CandidateRankings = () => {
       <div className="card !p-0 overflow-hidden">
         <div className="px-5 pt-5 pb-4 flex items-center justify-between flex-wrap gap-2">
           <h2 className="section-title">
-            Ranked Candidates ({rankingData?.ranked_candidates ?? 0} of {rankingData?.total_applicants ?? 0})
+            Ranked Candidates ({rankingData?.ranked_candidates ?? rankingData?.rankings?.length ?? 0} of {rankingData?.total_applicants ?? 0})
           </h2>
           <div className="flex items-center gap-2">
             <span className="badge badge-blue">Deterministic Weighted Ranking</span>

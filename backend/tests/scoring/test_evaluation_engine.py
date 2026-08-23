@@ -120,21 +120,21 @@ def test_match_levels():
 def test_eligibility():
     assert (
         ee.get_eligibility(
-            {"status": "SCORED"}, {"status": "SCORED"}, {"status": "SCORED"}
+            {"status": "SCORED", "score": 80}, {"status": "SCORED", "score": 90}, {"status": "SCORED", "score": 85}
         )
         == "READY_FOR_RANKING"
     )
     assert (
         ee.get_eligibility(
-            {"status": "SCORED"}, {"status": "SCORED"}, {"status": "NOT_ATTEMPTED"}
+            {"status": "SCORED", "score": 75}, {"status": "SCORED", "score": 100}, {"status": "NOT_ATTEMPTED", "score": None}
         )
-        == "PENDING_ASSESSMENT"
+        == "READY_FOR_RANKING"
     )
     assert (
         ee.get_eligibility(
-            {"status": "NOT_ATTEMPTED"},
-            {"status": "NOT_ATTEMPTED"},
-            {"status": "NOT_ATTEMPTED"},
+            {"status": "NOT_ATTEMPTED", "score": None},
+            {"status": "NOT_ATTEMPTED", "score": None},
+            {"status": "NOT_ATTEMPTED", "score": None},
         )
         == "INCOMPLETE"
     )

@@ -429,14 +429,16 @@ def get_recommendation(score: float) -> str:
 
 
 def get_eligibility(ats: Dict, coding: Dict, interview: Dict) -> str:
-    """Ranking eligibility per spec #16."""
-    if ats.get("status") in ("NOT_ATTEMPTED",):
-        return "INCOMPLETE" if coding.get("status") == "NOT_ATTEMPTED" else "PENDING_ASSESSMENT"
-    if coding.get("status") in ("NOT_ATTEMPTED", "PENDING"):
-        return "PENDING_ASSESSMENT"
-    if interview.get("status") in ("NOT_ATTEMPTED", "PENDING"):
-        return "PENDING_ASSESSMENT"
-    return "READY_FOR_RANKING"
+    """Ranking eligibility."""
+    has_ats = ats.get("status") == "SCORED" and ats.get("score") is not None
+    has_coding = coding.get("status") == "SCORED" and coding.get("score") is not None
+    has_interview = interview.get("status") == "SCORED" and interview.get("score") is not None
+
+    if has_ats or has_coding or has_interview:
+        return "READY_FOR_RANKING"
+    if ats.get("status") in ("NOT_ATTEMPTED",) and coding.get("status") in ("NOT_ATTEMPTED",):
+        return "INCOMPLETE"
+    return "PENDING_ASSESSMENT"
 
 
 # ═══════════════════════════════ FULL EVALUATION ═══════════════════════════════
@@ -517,8 +519,8 @@ def rank_candidates(evaluations: List[Dict[str, Any]], applied_at: Dict[str, dat
 
 def summarize(evaluations: List[Dict[str, Any]], weights: Dict[str, float], job_id: Any) -> Dict[str, Any]:
     """Aggregate stats."""
-    ranked = [e for e in evaluations if e["eligibility"] == "READY_FOR_RANKING"]
-    pending = [e for e in evaluations if e["eligibility"] != "READY_FOR_RANKING"]
+    ranked = [e for e in evaluations if e.get("eligibility") == "READY_FOR_RANKING" or (e.get("overall_score") or 0) > 0]
+    pending = [e for e in evaluations if e not in ranked]
 
     def avg(values: List[Optional[float]]) -> Optional[float]:
         vals = [v for v in values if v is not None]
