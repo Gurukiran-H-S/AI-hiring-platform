@@ -59,9 +59,7 @@ export const Sidebar = ({ role }) => {
 
   const adminLinks = [
     { to: '/admin', label: 'Dashboard', icon: icons.shield, color: 'text-blue-600', activeBg: 'bg-blue-50 text-blue-700 font-bold border-l-4 border-blue-600', end: true },
-    { to: '/admin/database', label: 'Database Health', icon: icons.database, color: 'text-purple-600', activeBg: 'bg-purple-50 text-purple-700 font-bold border-l-4 border-purple-600' },
     { to: '/admin/users', label: 'User Directory', icon: icons.users, color: 'text-emerald-600', activeBg: 'bg-emerald-50 text-emerald-700 font-bold border-l-4 border-emerald-600' },
-    { to: '/admin/market-intelligence', label: 'Market Analytics', icon: icons.market, color: 'text-indigo-600', activeBg: 'bg-indigo-50 text-indigo-700 font-bold border-l-4 border-indigo-600' },
     { to: '/admin/analytics', label: 'Platform Analytics', icon: icons.chart, color: 'text-amber-600', activeBg: 'bg-amber-50 text-amber-700 font-bold border-l-4 border-amber-600' },
   ]
 

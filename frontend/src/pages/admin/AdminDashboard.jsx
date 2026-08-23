@@ -97,19 +97,19 @@ const AdminHome = () => {
             </Link>
 
             <Link
-              to="/admin/database"
+              to="/admin/analytics"
               className="card card-hover p-6 transition-all cursor-pointer group"
             >
               <div className="text-[11px] uppercase tracking-wider font-semibold text-ink-3 mb-1 group-hover:text-warn transition-colors">Total Resumes</div>
               <div className="text-3xl font-bold text-warn flex items-center justify-between">
                 <span>{data?.stats?.total_resumes || 0}</span>
-                <span className="text-xs text-warn opacity-0 group-hover:opacity-100 transition-opacity">Explore DB →</span>
+                <span className="text-xs text-warn opacity-0 group-hover:opacity-100 transition-opacity">View Analytics →</span>
               </div>
             </Link>
           </div>
 
           {/* Clickable Quick Admin Module Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Link
               to="/admin/analytics"
               className="card card-hover p-6 hover:border-brand/50 space-y-4 transition-all cursor-pointer"
@@ -128,24 +128,11 @@ const AdminHome = () => {
               className="card card-hover p-6 hover:border-brand/50 space-y-4 transition-all cursor-pointer"
             >
               <h3 className="font-bold text-lg text-ink font-display flex items-center justify-between">
-                <span>👥 User Management</span>
+                <span>👥 User Management & Directory</span>
                 <span className="text-xs text-brand font-bold">Manage Users →</span>
               </h3>
               <p className="text-xs text-ink-3">
                 View candidate, recruiter, and admin accounts, filter status, and toggle account activation.
-              </p>
-            </Link>
-
-            <Link
-              to="/admin/database"
-              className="card card-hover p-6 hover:border-brand/50 space-y-4 transition-all cursor-pointer"
-            >
-              <h3 className="font-bold text-lg text-ink font-display flex items-center justify-between">
-                <span>🗄️ï¸ Database Explorer</span>
-                <span className="text-xs text-brand font-bold">Explore DB →</span>
-              </h3>
-              <p className="text-xs text-ink-3">
-                Inspect live PostgreSQL table schemas, column types, primary keys, and real records for faculty presentation.
               </p>
             </Link>
           </div>
