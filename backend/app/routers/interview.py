@@ -293,6 +293,7 @@ async def complete_mock_interview(
     # 1. Synthesize final interview report
     responses_data = [
         {
+            "transcript": r.transcript or "",
             "answer_score": r.answer_score,
             "coverage_score": r.coverage_score,
             "semantic_score": r.semantic_score,

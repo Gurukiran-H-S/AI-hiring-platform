@@ -168,3 +168,45 @@ def test_question_generation_curation():
         assert q["question_number"] == idx + 1
         assert "question_text" in q
         assert len(q["expected_points"]) >= 4
+
+
+def test_communication_score_zero_when_no_speech():
+    """Test that communication score is 0% when no answers were spoken."""
+    responses = [
+        {"transcript": "", "answer_score": 0.0, "coverage_score": 0.0, "semantic_score": 0.0, "filler_words_count": 0, "point_results": []},
+        {"transcript": "", "answer_score": 0.0, "coverage_score": 0.0, "semantic_score": 0.0, "filler_words_count": 0, "point_results": []},
+    ]
+    questions = [{"id": "1", "question_text": "Q1"}, {"id": "2", "question_text": "Q2"}]
+
+    report = synthesize_interview_report(responses, questions)
+    assert report["final_score"] == 0.0
+    assert report["communication_score"] == 0.0
+    assert report["coverage_score"] == 0.0
+
+
+def test_communication_score_positive_when_answers_spoken():
+    """Test that communication score reflects spoken answers and applies filler penalties."""
+    responses = [
+        {
+            "transcript": "FastAPI is a modern web framework with high performance and async support.",
+            "answer_score": 85.0,
+            "coverage_score": 80.0,
+            "semantic_score": 90.0,
+            "filler_words_count": 1,
+            "point_results": [{"expected_point": "Python-based framework", "matched": True}]
+        },
+        {
+            "transcript": "Python decorators allow wrapping functions to modify behavior with functools wraps.",
+            "answer_score": 90.0,
+            "coverage_score": 100.0,
+            "semantic_score": 85.0,
+            "filler_words_count": 0,
+            "point_results": [{"expected_point": "Functions that wrap other functions", "matched": True}]
+        }
+    ]
+    questions = [{"id": "1", "question_text": "Q1"}, {"id": "2", "question_text": "Q2"}]
+
+    report = synthesize_interview_report(responses, questions)
+    assert report["final_score"] > 80.0
+    assert report["communication_score"] >= 70.0
+

@@ -340,13 +340,24 @@ def synthesize_interview_report(
     coverages = [r.get("coverage_score", 0.0) for r in responses]
     relevances = [r.get("semantic_score", 0.0) for r in responses]
     fillers = sum(r.get("filler_words_count", 0) for r in responses)
+    total_words = sum(r.get("word_count", 0) or len(r.get("transcript", "").split()) for r in responses)
 
     final_score = round(sum(scores) / max(1, len(scores)), 1)
     avg_coverage = round(sum(coverages) / max(1, len(coverages)), 1)
     avg_relevance = round(sum(relevances) / max(1, len(relevances)), 1)
 
-    # Communication score out of 100 based on clarity and manageable filler words
-    comm_score = max(50.0, min(100.0, 100.0 - (fillers * 2.5)))
+    # Communication score:
+    # If no words were spoken or all responses are empty, communication score is 0.0
+    if total_words == 0 or (avg_coverage == 0.0 and avg_relevance == 0.0 and final_score == 0.0):
+        comm_score = 0.0
+    elif total_words < 20:
+        comm_score = min(40.0, round(total_words * 1.8, 1))
+    else:
+        # Normal speaking: base score (70-95) minus filler penalty
+        avg_words_per_q = total_words / max(1, len(responses))
+        base_comm = min(95.0, 70.0 + (avg_words_per_q * 0.5))
+        filler_penalty = min(35.0, fillers * 2.5)
+        comm_score = max(20.0, min(100.0, round(base_comm - filler_penalty, 1)))
 
     # Collect strengths and missing points
     strengths = []
@@ -364,10 +375,16 @@ def synthesize_interview_report(
                     missing_topics.append(pt)
 
     if not strengths:
-        strengths = ["Participated in full interview session", "Familiarity with foundational concepts"]
+        if final_score == 0.0:
+            strengths = ["Ready to start practice — speak clearly into the microphone for each question."]
+        else:
+            strengths = ["Participated in full interview session", "Familiarity with foundational concepts"]
 
-    for topic in missing_topics[:4]:
-        improvements.append(f"Deepen knowledge and mention specific details regarding {topic}")
+    if final_score == 0.0:
+        improvements = ["Click 'Start Speaking' and state technical concepts, definitions, and examples aloud."]
+    else:
+        for topic in missing_topics[:4]:
+            improvements.append(f"Deepen knowledge and mention specific details regarding {topic}")
 
     if not improvements:
         improvements = ["Maintain consistent speaking pace and continue practicing technical depth."]
