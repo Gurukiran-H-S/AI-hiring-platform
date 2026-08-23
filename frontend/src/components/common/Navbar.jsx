@@ -1,108 +1,151 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 export const Navbar = () => {
   const { user, logout } = useAuth()
+  const location = useLocation()
+
+  const isRecruiter = user?.role === 'recruiter'
+  const isCandidate = user?.role === 'candidate'
+  const isAdmin = user?.role === 'admin'
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-line">
-      <div className="h-full px-6 flex items-center justify-between gap-6">
+    <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-slate-200 shadow-xs">
+      <div className="h-full px-6 flex items-center justify-between gap-4">
 
-        {/* Brand */}
-        <Link to="/" className="flex items-center gap-2.5 shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-brand flex items-center justify-center text-white font-bold text-sm tracking-tight">
-            Hi
-          </div>
-          <div className="leading-tight hidden sm:block">
-            <span className="font-bold text-[17px] text-ink tracking-tight">HireAI</span>
-            <div className="text-[10px] text-ink-3 hidden md:block">AI-Powered Hiring Platform</div>
-          </div>
-        </Link>
+        {/* Left: Brand Logo & Title */}
+        <div className="flex items-center gap-3 shrink-0">
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#0A66C2] via-indigo-600 to-purple-600 flex items-center justify-center text-white font-extrabold text-base shadow-sm group-hover:scale-105 transition-transform">
+              ✨
+            </div>
+            <div className="leading-tight">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-[18px] text-slate-900 tracking-tight font-display group-hover:text-[#0A66C2] transition-colors">
+                  HireAI
+                </span>
+                {isRecruiter && (
+                  <span className="badge-purple font-extrabold text-[10.5px] px-2 py-0.5 hidden sm:inline-flex">
+                    🏢 Recruiter Portal
+                  </span>
+                )}
+                {isCandidate && (
+                  <span className="badge-indigo font-extrabold text-[10.5px] px-2 py-0.5 hidden sm:inline-flex">
+                    🎯 Candidate Portal
+                  </span>
+                )}
+                {isAdmin && (
+                  <span className="badge-amber font-extrabold text-[10.5px] px-2 py-0.5 hidden sm:inline-flex">
+                    ⚙️ Admin Console
+                  </span>
+                )}
+              </div>
+              <div className="text-[11px] text-slate-500 font-medium hidden md:block">
+                AI-Powered Candidate Evaluation &amp; Hiring Platform
+              </div>
+            </div>
+          </Link>
+        </div>
 
-        {/* Search */}
+        {/* Center: Search & Quick Status */}
         {user && (
-          <div className="hidden lg:block relative w-full max-w-md">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" strokeLinecap="round" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search jobs, skills or companies..."
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-line text-[13px] text-ink placeholder-ink-3 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all"
-            />
+          <div className="hidden lg:flex items-center max-w-md w-full mx-4">
+            <div className="relative w-full">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" strokeLinecap="round" />
+              </svg>
+              <input
+                type="text"
+                readOnly
+                placeholder={
+                  isRecruiter
+                    ? "Active Pipeline: AI ranking, coding tests & ATS scoring live..."
+                    : "Discover matched jobs, practice coding & evaluate resume..."
+                }
+                className="w-full pl-9 pr-4 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 focus:outline-none cursor-default select-none"
+              />
+            </div>
           </div>
         )}
 
-        {/* Right side */}
-        <div className="flex items-center gap-2 shrink-0 ml-auto">
+        {/* Right side: Quick Action + Profile Avatar + Logout */}
+        <div className="flex items-center gap-3 shrink-0 ml-auto">
           {user ? (
             <>
-              {/* Notifications */}
-              <button className="relative p-2 rounded-lg hover:bg-page text-ink-2 transition-colors" title="Notifications">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeLinecap="round" />
-                </svg>
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-err rounded-full"></span>
-              </button>
+              {/* Contextual Quick Action */}
+              {isRecruiter && (
+                <Link
+                  to="/recruiter/post-job"
+                  className="btn-primary btn-sm !py-1.5 !px-3 text-xs font-bold shadow-xs flex items-center gap-1 hidden sm:inline-flex"
+                >
+                  <span>+</span> Post Job
+                </Link>
+              )}
+              {isCandidate && (
+                <Link
+                  to="/candidate/jobs"
+                  className="btn-primary btn-sm !py-1.5 !px-3 text-xs font-bold shadow-xs flex items-center gap-1 hidden sm:inline-flex"
+                >
+                  <span>🔍</span> Find Jobs
+                </Link>
+              )}
 
-              {/* Messages */}
-              <button className="relative p-2 rounded-lg hover:bg-page text-ink-2 transition-colors hidden sm:block" title="Messages">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
+              {/* Divider */}
+              <div className="w-px h-6 bg-slate-200 hidden sm:block"></div>
 
-              <div className="w-px h-7 bg-line mx-1 hidden sm:block"></div>
-
-              {/* Profile - Clickable to open Profile */}
+              {/* Profile Pill */}
               <Link
-                to={user.role === 'candidate' ? '/candidate/profile' : user.role === 'recruiter' ? '/recruiter' : '/admin'}
-                className="flex items-center gap-2.5 cursor-pointer hover:bg-slate-100 rounded-lg px-2 py-1.5 transition-colors group"
-                title="View My Profile"
+                to={isCandidate ? '/candidate/profile' : isRecruiter ? '/recruiter' : '/admin'}
+                className="flex items-center gap-2.5 p-1 sm:px-2 sm:py-1 rounded-lg hover:bg-slate-100/80 transition-colors group cursor-pointer border border-transparent hover:border-slate-200"
+                title={`Logged in as ${user.full_name || 'User'} (${user.role})`}
               >
                 {user.profile_picture_url ? (
                   <img
                     src={user.profile_picture_url}
                     alt={user.full_name || 'Avatar'}
-                    className="w-8 h-8 rounded-full object-cover border border-blue-200 group-hover:scale-105 transition-transform shadow-sm"
+                    className="w-8 h-8 rounded-full object-cover border border-indigo-200 group-hover:scale-105 transition-transform shadow-xs"
                   />
                 ) : (
-                  <div className="avatar w-8 h-8 text-xs bg-blue-600 group-hover:scale-105 transition-transform shadow-sm">
-                    {(user.full_name || 'U').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-xs flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                    {(user.full_name || user.email || 'U').substring(0, 2).toUpperCase()}
                   </div>
                 )}
-                <div className="hidden sm:block leading-tight text-left">
-                  <div className="text-[12.5px] font-semibold text-slate-800 group-hover:text-blue-600 transition-colors">
-                    {user.full_name?.split(' ')[0] || 'User'}
+                <div className="hidden sm:block text-left leading-tight">
+                  <div className="text-[13px] font-bold text-slate-800 group-hover:text-[#0A66C2] transition-colors">
+                    {user.full_name || user.email?.split('@')[0] || 'User'}
                   </div>
-                  <div className="text-[10.5px] text-slate-400 capitalize">{user.role}</div>
+                  <div className="text-[11px] text-slate-500 font-medium capitalize flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                    {user.role}
+                  </div>
                 </div>
               </Link>
 
-              {/* Logout */}
+              {/* Explicit Logout Button */}
               <button
                 onClick={logout}
-                className="p-2 rounded-lg text-ink-2 hover:text-err hover:bg-err-bg transition-colors"
-                title="Logout"
+                className="btn-ghost btn-sm !py-1.5 !px-2.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200/80 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                title="Logout of your account"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" strokeLinejoin="round" />
                   <polyline points="16 17 21 12 16 7" strokeLinecap="round" strokeLinejoin="round" />
                   <line x1="21" y1="12" x2="9" y2="12" strokeLinecap="round" />
                 </svg>
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </>
           ) : (
-            <>
+            <div className="flex items-center gap-2">
               <Link to="/login" className="btn-secondary btn-sm">Login</Link>
               <Link to="/register" className="btn-primary btn-sm">Get Started</Link>
-            </>
+            </div>
           )}
         </div>
       </div>
     </nav>
   )
 }
+

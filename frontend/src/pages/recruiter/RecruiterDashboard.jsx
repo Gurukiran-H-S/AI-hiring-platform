@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
+import { Navbar } from '../../components/common/Navbar'
 import { Sidebar } from '../../components/common/Sidebar'
 import ErrorBoundary from '../../components/common/ErrorBoundary'
 import { useAuth, api } from '../../context/AuthContext'
@@ -279,6 +280,7 @@ export const RecruiterDashboard = () => {
 
   return (
     <div className="min-h-screen bg-canvas">
+      <Navbar />
       <Sidebar role="recruiter" collapsed={collapsed} onToggle={() => {
         const next = !collapsed
         setCollapsed(next)
