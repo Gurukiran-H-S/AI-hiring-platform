@@ -97,16 +97,18 @@ export const CandidateRankings = () => {
     try {
       const [rankRes, weightRes, analRes] = await Promise.all([
         api.get(`/recruiter/jobs/${selectedJobId}/rankings`),
-        api.get(`/recruiter/jobs/${selectedJobId}/weights`),
-        api.get(`/recruiter/jobs/${selectedJobId}/analytics`),
+        api.get(`/recruiter/jobs/${selectedJobId}/weights`).catch(() => ({ data: null })),
+        api.get(`/recruiter/jobs/${selectedJobId}/analytics`).catch(() => ({ data: null })),
       ])
-      setRankingData(rankRes.data)
-      const w = weightRes.data
-      setWeights({ ats_weight: w.ats_weight, coding_weight: w.coding_weight, skill_weight: w.skill_weight, interview_weight: w.interview_weight })
-      setAnalyticsData(analRes.data)
+      if (rankRes?.data) setRankingData(rankRes.data)
+      const w = weightRes?.data
+      if (w) {
+        setWeights({ ats_weight: w.ats_weight, coding_weight: w.coding_weight, skill_weight: w.skill_weight, interview_weight: w.interview_weight })
+      }
+      if (analRes?.data) setAnalyticsData(analRes.data)
     } catch (err) {
       console.error(err)
-      toast.error('Something went wrong. Please try again.')
+      toast.error('Failed to load candidate rankings.')
     } finally {
       setLoading(false)
     }

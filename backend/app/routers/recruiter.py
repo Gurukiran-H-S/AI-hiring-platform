@@ -507,6 +507,47 @@ async def get_candidate_rankings(
     }
 
 
+@router.get("/jobs/{job_id}/analytics")
+async def get_job_analytics(
+    job_id: UUID,
+    current_user: User = Depends(get_current_recruiter),
+    db: Session = Depends(get_db),
+):
+    """Pipeline analytics and score distributions for a job posting."""
+    job = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
+
+    apps = db.query(Application).filter(Application.job_id == job_id).all()
+    total_apps = len(apps)
+
+    stages = {"applied": 0, "shortlisted": 0, "interview": 0, "rejected": 0, "hired": 0}
+    for a in apps:
+        s = a.status.value if hasattr(a.status, "value") else str(a.status).lower()
+        if s in stages:
+            stages[s] += 1
+        elif "interview" in s:
+            stages["interview"] += 1
+        else:
+            stages["applied"] += 1
+
+    scores = [a.overall_score for a in apps if a.overall_score is not None]
+    avg_score = round(sum(scores) / len(scores), 1) if scores else 0.0
+
+    return {
+        "job_id": str(job_id),
+        "job_title": job.title,
+        "total_applicants": total_apps,
+        "stages": stages,
+        "average_overall_score": avg_score,
+        "score_distribution": {
+            "top_tier_80_plus": sum(1 for s in scores if s >= 80),
+            "mid_tier_60_79": sum(1 for s in scores if 60 <= s < 80),
+            "low_tier_below_60": sum(1 for s in scores if s < 60),
+        },
+    }
+
+
 # ─── 4. 360° CANDIDATE PROFILE & COMPARISON ─────────────────────────────────
 
 @router.get("/jobs/{job_id}/candidates/{candidate_id}")
@@ -517,6 +558,10 @@ async def get_candidate_detail_profile(
     db: Session = Depends(get_db),
 ):
     """360-degree Candidate Profile details for recruiters."""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
     cand = db.query(User).filter(User.id == candidate_id).first()
     if not cand:
         raise HTTPException(status_code=404, detail="Candidate not found")
@@ -584,6 +629,7 @@ async def get_candidate_detail_profile(
             "accuracy": coding_stats["accuracy"],
             "rank": coding_stats["rank"]
         },
+        **eval_res,
         "evaluation": eval_res
     }
 
