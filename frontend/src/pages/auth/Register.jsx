@@ -18,7 +18,6 @@ export const Register = () => {
 
   // OTP States
   const [otp, setOtp] = useState('')
-  const [devNoticeOtp, setDevNoticeOtp] = useState(null)
   const [loading, setLoading] = useState(false)
   const [errorShake, setErrorShake] = useState(false)
 
@@ -49,14 +48,8 @@ export const Register = () => {
 
     setLoading(true)
     try {
-      const res = await api.post('/auth/send-otp', { email: email.trim() })
-      if (res.data?.dev_fallback && res.data?.dev_otp) {
-        setDevNoticeOtp(res.data.dev_otp)
-        toast('SMTP not configured on server. Use test code or configure Gmail in Render.', { icon: 'ℹ️', duration: 7000 })
-      } else {
-        setDevNoticeOtp(null)
-        toast.success(`Verification code sent to ${email.trim()}! Please check your inbox.`)
-      }
+      await api.post('/auth/send-otp', { email: email.trim() })
+      toast.success(`Verification code sent to ${email.trim()}! Please check your inbox.`)
       setStep('otp')
       setOtp('')
     } catch (err) {
@@ -392,19 +385,7 @@ export const Register = () => {
 
             {/* ─── STEP 2: OTP VERIFICATION ─── */}
             {step === 'otp' && (
-              <div className="space-y-5 animate-in fade-in duration-300">
-                {devNoticeOtp && (
-                  <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2.5">
-                    <span className="text-base leading-none">💡</span>
-                    <div>
-                      <p className="font-bold">Email SMTP not yet active on Render</p>
-                      <p className="mt-0.5 text-amber-700">
-                        Enter code <strong className="font-mono text-amber-950 bg-amber-200/80 px-1.5 py-0.5 rounded font-bold">{devNoticeOtp}</strong> or <strong className="font-mono text-amber-950 bg-amber-200/80 px-1.5 py-0.5 rounded font-bold">123456</strong> to verify, or add your Google App Password to Render environment variables.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
+              <div className="space-y-6 animate-in fade-in duration-300">
                 <OTPInputBoxes
                   value={otp}
                   onChange={setOtp}
