@@ -4,7 +4,15 @@ import toast from 'react-hot-toast'
 
 const AuthContext = createContext(null)
 
-const api = axios.create({ baseURL: '/api' })
+const getBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL
+  if (envUrl) {
+    return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`
+  }
+  return '/api'
+}
+
+const api = axios.create({ baseURL: getBaseUrl() })
 
 // Request interceptor — add JWT token
 api.interceptors.request.use((config) => {
@@ -22,7 +30,7 @@ api.interceptors.response.use(
       original._retry = true
       try {
         const refresh = localStorage.getItem('refresh_token')
-        const { data } = await axios.post('/api/auth/refresh', null, {
+        const { data } = await axios.post(`${getBaseUrl()}/auth/refresh`, null, {
           params: { refresh_token: refresh },
         })
         localStorage.setItem('access_token', data.access_token)

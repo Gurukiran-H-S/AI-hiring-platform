@@ -3,8 +3,16 @@
  */
 import axios from 'axios'
 
+const getBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL
+  if (envUrl) {
+    return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`
+  }
+  return '/api'
+}
+
 export const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: getBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -29,7 +37,7 @@ apiClient.interceptors.response.use(
       try {
         const refresh = localStorage.getItem('refresh_token')
         if (refresh) {
-          const { data } = await axios.post('/api/auth/refresh', null, {
+          const { data } = await axios.post(`${getBaseUrl()}/auth/refresh`, null, {
             params: { refresh_token: refresh },
           })
           localStorage.setItem('access_token', data.access_token)
