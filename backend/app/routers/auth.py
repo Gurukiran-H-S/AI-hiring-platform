@@ -60,12 +60,14 @@ async def send_otp(req: SendOTPRequest, db: Session = Depends(get_db)):
     if send_result.get("dev_fallback"):
         logger.info(f"Development OTP fallback active for {req.email}")
         return {
-            "message": f"Verification code sent to {req.email}. Please check your inbox.",
+            "message": f"Verification code generated. Use code {otp} or configure SMTP in environment.",
             "email": req.email,
             "expires_in": "5 minutes",
+            "dev_fallback": True,
+            "dev_otp": otp,
         }
 
-    return {"message": f"Verification code sent to {req.email}. Please check your inbox.", "email": req.email, "expires_in": "5 minutes"}
+    return {"message": f"Verification code sent to {req.email}. Please check your inbox.", "email": req.email, "expires_in": "5 minutes", "dev_fallback": False}
 
 
 @router.post("/verify-otp")
