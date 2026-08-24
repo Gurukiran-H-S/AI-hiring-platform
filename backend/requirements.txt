@@ -16,6 +16,7 @@ python-multipart==0.0.6
 
 # AI/ML Libraries
 spacy==3.7.2
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz
 nltk==3.8.1
 sentence-transformers==2.3.1
 scikit-learn==1.4.0
