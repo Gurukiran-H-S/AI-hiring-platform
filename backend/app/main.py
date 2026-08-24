@@ -63,9 +63,11 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
     )
 
     # ─── CORS ──────────────────────────────────────────────────────────────────
+    origins = list(set(settings.ALLOWED_ORIGINS + [settings.FRONTEND_URL]))
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
+        allow_origins=origins,
+        allow_origin_regex=r"https://.*\.onrender\.com|https://.*\.vercel\.app|https://.*\.netlify\.app|http://localhost:\d+",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
