@@ -48,15 +48,10 @@ export const Register = () => {
 
     setLoading(true)
     try {
-      const res = await api.post('/auth/send-otp', { email: email.trim() })
-      if (res.data?.dev_otp) {
-        toast.success(`Verification Code: ${res.data.dev_otp}`, { duration: 8000 })
-        setOtp(res.data.dev_otp)
-      } else {
-        toast.success(`6-Digit verification code sent to ${email}!`)
-        setOtp('')
-      }
+      await api.post('/auth/send-otp', { email: email.trim() })
+      toast.success(`Verification code sent to ${email.trim()}! Please check your inbox.`)
       setStep('otp')
+      setOtp('')
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to send verification code. Please check your email.')
     } finally {
