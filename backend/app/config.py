@@ -74,17 +74,44 @@ class Settings(BaseSettings):
 
     @property
     def effective_smtp_username(self) -> str:
-        """Return SMTP username supporting both SMTP_USERNAME and SMTP_USER env keys."""
-        username = self.SMTP_USERNAME or self.SMTP_USER or os.getenv("SMTP_USERNAME") or os.getenv("SMTP_USER") or ""
+        """Return SMTP username supporting SMTP_USERNAME, SMTP_USER, GMAIL_USER env keys."""
+        username = (
+            os.getenv("SMTP_USERNAME")
+            or os.getenv("SMTP_USER")
+            or os.getenv("GMAIL_USER")
+            or self.SMTP_USERNAME
+            or self.SMTP_USER
+            or ""
+        )
+        if username in ["your_email@gmail.com", "yourname@gmail.com"]:
+            return ""
         return username.strip()
+
+    @property
+    def effective_smtp_password(self) -> str:
+        """Return SMTP password supporting SMTP_PASSWORD, SMTP_PASS, GMAIL_APP_PASSWORD."""
+        password = (
+            os.getenv("SMTP_PASSWORD")
+            or os.getenv("SMTP_PASS")
+            or os.getenv("GMAIL_APP_PASSWORD")
+            or os.getenv("GMAIL_PASSWORD")
+            or self.SMTP_PASSWORD
+            or ""
+        )
+        return password.strip().replace(" ", "")
 
     @property
     def effective_email_from(self) -> str:
         """Return sender email address, falling back to Gmail SMTP username."""
-        username = self.effective_smtp_username
-        if self.EMAIL_FROM and "noreply@aihiring" not in self.EMAIL_FROM and "@" in self.EMAIL_FROM:
-            return self.EMAIL_FROM.strip()
-        return username if username else "noreply@aihiring.com"
+        from_email = (
+            os.getenv("EMAIL_FROM")
+            or self.EMAIL_FROM
+            or self.effective_smtp_username
+            or ""
+        )
+        if from_email and "noreply@aihiring" not in from_email and "@" in from_email:
+            return from_email.strip()
+        return self.effective_smtp_username if self.effective_smtp_username else "noreply@aihiring.com"
 
     class Config:
         env_file = ".env"

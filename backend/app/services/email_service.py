@@ -28,10 +28,10 @@ class EmailService:
     def send_otp_email(email: str, otp: str) -> dict:
         """Send OTP via Gmail SMTP (supporting port 465 SSL and 587 TLS) with fallback."""
         smtp_user = settings.effective_smtp_username
-        smtp_pass = settings.SMTP_PASSWORD
+        smtp_pass = settings.effective_smtp_password
         email_from = settings.effective_email_from
-        smtp_host = settings.SMTP_HOST or "smtp.gmail.com"
-        smtp_port = int(settings.SMTP_PORT or 587)
+        smtp_host = os.getenv("SMTP_HOST") or settings.SMTP_HOST or "smtp.gmail.com"
+        smtp_port = int(os.getenv("SMTP_PORT") or settings.SMTP_PORT or 465)
 
         subject = "HireAI Unified - Email Verification OTP"
         body = f"""Hello,
@@ -50,15 +50,15 @@ HireAI Unified
 
         # Check if SMTP credentials are provided
         if not smtp_user or not smtp_pass or smtp_user == "None" or not smtp_pass.strip():
-            logger.warning("[DEV EMAIL SERVICE] SMTP_USERNAME or SMTP_PASSWORD not configured. Using development fallback.")
+            logger.warning(f"[DEV EMAIL SERVICE] SMTP credentials not set (user={bool(smtp_user)}, pass={bool(smtp_pass)}). Using development fallback.")
             print(f"\n==================================================")
             print(f"  [DEV CONSOLE: EMAIL VERIFICATION OTP SENT TO {email}]")
             print(f"  VERIFICATION CODE: {otp}")
-            print(f"  (Configure SMTP_USERNAME & SMTP_PASSWORD in .env for Gmail delivery)")
+            print(f"  (Configure SMTP_USERNAME & SMTP_PASSWORD in Render for Gmail delivery)")
             print(f"==================================================\n")
             return {"success": True, "dev_fallback": True}
 
-        # Format clean password (remove spaces often present in copied Google App passwords)
+        # Format clean password
         clean_pass = smtp_pass.strip().replace(" ", "")
 
         # Prepare message
@@ -77,12 +77,14 @@ HireAI Unified
         for port in ports_to_try:
             try:
                 if port == 465:
-                    server = smtplib.SMTP_SSL(smtp_host, 465, timeout=8)
+                    import ssl
+                    ctx = ssl.create_default_context()
+                    server = smtplib.SMTP_SSL(smtp_host, 465, context=ctx, timeout=10)
                     server.login(smtp_user, clean_pass)
                     server.send_message(msg)
                     server.quit()
                 else:
-                    server = smtplib.SMTP(smtp_host, port, timeout=8)
+                    server = smtplib.SMTP(smtp_host, port, timeout=10)
                     server.ehlo()
                     server.starttls()
                     server.ehlo()
@@ -96,7 +98,7 @@ HireAI Unified
                 break
             except Exception as err:
                 last_error = err
-                logger.warning(f"SMTP attempt on port {port} failed: {err}")
+                logger.warning(f"SMTP attempt on port {port} for user {smtp_user} failed: {err}")
 
         if sent_successfully:
             return {"success": True, "dev_fallback": False}
