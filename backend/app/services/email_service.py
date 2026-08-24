@@ -1,6 +1,8 @@
+import os
 import secrets
 import hashlib
 import smtplib
+import ssl
 import logging
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
