@@ -557,7 +557,7 @@ async def candidate_analytics(
     valid_match = [a.overall_score for a in applications if getattr(a, 'overall_score', None) is not None]
     avg_match = round(sum(valid_match) / len(valid_match), 1) if valid_match else None
 
-    # ─── Matching Jobs Computation ───
+    # ─── Matching Jobs Computation from Real Database Recruiter Postings ───
     cand_skills = set()
     profile = db.query(CandidateProfile).filter(CandidateProfile.user_id == current_user.id).first()
     if profile and profile.skills:
@@ -570,21 +570,18 @@ async def candidate_analytics(
                 if s and s.strip():
                     cand_skills.add(s.strip().lower())
 
-    from app.services.job_provider.external_provider import ExternalJobProvider
-    ext_provider = ExternalJobProvider()
-    all_jobs_result = ext_provider.search_jobs(limit=50)
-    all_jobs = all_jobs_result.get("jobs", [])
+    db_active_jobs = db.query(Job).filter(Job.status == JobStatus.ACTIVE).all()
 
     matched_jobs_count = 0
-    if cand_skills:
-        for j in all_jobs:
-            j_skills = [s.lower() for s in (j.get("skills") or [])]
-            if any(cs in j_skills or any(cs in js for js in j_skills) for cs in cand_skills) or any(cs in j.get("title", "").lower() for cs in cand_skills):
+    if cand_skills and db_active_jobs:
+        for j in db_active_jobs:
+            j_skills = [s.lower() for s in (j.required_skills or [])] + [s.lower() for s in (j.preferred_skills or [])]
+            if any(cs in j_skills or any(cs in js for js in j_skills) for cs in cand_skills) or any(cs in (j.title or "").lower() for cs in cand_skills):
                 matched_jobs_count += 1
-        if matched_jobs_count == 0 and len(all_jobs) > 0:
-            matched_jobs_count = len(all_jobs)
-    else:
-        matched_jobs_count = len(all_jobs)
+    elif not cand_skills:
+        matched_jobs_count = 0
+
+    all_jobs_count = len(db_active_jobs)
 
     coding_stats = sync_candidate_coding_stats(db, current_user.id)
 
@@ -608,7 +605,7 @@ async def candidate_analytics(
             "average_match_score": avg_match,
             "job_matches": matched_jobs_count,
             "has_skills": bool(cand_skills),
-            "total_jobs_available": len(all_jobs),
+            "total_jobs_available": all_jobs_count,
             "shortlisted": status_counts.get("shortlisted", 0),
             "interviews": status_counts.get("interview_scheduled", 0),
             "offers": status_counts.get("offered", 0),

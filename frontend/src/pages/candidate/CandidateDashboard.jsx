@@ -165,13 +165,13 @@ const DashboardHome = ({ stats, loading }) => {
                   </span>
                 </div>
                 <div className="text-3xl font-extrabold text-slate-900 tracking-tight">
-                  {s.job_matches ?? 3}
+                  {s.job_matches ?? 0}
                 </div>
                 <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
-                  {s.has_skills ? (
+                  {(s.job_matches > 0) ? (
                     <span className="badge-indigo font-semibold">Matched to your skills</span>
                   ) : (
-                    <span className="badge-blue font-semibold">Active Opportunities</span>
+                    <span className="badge-gray font-semibold">No direct matches</span>
                   )}
                 </div>
               </div>

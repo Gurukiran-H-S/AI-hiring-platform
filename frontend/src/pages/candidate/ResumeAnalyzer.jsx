@@ -24,13 +24,19 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
   const fetchResumes = async () => {
     try {
       const { data } = await api.get('/resumes/')
-      setResumes(data)
-      if (data.length > 0) {
-        loadResumeAnalysis(data[0].id)
+      const list = Array.isArray(data) ? data : []
+      setResumes(list)
+      if (list.length > 0) {
+        loadResumeAnalysis(list[0].id)
+      } else {
+        setSelectedResume(null)
+        setAnalysisDetails(null)
       }
     } catch (err) {
-      console.error(err)
-      toast.error('Failed to load resumes')
+      console.warn('Could not load resumes:', err)
+      if (err.response?.status && err.response.status !== 404 && err.response.status !== 401) {
+        toast.error(err.response?.data?.detail || 'Unable to load resumes from server.')
+      }
     }
   }
 
