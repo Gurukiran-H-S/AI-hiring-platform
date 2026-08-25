@@ -88,6 +88,13 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
         logger.info("🚀 Starting AI Hiring Platform...")
         create_tables()
         logger.info("✅ Database tables created/verified")
+        try:
+            from app.database import SessionLocal
+            from app.services.initial_seeder import seed_all_initial_data
+            with SessionLocal() as db:
+                seed_all_initial_data(db)
+        except Exception as seed_err:
+            logger.warning(f"Initial seeding warning: {seed_err}")
         start_market_scheduler()
         logger.info("✅ AI Job Market Intelligence Scheduler activated")
         logger.info("✅ Application ready!")
