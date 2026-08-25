@@ -1,6 +1,8 @@
 """Resume router - Upload, Parse, ATS Score, Delete, Versioning & Primary Designation."""
 
 import io
+import os
+import time
 import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
@@ -147,8 +149,14 @@ async def upload_resume(
         ats_result = ats_scorer.score(parsed)
         
         logger.info("[ResumeUpload] Step 8: Generating semantic vector embedding...")
-        embedding = semantic_matcher.encode(raw_text[:5000])
-        safe_embedding = [float(x) for x in (embedding[:128] if embedding else [])]
+        embed_start_t = time.time()
+        if os.getenv("DISABLE_SEMANTIC_EMBEDDING", "false").lower() == "true":
+            logger.info("[ResumeUpload] Semantic embedding temporarily disabled for diagnostic test")
+            safe_embedding = [0.0] * 64
+        else:
+            embedding = semantic_matcher.encode(raw_text[:2000])
+            safe_embedding = [float(x) for x in (embedding[:128] if embedding else [])]
+        logger.info(f"[ResumeUpload] Step 8 completed in {time.time() - embed_start_t:.3f}s")
 
         if is_primary or db.query(Resume).filter(Resume.user_id == current_user.id).count() == 0:
             db.query(Resume).filter(Resume.user_id == current_user.id).update({"is_primary": False})

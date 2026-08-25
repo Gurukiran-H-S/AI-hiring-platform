@@ -97,7 +97,14 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
         except Exception as seed_err:
             logger.warning(f"Initial seeding warning: {seed_err}")
             
-        # Pre-warm SentenceTransformer model singleton once at startup
+        # Pre-warm AI models once at startup (spaCy + SentenceTransformer)
+        try:
+            from app.ai.resume_parser import resume_parser
+            resume_parser.initialize_model()
+            logger.info("✅ spaCy NLP pipeline pre-warmed & ready in memory")
+        except Exception as nlp_err:
+            logger.warning(f"spaCy pre-warm warning: {nlp_err}")
+
         try:
             from app.ai.semantic_matcher import semantic_matcher
             semantic_matcher.initialize_model()
