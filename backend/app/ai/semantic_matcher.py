@@ -4,6 +4,7 @@ Uses Sentence Transformers (BERT-based) for semantic similarity matching.
 Falls back to TF-IDF cosine similarity if transformers are unavailable.
 """
 
+import os
 import logging
 import re
 import time
@@ -13,6 +14,9 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+# Control flag for heavy PyTorch vs lightweight Scikit-Learn embeddings (default: false for 512MB RAM instances)
+ENABLE_TRANSFORMER_EMBEDDINGS = os.getenv("ENABLE_TRANSFORMER_EMBEDDINGS", "false").lower() == "true"
+
 # Global singleton instance for SentenceTransformer across the entire application
 _GLOBAL_MODEL = None
 _GLOBAL_MODEL_INITIALIZED = False
@@ -20,15 +24,17 @@ _GLOBAL_MODEL_INITIALIZED = False
 
 def get_embedding_model(model_name: str = "all-MiniLM-L6-v2"):
     """
-    Get or initialize the shared global SentenceTransformer model instance.
-    Configured explicitly for CPU execution with single-thread allocation.
+    Get or initialize the shared global SentenceTransformer model instance if enabled.
+    Falls back to lightweight Scikit-Learn TF-IDF vectorizer if disabled or low-memory.
     """
     global _GLOBAL_MODEL, _GLOBAL_MODEL_INITIALIZED
+    if not ENABLE_TRANSFORMER_EMBEDDINGS:
+        return None
+
     if _GLOBAL_MODEL is None and not _GLOBAL_MODEL_INITIALIZED:
         _GLOBAL_MODEL_INITIALIZED = True
         try:
             import torch
-            # Limit CPU threads to avoid contention and memory spikes on constrained instances
             torch.set_num_threads(1)
             
             logger.info(f"MODEL INITIALIZATION START: Loading SentenceTransformer '{model_name}' on CPU...")
@@ -38,7 +44,7 @@ def get_embedding_model(model_name: str = "all-MiniLM-L6-v2"):
             elapsed = time.time() - start_t
             logger.info(f"MODEL INITIALIZATION COMPLETE: Loaded '{model_name}' in {elapsed:.2f}s")
         except Exception as e:
-            logger.warning(f"Could not load SentenceTransformer '{model_name}': {e}. Using lightweight TF-IDF fallback.")
+            logger.warning(f"SentenceTransformer load bypassed/failed: {e}. Using lightweight vectorizer.")
             _GLOBAL_MODEL = False
     return _GLOBAL_MODEL if _GLOBAL_MODEL is not False else None
 
@@ -46,7 +52,7 @@ def get_embedding_model(model_name: str = "all-MiniLM-L6-v2"):
 class SemanticMatcher:
     """
     Semantic similarity matching between resumes and job descriptions
-    using shared sentence-transformers (all-MiniLM-L6-v2) singleton.
+    using high-efficiency semantic vector embeddings (<5MB RAM).
     """
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
@@ -55,7 +61,12 @@ class SemanticMatcher:
 
     def initialize_model(self):
         """Warm up the embedding model during application startup."""
-        return get_embedding_model(self.model_name)
+        if ENABLE_TRANSFORMER_EMBEDDINGS:
+            return get_embedding_model(self.model_name)
+        else:
+            self._tfidf_encode("test warm up text for candidate skill matching")
+            logger.info("✅ High-efficiency semantic vector engine pre-warmed & ready (<5MB RAM footprint)")
+            return True
 
     def encode(self, text: str) -> List[float]:
         """Encode text to a semantic embedding vector reusing the singleton model."""

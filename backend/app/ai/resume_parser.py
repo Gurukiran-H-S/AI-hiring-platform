@@ -105,10 +105,10 @@ class ResumeParser:
         if self._nlp is None:
             try:
                 import spacy
-                self._nlp = spacy.load("en_core_web_sm")
-                logger.info("Loaded spaCy en_core_web_sm pipeline")
+                self._nlp = spacy.load("en_core_web_sm", disable=["parser", "tagger", "lemmatizer", "textcat"])
+                logger.info("Loaded lightweight spaCy entity pipeline")
             except Exception:
-                logger.warning("spaCy model not found, using basic regex parsing")
+                logger.warning("spaCy model not found, using regex parsing")
                 self._nlp = False
         return self._nlp if self._nlp is not False else None
 
