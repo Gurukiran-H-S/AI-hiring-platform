@@ -58,8 +58,9 @@ def create_application() -> FastAPI:
 ### Built With:
 FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
         """,
-        docs_url="/api/docs",
-        redoc_url="/api/redoc",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
     )
 
     # ─── CORS ──────────────────────────────────────────────────────────────────
@@ -104,19 +105,37 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
         logger.info("Shutting down background services...")
         stop_market_scheduler()
 
-    # ─── Health Check ─────────────────────────────────────────────────────────
+    # ─── Health & Docs Check ──────────────────────────────────────────────────
     @app.get("/", tags=["Health"])
     async def root():
         return {
             "status": "healthy",
+            "service": "HireAI backend",
             "app": settings.APP_NAME,
             "version": settings.APP_VERSION,
-            "docs": "/api/docs",
+            "docs": "/docs",
         }
 
     @app.get("/health", tags=["Health"])
     async def health_check():
-        return {"status": "ok", "timestamp": time.time()}
+        return {
+            "status": "ok",
+            "service": "HireAI backend",
+            "timestamp": time.time(),
+        }
+
+    @app.get("/api/health", tags=["Health"])
+    async def api_health_check():
+        return {
+            "status": "ok",
+            "service": "HireAI backend",
+            "timestamp": time.time(),
+        }
+
+    @app.get("/api/docs", include_in_schema=False)
+    async def api_docs_redirect():
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/docs")
 
     # ─── Register Routers ─────────────────────────────────────────────────────
     app.include_router(auth_router)

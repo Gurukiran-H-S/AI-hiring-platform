@@ -76,9 +76,7 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
     formData.append('is_primary', resumes.length === 0)
 
     try {
-      const { data } = await api.post('/resumes/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      const { data } = await api.post('/resumes/upload', formData)
       toast.success('Resume parsed & analyzed!')
       setFile(null)
       setTitle('')
