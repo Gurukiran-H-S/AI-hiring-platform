@@ -30,7 +30,6 @@ def seed_all_initial_data(db: Session) -> None:
     """Run all initial seeders idempotently."""
     try:
         seed_users_and_profiles(db)
-        seed_jobs_and_weights(db)
         seed_coding_bank(db)
         seed_market_intelligence(db)
         logger.info("✅ All initial platform seed data verified & loaded successfully.")

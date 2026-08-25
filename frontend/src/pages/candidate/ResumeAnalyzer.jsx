@@ -86,8 +86,16 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
       await loadResumeAnalysis(data.id, true)
       if (onPrimaryChange) onPrimaryChange()
     } catch (err) {
-      console.error(err)
-      toast.error(err.response?.data?.detail || 'Failed to process resume')
+      console.error('Resume upload error:', err)
+      let msg = 'Failed to process resume'
+      if (typeof err.response?.data?.detail === 'string') {
+        msg = err.response.data.detail
+      } else if (Array.isArray(err.response?.data?.detail)) {
+        msg = err.response.data.detail.map((d) => d.msg || JSON.stringify(d)).join(', ')
+      } else if (err.message) {
+        msg = err.message
+      }
+      toast.error(msg)
     } finally {
       setUploading(false)
     }

@@ -38,11 +38,19 @@ class SemanticMatcher:
 
     def encode(self, text: str) -> List[float]:
         """Encode text to a semantic embedding vector."""
-        model = self._get_model()
-        if model:
-            embedding = model.encode(text, convert_to_tensor=False)
-            return embedding.tolist()
-        else:
+        if not text or not text.strip():
+            return [0.0] * 64
+        try:
+            model = self._get_model()
+            if model:
+                embedding = model.encode(text[:2000], convert_to_tensor=False)
+                if hasattr(embedding, "tolist"):
+                    return embedding.tolist()
+                return [float(x) for x in embedding]
+            else:
+                return self._tfidf_encode(text)
+        except Exception as e:
+            logger.warning(f"SentenceTransformer encode fallback: {e}")
             return self._tfidf_encode(text)
 
     def compute_similarity(self, embedding1: List[float], embedding2: List[float]) -> float:

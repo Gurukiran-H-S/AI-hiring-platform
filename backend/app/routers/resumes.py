@@ -25,12 +25,12 @@ router = APIRouter(prefix="/api/resumes", tags=["Resumes"])
 
 
 def _extract_text_from_file(file_content: bytes, filename: str) -> str:
-    """Extract text from PDF or DOCX file using PyMuPDF (fitz), pdfplumber, PyPDF2 & docx fallback."""
+    """Extract text from PDF or DOCX file using PyMuPDF (fitz), pdfplumber, PyPDF2, pypdf & docx table/paragraph parser."""
     text = ""
     filename_lower = filename.lower()
 
     if filename_lower.endswith(".pdf"):
-        # 1. Primary: PyMuPDF (fitz)
+        # 1. PyMuPDF (fitz)
         try:
             import fitz
             doc = fitz.open(stream=file_content, filetype="pdf")
@@ -40,9 +40,9 @@ def _extract_text_from_file(file_content: bytes, filename: str) -> str:
                     text += t + "\n"
             doc.close()
         except Exception as e:
-            logger.warning(f"PyMuPDF extraction failed: {e}")
+            logger.debug(f"PyMuPDF extraction note: {e}")
 
-        # 2. Fallback: pdfplumber
+        # 2. pdfplumber
         if not text.strip():
             try:
                 import pdfplumber
@@ -52,19 +52,27 @@ def _extract_text_from_file(file_content: bytes, filename: str) -> str:
                         if extracted:
                             text += extracted + "\n"
             except Exception as e:
-                logger.warning(f"pdfplumber extraction failed: {e}")
+                logger.debug(f"pdfplumber extraction note: {e}")
 
-        # 3. Fallback: PyPDF2
+        # 3. pypdf / PyPDF2
         if not text.strip():
             try:
-                import PyPDF2
-                reader = PyPDF2.PdfReader(io.BytesIO(file_content))
+                import pypdf
+                reader = pypdf.PdfReader(io.BytesIO(file_content))
                 for page in reader.pages:
                     t = page.extract_text()
                     if t:
                         text += t + "\n"
-            except Exception as e:
-                logger.error(f"PyPDF2 extraction failed: {e}")
+            except Exception:
+                try:
+                    import PyPDF2
+                    reader = PyPDF2.PdfReader(io.BytesIO(file_content))
+                    for page in reader.pages:
+                        t = page.extract_text()
+                        if t:
+                            text += t + "\n"
+                except Exception as e:
+                    logger.warning(f"PyPDF2 extraction note: {e}")
 
     elif filename_lower.endswith((".docx", ".doc")):
         try:
@@ -73,8 +81,20 @@ def _extract_text_from_file(file_content: bytes, filename: str) -> str:
             for para in doc.paragraphs:
                 if para.text.strip():
                     text += para.text + "\n"
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                    if row_text:
+                        text += " | ".join(row_text) + "\n"
         except Exception as e:
-            logger.error(f"DOCX extraction failed: {e}")
+            logger.warning(f"DOCX extraction note: {e}")
+
+    # Plain text fallback if binary decoding works
+    if not text.strip():
+        try:
+            text = file_content.decode("utf-8", errors="ignore")
+        except Exception:
+            pass
 
     return text.strip()
 
@@ -91,7 +111,7 @@ async def upload_resume(
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
 
-    allowed_extensions = [".pdf", ".doc", ".docx"]
+    allowed_extensions = [".pdf", ".doc", ".docx", ".txt"]
     if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
         raise HTTPException(status_code=400, detail="Only PDF and DOCX files are allowed.")
 
@@ -100,19 +120,20 @@ async def upload_resume(
         raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
 
     raw_text = _extract_text_from_file(file_content, file.filename)
-    if not raw_text or len(raw_text) < 50:
+    if not raw_text or len(raw_text.strip()) < 5:
         raise HTTPException(
             status_code=400,
-            detail="Could not extract readable text from the resume. If this is a scanned PDF, please ensure it contains selectable text."
+            detail="Could not extract readable text from the resume. If this is a scanned image PDF, please ensure it contains selectable text."
         )
 
     try:
         parsed = resume_parser.parse(raw_text)
-        normalized_skills = skill_normalizer.normalize_list(parsed.get("skills", []))
+        normalized_skills = skill_normalizer.normalize_list(parsed.get("skills", []) or [])
         parsed["normalized_skills"] = normalized_skills
 
         ats_result = ats_scorer.score(parsed)
         embedding = semantic_matcher.encode(raw_text[:5000])
+        safe_embedding = [float(x) for x in (embedding[:128] if embedding else [])]
 
         if is_primary or db.query(Resume).filter(Resume.user_id == current_user.id).count() == 0:
             db.query(Resume).filter(Resume.user_id == current_user.id).update({"is_primary": False})
@@ -120,7 +141,7 @@ async def upload_resume(
 
         # Truncate strings to prevent PostgreSQL StringDataRightTruncation errors
         safe_file_name = (file.filename or "resume")[:250]
-        safe_file_type = (file.content_type or "application/vnd.openxmlformats-officedocument.wordprocessingml.document")[:250]
+        safe_file_type = (file.content_type or "application/pdf")[:250]
         safe_parsed_name = (parsed.get("name") or "")[:250] if parsed.get("name") else None
         safe_parsed_email = (parsed.get("email") or "")[:250] if parsed.get("email") else None
         safe_parsed_phone = (parsed.get("phone") or "")[:250] if parsed.get("phone") else None
@@ -141,18 +162,18 @@ async def upload_resume(
             parsed_location=safe_parsed_location,
             parsed_summary=parsed.get("summary"),
             parsed_skills=[s["normalized_skill"] for s in normalized_skills],
-            parsed_education=parsed.get("education", []),
-            parsed_experience=parsed.get("experience", []),
-            parsed_certifications=parsed.get("certifications", []),
-            parsed_projects=parsed.get("projects", []),
-            parsed_languages=parsed.get("languages", []),
+            parsed_education=parsed.get("education", []) or [],
+            parsed_experience=parsed.get("experience", []) or [],
+            parsed_certifications=parsed.get("certifications", []) or [],
+            parsed_projects=parsed.get("projects", []) or [],
+            parsed_languages=parsed.get("languages", []) or [],
             ats_score=ats_result["ats_score"],
             ats_breakdown=ats_result["score_breakdown"],
-            quality_score=ats_result["score_breakdown"]["keyword_score"],
+            quality_score=ats_result["score_breakdown"].get("keyword_score", 70.0),
             improvement_suggestions=ats_result.get("threshold_warning", {}).get("recommended_improvements", []),
-            keywords_found=ats_result["matched_skills"],
-            keywords_missing=ats_result["missing_skills"],
-            embedding_vector=embedding[:128],
+            keywords_found=ats_result.get("matched_skills", []),
+            keywords_missing=ats_result.get("missing_skills", []),
+            embedding_vector=safe_embedding,
             parsed_at=datetime.utcnow(),
         )
         db.add(resume)
