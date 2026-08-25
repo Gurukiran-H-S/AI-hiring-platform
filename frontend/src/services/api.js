@@ -5,10 +5,18 @@ import axios from 'axios'
 
 const getBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL
-  if (envUrl) {
-    return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`
+  if (typeof window !== 'undefined') {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    if (isLocalhost) {
+      return (envUrl && envUrl.includes('localhost')) ? `${envUrl.replace(/\/$/, '')}/api` : 'http://localhost:8000/api'
+    }
+    // Deployed HTTPS domain (e.g. Vercel or Render)
+    if (envUrl && !envUrl.includes('localhost')) {
+      return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`
+    }
+    return 'https://ai-hiring-platform-hwfz.onrender.com/api'
   }
-  return '/api'
+  return envUrl ? (envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`) : 'http://localhost:8000/api'
 }
 
 export const apiClient = axios.create({
