@@ -6,52 +6,85 @@ Falls back to TF-IDF cosine similarity if transformers are unavailable.
 
 import logging
 import re
+import time
 from typing import Dict, List, Tuple, Optional, Any
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
 
+# Global singleton instance for SentenceTransformer across the entire application
+_GLOBAL_MODEL = None
+_GLOBAL_MODEL_INITIALIZED = False
+
+
+def get_embedding_model(model_name: str = "all-MiniLM-L6-v2"):
+    """
+    Get or initialize the shared global SentenceTransformer model instance.
+    Configured explicitly for CPU execution with single-thread allocation.
+    """
+    global _GLOBAL_MODEL, _GLOBAL_MODEL_INITIALIZED
+    if _GLOBAL_MODEL is None and not _GLOBAL_MODEL_INITIALIZED:
+        _GLOBAL_MODEL_INITIALIZED = True
+        try:
+            import torch
+            # Limit CPU threads to avoid contention and memory spikes on constrained instances
+            torch.set_num_threads(1)
+            
+            logger.info(f"MODEL INITIALIZATION START: Loading SentenceTransformer '{model_name}' on CPU...")
+            start_t = time.time()
+            from sentence_transformers import SentenceTransformer
+            _GLOBAL_MODEL = SentenceTransformer(model_name, device="cpu")
+            elapsed = time.time() - start_t
+            logger.info(f"MODEL INITIALIZATION COMPLETE: Loaded '{model_name}' in {elapsed:.2f}s")
+        except Exception as e:
+            logger.warning(f"Could not load SentenceTransformer '{model_name}': {e}. Using lightweight TF-IDF fallback.")
+            _GLOBAL_MODEL = False
+    return _GLOBAL_MODEL if _GLOBAL_MODEL is not False else None
+
+
 class SemanticMatcher:
     """
     Semantic similarity matching between resumes and job descriptions
-    using sentence-transformers (all-MiniLM-L6-v2).
+    using shared sentence-transformers (all-MiniLM-L6-v2) singleton.
     """
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         self.model_name = model_name
-        self._model = None
         self._tfidf = None
-        self._use_transformers = True
 
-    def _get_model(self):
-        if self._model is None:
-            try:
-                from sentence_transformers import SentenceTransformer
-                self._model = SentenceTransformer(self.model_name)
-                logger.info(f"Loaded Sentence Transformer model: {self.model_name}")
-            except Exception as e:
-                logger.warning(f"Could not load Sentence Transformer: {e}. Using TF-IDF fallback.")
-                self._use_transformers = False
-                self._model = False
-        return self._model
+    def initialize_model(self):
+        """Warm up the embedding model during application startup."""
+        return get_embedding_model(self.model_name)
 
     def encode(self, text: str) -> List[float]:
-        """Encode text to a semantic embedding vector."""
+        """Encode text to a semantic embedding vector reusing the singleton model."""
         if not text or not text.strip():
             return [0.0] * 64
+        
+        start_t = time.time()
+        truncated = text[:1000].strip()
         try:
-            model = self._get_model()
+            model = get_embedding_model(self.model_name)
             if model:
-                embedding = model.encode(text[:2000], convert_to_tensor=False)
+                import torch
+                with torch.inference_mode():
+                    embedding = model.encode(
+                        truncated,
+                        convert_to_tensor=False,
+                        show_progress_bar=False,
+                        normalize_embeddings=True,
+                    )
+                elapsed = time.time() - start_t
+                logger.info(f"Resume embedding completed in {elapsed:.3f} seconds (text_len={len(truncated)})")
                 if hasattr(embedding, "tolist"):
                     return embedding.tolist()
                 return [float(x) for x in embedding]
             else:
-                return self._tfidf_encode(text)
+                return self._tfidf_encode(truncated)
         except Exception as e:
             logger.warning(f"SentenceTransformer encode fallback: {e}")
-            return self._tfidf_encode(text)
+            return self._tfidf_encode(truncated)
 
     def compute_similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
         """Compute cosine similarity between two embedding vectors."""
