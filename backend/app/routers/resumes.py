@@ -227,9 +227,25 @@ async def get_resume_analysis(
             })
 
     return {
+        "id": str(resume.id),
         "resume_id": str(resume.id),
+        "user_id": str(resume.user_id),
         "title": resume.title,
+        "file_name": resume.file_name,
+        "file_url": resume.file_url,
         "is_primary": resume.is_primary,
+        "is_parsed": resume.is_parsed,
+        "parsed_name": resume.parsed_name,
+        "parsed_email": resume.parsed_email,
+        "parsed_phone": resume.parsed_phone,
+        "parsed_location": resume.parsed_location,
+        "parsed_summary": resume.parsed_summary,
+        "parsed_skills": resume.parsed_skills or [],
+        "parsed_education": resume.parsed_education or [],
+        "parsed_experience": resume.parsed_experience or [],
+        "parsed_certifications": resume.parsed_certifications or [],
+        "parsed_projects": resume.parsed_projects or [],
+        "parsed_languages": resume.parsed_languages or [],
         "ats_score": ats_result["ats_score"],
         "level": ats_result["level"],
         "badge_color": ats_result["badge_color"],
@@ -242,6 +258,8 @@ async def get_resume_analysis(
         "learning_resources": learning_resources,
         "improvement_suggestions": ats_result.get("threshold_warning", {}).get("recommended_improvements", []),
         "explanation": ats_result["explanation"],
+        "created_at": resume.created_at.isoformat() if resume.created_at else None,
+        "parsed_at": resume.parsed_at.isoformat() if resume.parsed_at else None,
     }
 
 
