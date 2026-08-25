@@ -108,6 +108,8 @@ async def upload_resume(
     db: Session = Depends(get_db),
 ):
     """Upload a resume file (PDF/DOCX), parse with hybrid NLP, normalize skills, and calculate explainable ATS score."""
+    logger.info(f"[ResumeUpload] Step 1: Request received for user ID={current_user.id} ({current_user.email})")
+    
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
 
@@ -116,22 +118,35 @@ async def upload_resume(
         raise HTTPException(status_code=400, detail="Only PDF and DOCX files are allowed.")
 
     file_content = await file.read()
-    if len(file_content) > 10 * 1024 * 1024:
+    file_size = len(file_content)
+    logger.info(f"[ResumeUpload] Step 2: File received: filename='{file.filename}', size={file_size} bytes, content_type='{file.content_type}'")
+
+    if file_size > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
 
+    logger.info(f"[ResumeUpload] Step 3: Extracting text from {file.filename}...")
     raw_text = _extract_text_from_file(file_content, file.filename)
+    logger.info(f"[ResumeUpload] Step 4: Text extracted ({len(raw_text)} chars)")
+
     if not raw_text or len(raw_text.strip()) < 5:
+        logger.warning(f"[ResumeUpload] Insufficient text extracted from {file.filename}")
         raise HTTPException(
             status_code=400,
             detail="Could not extract readable text from the resume. If this is a scanned image PDF, please ensure it contains selectable text."
         )
 
     try:
+        logger.info("[ResumeUpload] Step 5: Running NLP resume parser...")
         parsed = resume_parser.parse(raw_text)
+        
+        logger.info("[ResumeUpload] Step 6: Normalizing skills...")
         normalized_skills = skill_normalizer.normalize_list(parsed.get("skills", []) or [])
         parsed["normalized_skills"] = normalized_skills
 
+        logger.info("[ResumeUpload] Step 7: Calculating ATS score breakdown...")
         ats_result = ats_scorer.score(parsed)
+        
+        logger.info("[ResumeUpload] Step 8: Generating semantic vector embedding...")
         embedding = semantic_matcher.encode(raw_text[:5000])
         safe_embedding = [float(x) for x in (embedding[:128] if embedding else [])]
 
@@ -139,7 +154,6 @@ async def upload_resume(
             db.query(Resume).filter(Resume.user_id == current_user.id).update({"is_primary": False})
             is_primary = True
 
-        # Truncate strings to prevent PostgreSQL StringDataRightTruncation errors
         safe_file_name = (file.filename or "resume")[:250]
         safe_file_type = (file.content_type or "application/pdf")[:250]
         safe_parsed_name = (parsed.get("name") or "")[:250] if parsed.get("name") else None
@@ -147,6 +161,7 @@ async def upload_resume(
         safe_parsed_phone = (parsed.get("phone") or "")[:250] if parsed.get("phone") else None
         safe_parsed_location = (parsed.get("location") or "")[:250] if parsed.get("location") else None
 
+        logger.info(f"[ResumeUpload] Step 9: Storing resume in database (ATS Score={ats_result['ats_score']})...")
         resume = Resume(
             user_id=current_user.id,
             title=(title or safe_file_name)[:250],
@@ -180,9 +195,13 @@ async def upload_resume(
         db.commit()
         db.refresh(resume)
 
+        logger.info(f"[ResumeUpload] Step 10: Resume analysis complete and persisted with ID={resume.id}")
         return ResumeResponse.from_orm(resume)
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
-        logger.exception(f"Resume analysis failed: {e}")
+        logger.exception(f"[ResumeUpload] Unexpected error during resume analysis: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Resume analysis failed: {str(e)}")
 

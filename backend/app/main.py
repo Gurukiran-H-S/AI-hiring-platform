@@ -106,7 +106,7 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
         stop_market_scheduler()
 
     # ─── Health & Docs Check ──────────────────────────────────────────────────
-    @app.get("/", tags=["Health"])
+    @app.api_route("/", methods=["GET", "HEAD"], tags=["Health"])
     async def root():
         return {
             "status": "healthy",
@@ -116,7 +116,7 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
             "docs": "/docs",
         }
 
-    @app.get("/health", tags=["Health"])
+    @app.api_route("/health", methods=["GET", "HEAD"], tags=["Health"])
     async def health_check():
         return {
             "status": "ok",
@@ -124,7 +124,7 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
             "timestamp": time.time(),
         }
 
-    @app.get("/api/health", tags=["Health"])
+    @app.api_route("/api/health", methods=["GET", "HEAD"], tags=["Health"])
     async def api_health_check():
         return {
             "status": "ok",
@@ -170,11 +170,13 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
 app = create_application()
 
 if __name__ == "__main__":
+    import os
     import uvicorn
+    port = int(os.getenv("PORT", 8000))
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=port,
         reload=settings.DEBUG,
         workers=1,
     )
