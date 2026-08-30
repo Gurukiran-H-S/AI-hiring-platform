@@ -8,6 +8,8 @@ import { CandidateDashboard } from './pages/candidate/CandidateDashboard'
 import { RecruiterDashboard } from './pages/recruiter/RecruiterDashboard'
 import { AdminDashboard } from './pages/admin/AdminDashboard'
 
+import { Candidate360View } from './pages/candidate/Candidate360View'
+
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth()
 
@@ -33,6 +35,10 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+
+      {/* Candidate 360° Profile Public QR Scan View */}
+      <Route path="/candidate-360/:candidateId" element={<Candidate360View />} />
+      <Route path="/profile/candidate/:candidateId" element={<Candidate360View />} />
 
       {/* Candidate Routes */}
       <Route

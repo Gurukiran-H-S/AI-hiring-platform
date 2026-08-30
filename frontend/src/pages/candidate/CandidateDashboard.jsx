@@ -17,6 +17,7 @@ import { SkillArena } from './SkillArena'
 const DashboardHome = ({ stats, loading }) => {
   const [trends, setTrends] = useState(null)
   const [jobAssessments, setJobAssessments] = useState([])
+  const [scheduledInterviews, setScheduledInterviews] = useState([])
   const [loadingAssessments, setLoadingAssessments] = useState(true)
   const { user } = useAuth()
 
@@ -42,9 +43,23 @@ const DashboardHome = ({ stats, loading }) => {
       }
     }
 
+    const fetchInterviews = async () => {
+      try {
+        const { data } = await api.get('/interviews')
+        setScheduledInterviews(Array.isArray(data) ? data : [])
+      } catch (err) {
+        console.error('Could not load scheduled interviews:', err)
+      }
+    }
+
     fetchTrends()
     fetchAssessments()
+    fetchInterviews()
   }, [])
+
+  const activeInterviews = scheduledInterviews.filter(i =>
+    ['scheduled', 'rescheduled', 'in_progress'].includes((i.status || '').toLowerCase())
+  )
 
   const pendingAssessments = jobAssessments.filter(a => !a.is_completed)
   const completedAssessments = jobAssessments.filter(a => a.is_completed)
@@ -69,6 +84,89 @@ const DashboardHome = ({ stats, loading }) => {
   return (
     <div className="page-enter pb-12 space-y-8">
 
+      {/* ─── COMPACT BLINKING RED & ORANGE LIVE INTERVIEW MEETING BANNER ─── */}
+      {activeInterviews.length > 0 && (
+        <div className="relative overflow-hidden rounded-xl border border-red-500/80 bg-gradient-to-r from-red-500/10 via-orange-500/10 to-amber-500/10 p-3 sm:p-3.5 shadow-md animate-pulse ring-2 ring-orange-400/40">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5">
+              {/* Radar Ping Blinking Icon */}
+              <div className="relative flex items-center justify-center shrink-0 w-8 h-8 rounded-lg bg-gradient-to-tr from-red-600 to-orange-500 text-white shadow-xs">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-lg bg-red-400 opacity-60"></span>
+                <span className="text-base">🚨</span>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-red-600 to-orange-500 text-white shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                    Live Interview Meeting Scheduled
+                  </span>
+                  <span className="text-[11px] font-bold text-red-900 bg-red-100/90 px-2 py-0.5 rounded border border-red-200">
+                    {activeInterviews.length} {activeInterviews.length === 1 ? 'Meeting' : 'Meetings'} Pending
+                  </span>
+                </div>
+                <p className="text-xs font-semibold text-slate-800 mt-0.5">
+                  Recruiter has scheduled an interview for your applied job. Please join on time.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              <Link
+                to="/candidate/applications"
+                className="text-xs font-bold text-red-700 hover:text-red-900 underline px-2 py-1"
+              >
+                View Applications →
+              </Link>
+            </div>
+          </div>
+
+          {/* Compact horizontal meeting strip */}
+          <div className="mt-2.5 pt-2 border-t border-red-200/80 space-y-2">
+            {activeInterviews.map((meeting) => (
+              <div
+                key={meeting.id}
+                className="bg-white/95 backdrop-blur-sm border border-orange-300/80 rounded-lg px-3 py-2 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-2 hover:border-orange-500 transition-all"
+              >
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                  <span className="font-extrabold text-slate-900">
+                    💼 {meeting.job_title || 'Position'}
+                  </span>
+                  <span className="text-[11px] font-bold text-orange-800 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded">
+                    {meeting.company_name || 'Hiring Team'}
+                  </span>
+                  <span className="text-slate-700 font-semibold">
+                    📅 {meeting.scheduled_at
+                      ? new Date(meeting.scheduled_at).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true,
+                        })
+                      : 'Scheduled'}
+                  </span>
+                  <span className="text-slate-500 text-[11px]">
+                    ({meeting.duration_minutes || 45} mins • {meeting.location || 'Online'})
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={meeting.meeting_link || 'https://meet.jit.si/hireai-interview'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-2xs flex items-center gap-1.5 transition-all"
+                  >
+                    <span>🎥</span> Join Meeting
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Hero Welcome Banner with Differentiated Header */}
       <div className="card bg-gradient-to-r from-blue-50/60 via-indigo-50/40 to-purple-50/50 border border-blue-100/80 p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -87,12 +185,20 @@ const DashboardHome = ({ stats, loading }) => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Link to="/candidate/jobs" className="btn-primary">
               <span>🔍</span> Find Jobs
             </Link>
             <Link to="/candidate/profile" className="btn-secondary">
               <span>👤</span> View Profile
+            </Link>
+            <Link
+              to={user?.id ? `/candidate-360/${user.id}` : '/candidate/profile'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary !bg-white hover:!bg-slate-50 font-bold border-blue-200 text-blue-700 flex items-center gap-1.5"
+            >
+              <span>⚡</span> 360° QR Profile
             </Link>
           </div>
         </div>

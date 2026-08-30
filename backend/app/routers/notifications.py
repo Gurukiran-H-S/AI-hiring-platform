@@ -146,26 +146,36 @@ async def list_interviews(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List interviews for current user."""
+    """List interviews for current user with job and company metadata."""
     from app.models.user import UserRole
+    from app.models.job import Job
     if current_user.role == UserRole.CANDIDATE:
-        interviews = db.query(Interview).filter(Interview.candidate_id == current_user.id).all()
+        interviews = db.query(Interview).filter(Interview.candidate_id == current_user.id).order_by(Interview.scheduled_at.desc()).all()
     else:
-        interviews = db.query(Interview).filter(Interview.recruiter_id == current_user.id).all()
+        interviews = db.query(Interview).filter(Interview.recruiter_id == current_user.id).order_by(Interview.scheduled_at.desc()).all()
 
-    return [
-        {
+    result = []
+    for i in interviews:
+        job = db.query(Job).filter(Job.id == i.job_id).first() if i.job_id else None
+        recruiter = db.query(User).filter(User.id == i.recruiter_id).first() if i.recruiter_id else None
+        candidate = db.query(User).filter(User.id == i.candidate_id).first() if i.candidate_id else None
+        result.append({
             "id": str(i.id),
-            "title": i.title,
-            "interview_type": i.interview_type.value,
-            "status": i.status.value,
-            "scheduled_at": i.scheduled_at.isoformat(),
-            "duration_minutes": i.duration_minutes,
-            "meeting_link": i.meeting_link,
-            "location": i.location,
-        }
-        for i in interviews
-    ]
+            "title": i.title or f"{i.interview_type.value.capitalize()} Interview",
+            "job_id": str(i.job_id) if i.job_id else None,
+            "job_title": job.title if job else "Applied Position",
+            "company_name": job.company if job else "Hiring Team",
+            "recruiter_name": recruiter.full_name if recruiter else "Hiring Recruiter",
+            "candidate_name": candidate.full_name if candidate else "Candidate",
+            "interview_type": i.interview_type.value if hasattr(i.interview_type, 'value') else str(i.interview_type),
+            "status": i.status.value if hasattr(i.status, 'value') else str(i.status),
+            "scheduled_at": i.scheduled_at.isoformat() if i.scheduled_at else None,
+            "duration_minutes": i.duration_minutes or 45,
+            "meeting_link": i.meeting_link or "https://meet.jit.si/hireai-interview",
+            "location": i.location or "Online",
+            "notes": i.notes or "",
+        })
+    return result
 
 
 @interview_router.put("/{interview_id}/status")

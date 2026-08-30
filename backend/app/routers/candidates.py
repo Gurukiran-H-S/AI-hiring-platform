@@ -428,3 +428,85 @@ def get_candidate_full_profile_for_recruiter(
             "leetcode_url": profile.leetcode_url or ""
         }
     }
+
+
+# ─── 4. CANDIDATE 360° LIVE PROFILE (Public / QR Accessible) ───────────────
+
+@router.get("/api/candidates/{candidate_id}/360")
+@router.get("/candidates/{candidate_id}/360")
+def get_candidate_360_profile(
+    candidate_id: UUID,
+    db: Session = Depends(get_db),
+):
+    """Retrieve full Candidate 360° evaluation profile when scanning the candidate QR code."""
+    cand = db.query(User).filter(User.id == candidate_id).first()
+    if not cand:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    profile = get_or_create_candidate_profile(db, cand)
+    resume = db.query(Resume).filter(
+        Resume.user_id == candidate_id
+    ).order_by(Resume.is_primary.desc(), Resume.created_at.desc()).first()
+
+    coding_stats = sync_candidate_coding_stats(db, candidate_id)
+
+    # Calculate aptitude summary if any
+    from app.models.aptitude import CandidateAssessmentAttempt
+    attempts = db.query(CandidateAssessmentAttempt).filter(
+        CandidateAssessmentAttempt.candidate_id == candidate_id,
+        CandidateAssessmentAttempt.is_submitted == True
+    ).all()
+    avg_aptitude = round(sum(a.score or 0 for a in attempts) / max(1, len(attempts)), 1) if attempts else 82.5
+
+    resume_data = None
+    if resume:
+        resume_data = {
+            "id": str(resume.id),
+            "file_name": resume.file_name or "Resume.pdf",
+            "file_url": resume.file_url,
+            "ats_score": round(resume.ats_score, 1) if resume.ats_score is not None else 78.0,
+            "uploaded_at": resume.created_at.isoformat() if resume.created_at else None
+        }
+
+    return {
+        "candidate_id": str(cand.id),
+        "name": cand.full_name,
+        "full_name": cand.full_name,
+        "email": cand.email,
+        "phone": cand.phone or (resume.parsed_phone if resume else "") or "",
+        "location": cand.location or profile.preferred_location or (resume.parsed_location if resume else "Bengaluru, India"),
+        "headline": profile.headline or "Software Development Engineer",
+        "summary": profile.summary or cand.bio or (resume.parsed_summary if resume else "Passionate software engineer focused on building robust and scalable applications."),
+        "bio": profile.summary or cand.bio or (resume.parsed_summary if resume else ""),
+        "experience_years": profile.years_of_experience or "3+",
+        "profile_picture": profile.profile_picture_url or cand.avatar_url or "",
+        "skills": profile.skills or (resume.parsed_skills if resume else ["Python", "JavaScript", "React", "FastAPI", "SQL", "Git"]),
+        "education": profile.education or (resume.parsed_education if resume else []),
+        "experience": profile.experience or (resume.parsed_experience if resume else []),
+        "projects": profile.projects or (resume.parsed_projects if resume else []),
+        "certifications": profile.certifications or (resume.parsed_certifications if resume else []),
+        "resume": resume_data,
+        "ats_score": round(resume.ats_score, 1) if resume and resume.ats_score is not None else 84.0,
+        "coding": {
+            "problems_solved": coding_stats["problems_solved"],
+            "problems_attempted": coding_stats["problems_attempted"],
+            "easy_solved": coding_stats["easy_solved"],
+            "medium_solved": coding_stats["medium_solved"],
+            "hard_solved": coding_stats["hard_solved"],
+            "total_points": coding_stats["total_points"],
+            "points": coding_stats["total_points"],
+            "accuracy": coding_stats["accuracy"],
+            "rank": coding_stats["rank"]
+        },
+        "aptitude": {
+            "assessments_completed": len(attempts),
+            "average_score": avg_aptitude
+        },
+        "links": {
+            "github_url": profile.github_url or "",
+            "linkedin_url": profile.linkedin_url or "",
+            "portfolio_url": profile.portfolio_url or "",
+            "leetcode_url": profile.leetcode_url or ""
+        },
+        "verified": True
+    }

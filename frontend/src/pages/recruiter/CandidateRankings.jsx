@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { api, useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
@@ -1067,11 +1068,34 @@ export const CandidateRankings = () => {
               <div className="flex items-center gap-3">
                 <div className="avatar w-12 h-12 !rounded-lg">{profileModal.full_name?.charAt(0)?.toUpperCase() || 'C'}</div>
                 <div>
-                  <h2 className="section-title !text-[16px]">{profileModal.full_name}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="section-title !text-[16px]">{profileModal.full_name}</h2>
+                    <Link
+                      to={`/candidate-360/${profileModal.candidate_id || profileModal.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="badge-blue text-[10px] font-bold py-0.5 px-2 flex items-center gap-1 hover:underline"
+                    >
+                      <span>⚡</span> 360° QR View ↗
+                    </Link>
+                  </div>
                   <p className="text-xs text-ink-muted">{profileModal.email} · {profileModal.location || '—'}</p>
                 </div>
               </div>
-              <button onClick={() => setProfileModal(null)} className="btn-ghost btn-sm">✕</button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const url = `${window.location.origin}/candidate-360/${profileModal.candidate_id || profileModal.id}`
+                    navigator.clipboard.writeText(url)
+                    toast.success('🔗 Candidate 360° Link copied!')
+                  }}
+                  className="btn-secondary btn-sm text-xs font-bold"
+                  title="Copy 360 Profile Link"
+                >
+                  📋 Copy Link
+                </button>
+                <button onClick={() => setProfileModal(null)} className="btn-ghost btn-sm">✕</button>
+              </div>
             </div>
 
             {profileModal.evaluation && (

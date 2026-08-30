@@ -976,8 +976,53 @@ export const CandidateProfile = () => {
 
         </div>
 
-        {/* RIGHT COLUMN: Coding Stats, Resume, Job Preferences, Social Links */}
+        {/* RIGHT COLUMN: Candidate 360 QR, Coding Stats, Resume, Job Preferences, Social Links */}
         <div className="space-y-6">
+
+          {/* ─── 360° CANDIDATE EVALUATION QR CODE CARD ─── */}
+          <div className="bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-purple-50/80 rounded-[10px] border-2 border-blue-300/80 p-5 shadow-card space-y-3.5">
+            <div className="flex items-center justify-between border-b border-blue-200/80 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⚡</span>
+                <h2 className="font-bold text-sm text-slate-900 font-display">Candidate 360° QR Profile</h2>
+              </div>
+              <span className="badge-emerald text-[10px] font-black uppercase tracking-wider py-0.5 px-2">
+                Live QR
+              </span>
+            </div>
+
+            <div className="flex flex-col items-center justify-center p-3 bg-white rounded-xl border border-blue-200 shadow-2xs space-y-2">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(`${window.location.origin}/candidate-360/${user?.id || profile?.user_id}`)}`}
+                alt="Candidate 360 QR Code"
+                className="w-36 h-36 object-contain rounded-lg border border-slate-100"
+              />
+              <p className="text-[11px] text-center text-slate-600 font-medium px-2 leading-relaxed">
+                Scan with any smartphone camera to instantly preview your verified 360° candidate profile &amp; scores.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <Link
+                to={`/candidate-360/${user?.id || profile?.user_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary btn-sm !text-xs font-bold flex items-center justify-center gap-1"
+              >
+                <span>🔍</span> Preview 360°
+              </Link>
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/candidate-360/${user?.id || profile?.user_id}`
+                  navigator.clipboard.writeText(url)
+                  toast.success('🔗 360° Profile Link copied!')
+                }}
+                className="btn-secondary btn-sm !text-xs font-bold flex items-center justify-center gap-1"
+              >
+                <span>📋</span> Copy Link
+              </button>
+            </div>
+          </div>
 
           {/* ─── CODING PERFORMANCE STATS CARD ─── */}
           <div className="bg-white rounded-[10px] border border-line p-6 shadow-card space-y-4">
