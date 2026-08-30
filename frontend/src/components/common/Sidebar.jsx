@@ -1,5 +1,5 @@
-import React from 'react'
-import { NavLink } from 'react-router-dom'
+import React, { useState } from 'react'
+import { NavLink, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 /* Consistent line icons (Lucide-style inline SVGs) */
@@ -34,18 +34,15 @@ const icons = {
 
 export const Sidebar = ({ role }) => {
   const { logout } = useAuth()
+  const location = useLocation()
 
-  const candidateLinks = [
-    { to: '/candidate', label: 'Dashboard', icon: icons.dashboard, color: 'text-blue-600', activeBg: 'bg-blue-50 text-blue-700 font-bold border-l-4 border-blue-600', end: true },
-    { to: '/candidate/jobs', label: 'Find Jobs', icon: icons.jobs, color: 'text-indigo-600', activeBg: 'bg-indigo-50 text-indigo-700 font-bold border-l-4 border-indigo-600' },
-    { to: '/candidate/applications', label: 'Applications', icon: icons.applications, color: 'text-amber-600', activeBg: 'bg-amber-50 text-amber-700 font-bold border-l-4 border-amber-600' },
-    { to: '/candidate/resumes', label: 'Resume Analysis', icon: icons.resume, color: 'text-blue-600', activeBg: 'bg-blue-50 text-blue-700 font-bold border-l-4 border-blue-600' },
-    { to: '/candidate/market-intelligence', label: 'Market Intelligence', icon: icons.market, color: 'text-indigo-600', activeBg: 'bg-indigo-50 text-indigo-700 font-bold border-l-4 border-indigo-600' },
-    { to: '/candidate/aptitude', label: 'Aptitude Assessment', icon: icons.assessment, color: 'text-teal-600', activeBg: 'bg-teal-50 text-teal-700 font-bold border-l-4 border-teal-600' },
-    { to: '/candidate/coding', label: 'Coding Arena', icon: icons.coding, color: 'text-emerald-600', activeBg: 'bg-emerald-50 text-emerald-700 font-bold border-l-4 border-emerald-600' },
-    { to: '/candidate/interview', label: 'Mock Interviews', icon: icons.interview, color: 'text-rose-600', activeBg: 'bg-rose-50 text-rose-700 font-bold border-l-4 border-rose-600' },
-    { to: '/candidate/profile', label: 'My Profile', icon: icons.profile, color: 'text-purple-600', activeBg: 'bg-purple-50 text-purple-700 font-bold border-l-4 border-purple-600' },
-  ]
+  // Track if Skill Arena is expanded in candidate sidebar
+  const isSkillArenaActive = location.pathname.startsWith('/candidate/skill-arena') ||
+    location.pathname === '/candidate/coding' ||
+    location.pathname === '/candidate/aptitude' ||
+    location.pathname === '/candidate/interview'
+
+  const [skillArenaOpen, setSkillArenaOpen] = useState(true)
 
   const recruiterLinks = [
     { to: '/recruiter', label: 'Dashboard', icon: icons.dashboard, color: 'text-blue-600', activeBg: 'bg-blue-50 text-blue-700 font-bold border-l-4 border-blue-600', end: true },
@@ -63,31 +60,215 @@ export const Sidebar = ({ role }) => {
     { to: '/admin/analytics', label: 'Platform Analytics', icon: icons.chart, color: 'text-amber-600', activeBg: 'bg-amber-50 text-amber-700 font-bold border-l-4 border-amber-600' },
   ]
 
-  const links = role === 'admin' ? adminLinks : role === 'recruiter' ? recruiterLinks : candidateLinks
-
   return (
     <aside className="fixed left-0 top-16 bottom-0 w-[240px] bg-white border-r border-slate-200 z-40 flex flex-col overflow-y-auto">
       <nav className="flex-1 py-4">
         <div className="px-6 pb-2 text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
           Navigation
         </div>
-        {links.map((link) => (
-          <NavLink
-            key={link.to}
-            to={link.to}
-            end={link.end || false}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
-                isActive
-                  ? link.activeBg
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`
-            }
-          >
-            <span className={link.color}>{link.icon}</span>
-            <span>{link.label}</span>
-          </NavLink>
-        ))}
+
+        {role === 'candidate' ? (
+          <div className="space-y-1">
+            {/* 1. Dashboard */}
+            <NavLink
+              to="/candidate"
+              end
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-700 font-bold border-l-4 border-blue-600'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <span className="text-blue-600">{icons.dashboard}</span>
+              <span>Dashboard</span>
+            </NavLink>
+
+            {/* 2. Find Jobs */}
+            <NavLink
+              to="/candidate/jobs"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-indigo-50 text-indigo-700 font-bold border-l-4 border-indigo-600'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <span className="text-indigo-600">{icons.jobs}</span>
+              <span>Find Jobs</span>
+            </NavLink>
+
+            {/* 3. Applications */}
+            <NavLink
+              to="/candidate/applications"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-amber-50 text-amber-700 font-bold border-l-4 border-amber-600'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <span className="text-amber-600">{icons.applications}</span>
+              <span>Applications</span>
+            </NavLink>
+
+            {/* 4. Resume & ATS Analysis */}
+            <NavLink
+              to="/candidate/resumes"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-700 font-bold border-l-4 border-blue-600'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <span className="text-blue-600">{icons.resume}</span>
+              <span>Resume Analysis</span>
+            </NavLink>
+
+            {/* 5. 🏆 SKILL ARENA (Unified Parent Group) */}
+            <div className="pt-2 pb-1">
+              <div className="px-5 pb-1 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-amber-700/80">
+                <span>Assessment Area</span>
+              </div>
+
+              {/* Main Skill Arena Parent NavLink */}
+              <div className="relative flex items-center mx-2.5">
+                <NavLink
+                  to="/candidate/skill-arena"
+                  end
+                  className={({ isActive }) =>
+                    `flex-1 flex items-center justify-between px-4 py-2.5 rounded-lg text-[13.5px] font-extrabold transition-all ${
+                      isActive || (location.pathname === '/candidate/skill-arena')
+                        ? 'bg-amber-50 text-amber-900 border-l-4 border-amber-600 shadow-2xs'
+                        : isSkillArenaActive
+                        ? 'bg-slate-50 text-slate-900 font-bold'
+                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                    }`
+                  }
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base">🏆</span>
+                    <span>Skill Arena</span>
+                  </div>
+                  <span className="badge badge-amber text-[10px] font-extrabold py-0.5 px-1.5">Arena</span>
+                </NavLink>
+                <button
+                  type="button"
+                  onClick={() => setSkillArenaOpen(!skillArenaOpen)}
+                  className="p-2 text-slate-400 hover:text-slate-700 transition-colors"
+                  title="Toggle Skill Arena Submenu"
+                >
+                  <span className={`text-[10px] inline-block transition-transform duration-200 ${skillArenaOpen ? 'rotate-90' : ''}`}>
+                    ▶
+                  </span>
+                </button>
+              </div>
+
+              {/* Skill Arena Sub-items */}
+              {skillArenaOpen && (
+                <div className="ml-6 pl-3 border-l-2 border-slate-200 space-y-1 mt-1.5 py-1 animate-fadeIn">
+                  {/* 💻 Coding Sub-link */}
+                  <NavLink
+                    to="/candidate/skill-arena/coding"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
+                        isActive || location.pathname === '/candidate/coding'
+                          ? 'bg-emerald-50 text-emerald-800 font-bold'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`
+                    }
+                  >
+                    <span className="text-emerald-600 text-sm">💻</span>
+                    <span>Coding Arena</span>
+                  </NavLink>
+
+                  {/* 🧠 Aptitude Sub-link */}
+                  <NavLink
+                    to="/candidate/skill-arena/aptitude"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
+                        isActive || location.pathname === '/candidate/aptitude'
+                          ? 'bg-teal-50 text-teal-800 font-bold'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`
+                    }
+                  >
+                    <span className="text-teal-600 text-sm">🧠</span>
+                    <span>Aptitude Test</span>
+                  </NavLink>
+
+                  {/* 🎙️ Mock Interview Sub-link */}
+                  <NavLink
+                    to="/candidate/skill-arena/interview"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
+                        isActive || location.pathname === '/candidate/interview'
+                          ? 'bg-rose-50 text-rose-800 font-bold'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`
+                    }
+                  >
+                    <span className="text-rose-600 text-sm">🎙️</span>
+                    <span>AI Mock Interview</span>
+                  </NavLink>
+                </div>
+              )}
+            </div>
+
+            {/* 6. Market Intelligence */}
+            <NavLink
+              to="/candidate/market-intelligence"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-indigo-50 text-indigo-700 font-bold border-l-4 border-indigo-600'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <span className="text-indigo-600">{icons.market}</span>
+              <span>Market Intelligence</span>
+            </NavLink>
+
+            {/* 7. My Profile */}
+            <NavLink
+              to="/candidate/profile"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-purple-50 text-purple-700 font-bold border-l-4 border-purple-600'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <span className="text-purple-600">{icons.profile}</span>
+              <span>My Profile</span>
+            </NavLink>
+          </div>
+        ) : (
+          (role === 'admin' ? adminLinks : recruiterLinks).map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.end || false}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                  isActive
+                    ? link.activeBg
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <span className={link.color}>{link.icon}</span>
+              <span>{link.label}</span>
+            </NavLink>
+          ))
+        )}
       </nav>
 
       {/* Logout at bottom */}

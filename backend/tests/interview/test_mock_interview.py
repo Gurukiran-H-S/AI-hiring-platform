@@ -218,6 +218,23 @@ def test_communication_score_positive_when_answers_spoken():
     assert report["communication_score"] >= 70.0
 
 
+def test_interview_report_schema_keys():
+    """Verify synthesized interview report produces all fields required by Skill Arena."""
+    responses = [{
+        "transcript": "Docker containers isolate applications with kernel cgroups and namespaces.",
+        "answer_score": 80.0,
+        "coverage_score": 80.0,
+        "semantic_score": 80.0,
+        "filler_words_count": 0,
+        "point_results": []
+    }]
+    questions = [{"id": "1", "question_text": "Explain Docker"}]
+    report = synthesize_interview_report(responses, questions)
+    for key in ["final_score", "technical_score", "coverage_score", "relevance_score", "communication_score", "strengths", "improvements", "missing_topics"]:
+        assert key in report
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
+
 

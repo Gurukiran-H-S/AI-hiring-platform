@@ -12,6 +12,7 @@ import { JobSearch } from './JobSearch'
 import { ApplicationTracker } from './ApplicationTracker'
 import { CandidateProfile } from './CandidateProfile'
 import { MarketIntelligence } from './MarketIntelligence'
+import { SkillArena } from './SkillArena'
 
 const DashboardHome = ({ stats, loading }) => {
   const [trends, setTrends] = useState(null)
@@ -265,7 +266,7 @@ const DashboardHome = ({ stats, loading }) => {
           </Link>
 
           {/* Module 2: Coding Assessment */}
-          <Link to="/candidate/coding" className="module-emerald flex flex-col justify-between min-h-[170px] group cursor-pointer">
+          <Link to="/candidate/skill-arena/coding" className="module-emerald flex flex-col justify-between min-h-[170px] group cursor-pointer">
             <div>
               <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl mb-3 border border-emerald-200">
                 💻
@@ -276,15 +277,15 @@ const DashboardHome = ({ stats, loading }) => {
               </p>
             </div>
             <div className="text-emerald-600 text-xs font-bold mt-4 flex items-center gap-1 group-hover:gap-2 transition-all">
-              Start Practice <span>→</span>
+              Launch Coding Arena <span>→</span>
             </div>
           </Link>
 
           {/* Module 3: Aptitude Assessment */}
-          <Link to="/candidate/aptitude" className="module-purple flex flex-col justify-between min-h-[170px] group cursor-pointer">
+          <Link to="/candidate/skill-arena/aptitude" className="module-purple flex flex-col justify-between min-h-[170px] group cursor-pointer">
             <div>
               <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-xl mb-3 border border-purple-200">
-                📌
+                🧠
               </div>
               <h3 className="font-bold text-slate-900 text-base mb-1">Aptitude Assessment</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
@@ -297,20 +298,21 @@ const DashboardHome = ({ stats, loading }) => {
           </Link>
 
           {/* Module 4: Mock Interview */}
-          <Link to="/candidate/interview" className="module-rose flex flex-col justify-between min-h-[170px] group cursor-pointer">
+          <Link to="/candidate/skill-arena/interview" className="module-rose flex flex-col justify-between min-h-[170px] group cursor-pointer">
             <div>
               <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center text-xl mb-3 border border-rose-200">
-                🎙️ï¸
+                🎙️
               </div>
               <h3 className="font-bold text-slate-900 text-base mb-1">Mock Interview</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Practice realistic technical and behavioral interview sessions with AI feedback.
+                Practice realistic technical and behavioral interview sessions with live AI feedback.
               </p>
             </div>
             <div className="text-rose-600 text-xs font-bold mt-4 flex items-center gap-1 group-hover:gap-2 transition-all">
-              Start Interview <span>→</span>
+              Start AI Interview <span>→</span>
             </div>
           </Link>
+
 
         </div>
       </div>
@@ -458,9 +460,18 @@ export const CandidateDashboard = () => {
           <Routes>
             <Route path="/" element={<DashboardHome stats={stats} loading={loading} />} />
             <Route path="/resumes" element={<ResumeAnalyzer onPrimaryChange={fetchAnalytics} />} />
+            
+            {/* 🏆 Unified Skill Arena Routes */}
+            <Route path="/skill-arena" element={<SkillArena />} />
+            <Route path="/skill-arena/coding" element={<CodingPlayground />} />
+            <Route path="/skill-arena/aptitude" element={<AptitudeTest />} />
+            <Route path="/skill-arena/interview" element={<MockInterview />} />
+
+            {/* Direct / Backward-compatible Legacy Routes */}
             <Route path="/coding" element={<CodingPlayground />} />
             <Route path="/aptitude" element={<AptitudeTest />} />
             <Route path="/interview" element={<MockInterview />} />
+
             <Route path="/jobs" element={<JobSearch />} />
             <Route path="/applications" element={<ApplicationTracker />} />
             <Route path="/profile" element={<CandidateProfile />} />

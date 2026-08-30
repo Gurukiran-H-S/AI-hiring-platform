@@ -480,3 +480,37 @@ async def get_candidate_latest_interview(
         "missing_topics_count": len(interview.missing_topics or []),
         "completed_at": interview.completed_at.isoformat() if interview.completed_at else None,
     }
+
+
+@router.get("/history")
+async def get_interview_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get all mock interview sessions for the logged in candidate.
+    """
+    interviews = (
+        db.query(MockInterview)
+        .filter(MockInterview.candidate_id == current_user.id)
+        .order_by(MockInterview.started_at.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": str(i.id),
+            "role_title": i.role_title,
+            "interview_type": i.interview_type,
+            "status": i.status,
+            "final_score": i.final_score,
+            "technical_score": i.technical_score,
+            "communication_score": i.communication_score,
+            "total_questions": i.total_questions,
+            "completed_questions": i.completed_questions,
+            "started_at": i.started_at.isoformat() if i.started_at else None,
+            "completed_at": i.completed_at.isoformat() if i.completed_at else None,
+        }
+        for i in interviews
+    ]
+
