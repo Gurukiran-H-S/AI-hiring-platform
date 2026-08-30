@@ -311,6 +311,9 @@ export const JobSearch = () => {
     return false
   }
 
+  const [applyCoverLetter, setApplyCoverLetter] = useState('')
+  const [submittingApply, setSubmittingApply] = useState(false)
+
   const handleApplyClick = (job) => {
     if (checkIsApplied(job)) {
       toast('You have already applied for this job!', { icon: 'ℹ️' })
@@ -320,18 +323,20 @@ export const JobSearch = () => {
     if (job.application_url) {
       window.open(job.application_url, '_blank')
     }
+    setApplyCoverLetter(`I am excited to submit my application for the ${job.title} position at ${job.company}. My technical skills and experience align closely with your requirements.`)
     setSelectedJobForModal(job)
   }
 
   const confirmTrackApplication = async () => {
     if (!selectedJobForModal) return
     const isInternalJob = selectedJobForModal.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedJobForModal.id)
+    setSubmittingApply(true)
     try {
       if (isInternalJob && !selectedJobForModal.application_url) {
         await api.post(`/jobs/${selectedJobForModal.id}/apply`, {
-          cover_letter: `Applied via Find Jobs portal for ${selectedJobForModal.title}`,
+          cover_letter: applyCoverLetter || `Applied via Find Jobs portal for ${selectedJobForModal.title}`,
         })
-        toast.success(`Application submitted for ${selectedJobForModal.title}!`)
+        toast.success(`🎉 Application submitted for ${selectedJobForModal.title}!`)
       } else {
         await api.post('/applications/track-external', {
           job_id: isInternalJob ? selectedJobForModal.id : undefined,
@@ -339,12 +344,12 @@ export const JobSearch = () => {
           company: selectedJobForModal.company,
           application_url: selectedJobForModal.application_url,
           source_job_id: selectedJobForModal.source_job_id || selectedJobForModal.id,
-          notes: `Applied via ${selectedJobForModal.source || 'Portal'}`
+          notes: applyCoverLetter || `Applied via ${selectedJobForModal.source || 'Portal'}`
         })
         toast.success('Application tracked successfully!')
       }
       setSelectedJobForModal(null)
-      loadAppliedJobs()
+      await loadAppliedJobs()
       navigate('/candidate/applications')
     } catch (err) {
       const errorMsg = err.response?.data?.detail || err.message || 'Failed to submit application.'
@@ -356,14 +361,17 @@ export const JobSearch = () => {
       if (isAlready) {
         toast.success('You have already applied to this job!')
         setSelectedJobForModal(null)
-        loadAppliedJobs()
+        await loadAppliedJobs()
         navigate('/candidate/applications')
       } else {
         console.error(err)
-        toast.error(typeof errorMsg === 'string' ? errorMsg : 'Failed to track application.')
+        toast.error(typeof errorMsg === 'string' ? errorMsg : 'Failed to submit application.')
       }
+    } finally {
+      setSubmittingApply(false)
     }
   }
+
 
 
   const toggleSaveJob = (job) => {
@@ -495,36 +503,96 @@ export const JobSearch = () => {
 
       )}
 
-      {/* External Application Tracking Confirmation Modal */}
+      {/* Application Submission & Tracking Modal */}
       {selectedJobForModal && (
         <div className="modal-overlay">
-          <div className="modal-card max-w-md w-full p-6 text-center space-y-4">
-            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-2xl mx-auto">
-              💼
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-ink">Track this application?</h3>
-              <p className="text-xs text-ink-2 mt-1">
-                Would you like HireAI to add <strong>{selectedJobForModal.title}</strong> at <strong>{selectedJobForModal.company}</strong> to your application tracker?
-              </p>
-            </div>
-            <div className="flex gap-3 pt-2">
+          <div className="modal-card max-w-lg w-full p-6 text-left space-y-4 shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="avatar w-10 h-10 rounded-xl text-xs font-bold shrink-0 bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                  {selectedJobForModal.company?.slice(0, 2).toUpperCase() || 'CO'}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">{selectedJobForModal.title}</h3>
+                  <p className="text-xs text-slate-500 font-medium">{selectedJobForModal.company} • 📍 {selectedJobForModal.location}</p>
+                </div>
+              </div>
               <button
                 onClick={() => setSelectedJobForModal(null)}
+                className="text-slate-400 hover:text-slate-600 text-lg p-1 rounded-md"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Position Summary Pill */}
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs space-y-2">
+              <div className="flex items-center justify-between text-slate-700">
+                <span className="font-semibold">💼 Employment Type:</span>
+                <span className="badge-gray text-[11px] font-bold">{selectedJobForModal.employment_type || 'Full-time'}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-700">
+                <span className="font-semibold">💰 Compensation:</span>
+                <span className="font-mono font-bold text-emerald-700">{selectedJobForModal.salary || 'Competitive'}</span>
+              </div>
+              {selectedJobForModal.skills?.length > 0 && (
+                <div className="pt-1">
+                  <span className="font-semibold text-slate-700 block mb-1">Required Skills:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedJobForModal.skills.map(s => (
+                      <span key={s} className="badge-blue text-[10.5px]">{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Cover Letter Input */}
+            <div className="space-y-1.5">
+              <label className="field-label flex items-center justify-between text-xs">
+                <span>📝 Cover Letter / Note to Recruiter</span>
+                <span className="text-[10.5px] text-slate-400 font-normal">Optional</span>
+              </label>
+              <textarea
+                rows={4}
+                value={applyCoverLetter}
+                onChange={(e) => setApplyCoverLetter(e.target.value)}
+                placeholder="Explain why you're a great fit for this role..."
+                className="input text-xs leading-relaxed"
+              />
+              <p className="text-[11px] text-slate-400">
+                ✨ Your latest active resume, ATS score, and verified skillset will automatically be attached.
+              </p>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-3 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSelectedJobForModal(null)}
+                disabled={submittingApply}
                 className="btn-secondary flex-1 text-xs"
               >
-                No, just browsing
+                Cancel
               </button>
               <button
+                type="button"
                 onClick={confirmTrackApplication}
-                className="btn-primary flex-1 text-xs font-bold"
+                disabled={submittingApply}
+                className="btn-primary flex-1 text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-brand/20"
               >
-                Yes, Track Application
+                {submittingApply ? (
+                  <span>⏳ Submitting...</span>
+                ) : (
+                  <span>🚀 Submit Application</span>
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
+
 
     </div>
   )

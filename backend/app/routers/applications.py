@@ -142,6 +142,7 @@ async def list_candidate_applications(
             "id": str(app.id),
             "job_id": str(app.job_id) if app.job_id else None,
             "job_title": job_title,
+            "title": job_title,
             "company": company,
             "status": app.status.value,
             "applied_at": app.applied_at.strftime("%d %b %Y") if app.applied_at else "Recently",
