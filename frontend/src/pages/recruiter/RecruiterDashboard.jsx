@@ -11,6 +11,7 @@ import { CandidateRankings } from './CandidateRankings'
 import { InterviewScheduler } from './InterviewScheduler'
 import { MarketIntelligence } from '../candidate/MarketIntelligence'
 import { AptitudeAssessmentBuilder } from './AptitudeAssessmentBuilder'
+import { HireLabOverview } from './HireLabOverview'
 
 const pipelineSteps = [
   { label: 'Applied', cls: 'badge-blue' },
@@ -217,12 +218,27 @@ const RecruiterHome = () => {
                 </span>
               </Link>
 
+              <Link to="/recruiter/aptitude" className="module-teal flex flex-col justify-between min-h-[160px] group cursor-pointer">
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center text-xl mb-3 border border-teal-200">
+                    🧠
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base mb-1">Aptitude Builder</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Create and publish job-specific MCQ assessments with launch codes and timers.
+                  </p>
+                </div>
+                <span className="text-teal-600 text-xs font-bold mt-4 flex items-center gap-1 group-hover:gap-2 transition-all">
+                  Build Assessment →
+                </span>
+              </Link>
+
               <Link to="/recruiter/rankings" className="module-emerald flex flex-col justify-between min-h-[160px] group cursor-pointer">
                 <div>
                   <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl mb-3 border border-emerald-200">
-                    📊
+                    💻
                   </div>
-                  <h3 className="font-bold text-slate-900 text-base mb-1">Rankings &amp; Solved Stats</h3>
+                  <h3 className="font-bold text-slate-900 text-base mb-1">Coding &amp; Rankings</h3>
                   <p className="text-xs text-slate-600 leading-relaxed">
                     Inspect candidates ranked by total coding problems solved, accuracy, and ATS scores.
                   </p>
@@ -235,15 +251,15 @@ const RecruiterHome = () => {
               <Link to="/recruiter/interviews" className="module-amber flex flex-col justify-between min-h-[160px] group cursor-pointer">
                 <div>
                   <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl mb-3 border border-amber-200">
-                    📅
+                    🎤
                   </div>
-                  <h3 className="font-bold text-slate-900 text-base mb-1">Interview Scheduler</h3>
+                  <h3 className="font-bold text-slate-900 text-base mb-1">Interviews</h3>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    Organize technical and HR interview rounds with email reminders.
+                    Schedule technical and HR interview rounds with structured evaluation logs.
                   </p>
                 </div>
                 <span className="text-amber-600 text-xs font-bold mt-4 flex items-center gap-1 group-hover:gap-2 transition-all">
-                  View Schedule →
+                  Manage Schedule →
                 </span>
               </Link>
 
@@ -296,9 +312,11 @@ export const RecruiterDashboard = () => {
               <Route path="/jobs/create" element={<PostJob />} />
               <Route path="/jobs" element={<ManageJobs />} />
               <Route path="/candidates" element={<CandidateSearch />} />
+              <Route path="/hirelab" element={<HireLabOverview />} />
               <Route path="/aptitude" element={<AptitudeAssessmentBuilder />} />
               <Route path="/assessments" element={<AptitudeAssessmentBuilder />} />
               <Route path="/rankings" element={<CandidateRankings />} />
+              <Route path="/coding" element={<CandidateRankings />} />
               <Route path="/interviews" element={<InterviewScheduler />} />
               <Route path="/market-intelligence" element={<MarketIntelligence />} />
             </Routes>

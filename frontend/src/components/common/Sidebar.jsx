@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { NavLink, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
@@ -44,16 +44,27 @@ export const Sidebar = ({ role }) => {
 
   const [skillArenaOpen, setSkillArenaOpen] = useState(true)
 
-  const recruiterLinks = [
-    { to: '/recruiter', label: 'Dashboard', icon: icons.dashboard, color: 'text-blue-600', activeBg: 'bg-blue-50 text-blue-700 font-bold border-l-4 border-blue-600', end: true },
-    { to: '/recruiter/post-job', label: 'Post Job', icon: icons.plus, color: 'text-emerald-600', activeBg: 'bg-emerald-50 text-emerald-700 font-bold border-l-4 border-emerald-600' },
-    { to: '/recruiter/jobs', label: 'Manage Jobs', icon: icons.briefcase, color: 'text-indigo-600', activeBg: 'bg-indigo-50 text-indigo-700 font-bold border-l-4 border-indigo-600' },
-    { to: '/recruiter/candidates', label: 'Search Candidates', icon: icons.search, color: 'text-purple-600', activeBg: 'bg-purple-50 text-purple-700 font-bold border-l-4 border-purple-600' },
-    { to: '/recruiter/aptitude', label: 'Aptitude Builder', icon: icons.assessment, color: 'text-teal-600', activeBg: 'bg-teal-50 text-teal-700 font-bold border-l-4 border-teal-600' },
-    { to: '/recruiter/rankings', label: 'Rankings & Coding', icon: icons.trophy, color: 'text-amber-600', activeBg: 'bg-amber-50 text-amber-700 font-bold border-l-4 border-amber-600' },
-    { to: '/recruiter/market-intelligence', label: 'Market Intelligence', icon: icons.market, color: 'text-indigo-600', activeBg: 'bg-indigo-50 text-indigo-700 font-bold border-l-4 border-indigo-600' },
-    { to: '/recruiter/interviews', label: 'Interviews', icon: icons.calendar, color: 'text-rose-600', activeBg: 'bg-rose-50 text-rose-700 font-bold border-l-4 border-rose-600' },
-  ]
+  // Track if HireLab is expanded in recruiter sidebar
+  const isHireLabActive = location.pathname.startsWith('/recruiter/hirelab') ||
+    location.pathname === '/recruiter/rankings' ||
+    location.pathname === '/recruiter/coding' ||
+    location.pathname === '/recruiter/aptitude' ||
+    location.pathname === '/recruiter/assessments' ||
+    location.pathname === '/recruiter/interviews'
+
+  // Requirement: Initially HireLab is collapsed, expands on user click or child navigation
+  const [hireLabOpen, setHireLabOpen] = useState(false)
+  const isInitialMount = useRef(true)
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+    if (isHireLabActive) {
+      setHireLabOpen(true)
+    }
+  }, [location.pathname, isHireLabActive])
 
   const adminLinks = [
     { to: '/admin', label: 'Dashboard', icon: icons.shield, color: 'text-blue-600', activeBg: 'bg-blue-50 text-blue-700 font-bold border-l-4 border-blue-600', end: true },
@@ -173,7 +184,7 @@ export const Sidebar = ({ role }) => {
                 </button>
               </div>
 
-              {/* Skill Arena Sub-items (Dropdown Animation) */}
+              {/* Skill Arena Sub-items */}
               {skillArenaOpen && (
                 <div className="ml-6 pl-3 border-l-2 border-amber-200/80 space-y-1 mt-1.5 py-1 transition-all duration-200 animate-slideUp">
                   {/* 💻 Coding Sub-link */}
@@ -224,7 +235,6 @@ export const Sidebar = ({ role }) => {
               )}
             </div>
 
-
             {/* 6. Market Intelligence */}
             <NavLink
               to="/candidate/market-intelligence"
@@ -255,8 +265,185 @@ export const Sidebar = ({ role }) => {
               <span>My Profile</span>
             </NavLink>
           </div>
+        ) : role === 'recruiter' ? (
+          <div className="space-y-1">
+            {/* 1. ▦ Dashboard */}
+            <NavLink
+              to="/recruiter"
+              end
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-700 font-bold border-l-4 border-blue-600'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <span className="text-blue-600">{icons.dashboard}</span>
+              <span>Dashboard</span>
+            </NavLink>
+
+            {/* 2. ＋ Post Job */}
+            <NavLink
+              to="/recruiter/post-job"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-emerald-50 text-emerald-700 font-bold border-l-4 border-emerald-600'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <span className="text-emerald-600">{icons.plus}</span>
+              <span>Post Job</span>
+            </NavLink>
+
+            {/* 3. ▯ Manage Jobs */}
+            <NavLink
+              to="/recruiter/jobs"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-indigo-50 text-indigo-700 font-bold border-l-4 border-indigo-600'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <span className="text-indigo-600">{icons.briefcase}</span>
+              <span>Manage Jobs</span>
+            </NavLink>
+
+            {/* 4. ⌕ Search Candidates */}
+            <NavLink
+              to="/recruiter/candidates"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-purple-50 text-purple-700 font-bold border-l-4 border-purple-600'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <span className="text-purple-600">{icons.search}</span>
+              <span>Search Candidates</span>
+            </NavLink>
+
+            {/* 5. ⚡ HIRELAB (Collapsible Parent Group) */}
+            <div className="pt-1 pb-1">
+              <div className="mx-2.5">
+                <button
+                  type="button"
+                  onClick={() => setHireLabOpen((prev) => !prev)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setHireLabOpen((prev) => !prev)
+                    }
+                  }}
+                  aria-expanded={hireLabOpen}
+                  title="HireLab — Evaluation & Interview Management"
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-[13.5px] font-bold transition-all cursor-pointer select-none ${
+                    isHireLabActive
+                      ? 'bg-blue-50/80 text-blue-900 border-l-4 border-blue-600 shadow-2xs'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base text-amber-500 font-bold">⚡</span>
+                    <span className="font-bold tracking-tight">HireLab</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-mono text-slate-400 font-bold">
+                      {hireLabOpen ? '˅' : '>'}
+                    </span>
+                    <svg
+                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                        hireLabOpen ? 'rotate-180 text-blue-700' : 'rotate-0'
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </button>
+              </div>
+
+              {/* HireLab Submenu */}
+              {hireLabOpen && (
+                <div
+                  role="region"
+                  aria-label="HireLab Submenu"
+                  className="ml-6 pl-3 border-l-2 border-blue-200/80 space-y-1 mt-1.5 py-1 transition-all duration-200 animate-slideUp"
+                >
+                  {/* Child 1: 💻 Coding & Rankings */}
+                  <NavLink
+                    to="/recruiter/rankings"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
+                        isActive || location.pathname === '/recruiter/coding'
+                          ? 'bg-emerald-50 text-emerald-800 font-bold border-l-2 border-emerald-600'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`
+                    }
+                  >
+                    <span className="text-emerald-600 text-sm">💻</span>
+                    <span>Coding &amp; Rankings</span>
+                  </NavLink>
+
+                  {/* Child 2: 🧠 Aptitude Builder */}
+                  <NavLink
+                    to="/recruiter/aptitude"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
+                        isActive || location.pathname === '/recruiter/assessments'
+                          ? 'bg-teal-50 text-teal-800 font-bold border-l-2 border-teal-600'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`
+                    }
+                  >
+                    <span className="text-teal-600 text-sm">🧠</span>
+                    <span>Aptitude Builder</span>
+                  </NavLink>
+
+                  {/* Child 3: 🎤 Interviews */}
+                  <NavLink
+                    to="/recruiter/interviews"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
+                        isActive
+                          ? 'bg-rose-50 text-rose-800 font-bold border-l-2 border-rose-600'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`
+                    }
+                  >
+                    <span className="text-rose-600 text-sm">🎤</span>
+                    <span>Interviews</span>
+                  </NavLink>
+                </div>
+              )}
+            </div>
+
+            {/* 6. ◉ Market Intelligence */}
+            <NavLink
+              to="/recruiter/market-intelligence"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2.5 mx-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-indigo-50 text-indigo-700 font-bold border-l-4 border-indigo-600'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <span className="text-indigo-600">{icons.market}</span>
+              <span>Market Intelligence</span>
+            </NavLink>
+          </div>
         ) : (
-          (role === 'admin' ? adminLinks : recruiterLinks).map((link) => (
+          /* Admin Navigation */
+          adminLinks.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
