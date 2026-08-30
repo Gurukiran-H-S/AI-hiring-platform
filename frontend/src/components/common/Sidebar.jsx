@@ -131,48 +131,51 @@ export const Sidebar = ({ role }) => {
               <span>Resume Analysis</span>
             </NavLink>
 
-            {/* 5. 🏆 SKILL ARENA (Unified Parent Group) */}
+            {/* 5. 🏆 SKILL ARENA (Unified Parent Group with Expand/Collapse Accordion) */}
             <div className="pt-2 pb-1">
               <div className="px-5 pb-1 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-amber-700/80">
                 <span>Assessment Area</span>
               </div>
 
-              {/* Main Skill Arena Parent NavLink */}
-              <div className="relative flex items-center mx-2.5">
-                <NavLink
-                  to="/candidate/skill-arena"
-                  end
-                  className={({ isActive }) =>
-                    `flex-1 flex items-center justify-between px-4 py-2.5 rounded-lg text-[13.5px] font-extrabold transition-all ${
-                      isActive || (location.pathname === '/candidate/skill-arena')
-                        ? 'bg-amber-50 text-amber-900 border-l-4 border-amber-600 shadow-2xs'
-                        : isSkillArenaActive
-                        ? 'bg-slate-50 text-slate-900 font-bold'
-                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
-                    }`
-                  }
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-base">🏆</span>
-                    <span>Skill Arena</span>
-                  </div>
-                  <span className="badge badge-amber text-[10px] font-extrabold py-0.5 px-1.5">Arena</span>
-                </NavLink>
+              {/* Main Skill Arena Parent Accordion Button */}
+              <div className="mx-2.5">
                 <button
                   type="button"
                   onClick={() => setSkillArenaOpen(!skillArenaOpen)}
-                  className="p-2 text-slate-400 hover:text-slate-700 transition-colors"
-                  title="Toggle Skill Arena Submenu"
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-[13.5px] font-extrabold transition-all cursor-pointer ${
+                    isSkillArenaActive
+                      ? 'bg-amber-50 text-amber-900 border-l-4 border-amber-600 shadow-2xs'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
                 >
-                  <span className={`text-[10px] inline-block transition-transform duration-200 ${skillArenaOpen ? 'rotate-90' : ''}`}>
-                    ▶
-                  </span>
+                  <Link
+                    to="/candidate/skill-arena"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-2.5 text-inherit no-underline hover:text-amber-700"
+                  >
+                    <span className="text-base">🏆</span>
+                    <span>Skill Arena</span>
+                  </Link>
+                  
+                  <div className="flex items-center gap-1.5">
+                    <span className="badge badge-amber text-[10px] font-extrabold py-0.5 px-1.5">Arena</span>
+                    <svg
+                      className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                        skillArenaOpen ? 'rotate-180 text-amber-700' : 'rotate-0'
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                 </button>
               </div>
 
-              {/* Skill Arena Sub-items */}
+              {/* Skill Arena Sub-items (Dropdown Animation) */}
               {skillArenaOpen && (
-                <div className="ml-6 pl-3 border-l-2 border-slate-200 space-y-1 mt-1.5 py-1 animate-fadeIn">
+                <div className="ml-6 pl-3 border-l-2 border-amber-200/80 space-y-1 mt-1.5 py-1 transition-all duration-200 animate-slideUp">
                   {/* 💻 Coding Sub-link */}
                   <NavLink
                     to="/candidate/skill-arena/coding"
@@ -220,6 +223,7 @@ export const Sidebar = ({ role }) => {
                 </div>
               )}
             </div>
+
 
             {/* 6. Market Intelligence */}
             <NavLink
