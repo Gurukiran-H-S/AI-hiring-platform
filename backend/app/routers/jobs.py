@@ -169,7 +169,7 @@ async def apply_to_job(
 
     parsed_resume = {
         "name": (resume.parsed_name if resume else None) or current_user.full_name,
-        "summary": (resume.parsed_summary if resume else "") or (current_user.candidate_profile.title if current_user.candidate_profile else ""),
+        "summary": (resume.parsed_summary if resume else "") or (current_user.candidate_profile.headline or current_user.candidate_profile.summary if current_user.candidate_profile else "") or "",
         "skills": (resume.parsed_skills if resume else None) or (current_user.candidate_profile.skills if current_user.candidate_profile else []) or [],
         "experience": (resume.parsed_experience if resume else None) or [],
         "education": (resume.parsed_education if resume else None) or [],

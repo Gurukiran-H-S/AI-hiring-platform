@@ -76,8 +76,8 @@ class JobResponse(BaseModel):
 
 
 class ApplicationCreate(BaseModel):
-    job_id: UUID
-    resume_id: UUID
+    job_id: Optional[UUID] = None
+    resume_id: Optional[UUID] = None
     cover_letter: Optional[str] = None
 
 
