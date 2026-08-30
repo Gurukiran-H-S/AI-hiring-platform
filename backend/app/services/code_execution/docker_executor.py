@@ -235,8 +235,8 @@ def parse_val(s):
     except Exception:
         pass
     tokens = s.split()
-    if len(tokens) > 1 and all(re.match(r'^-?\d+$', t) for t in tokens):
-        return [int(t) for t in tokens]
+    if len(tokens) > 1 and all(re.match(r'^-?\d+$', t) or t.lower() in ('null', 'none') for t in tokens):
+        return [None if t.lower() in ('null', 'none') else int(t) for t in tokens]
     try:
         return int(s)
     except ValueError:
@@ -303,10 +303,15 @@ if __name__ == "__main__":
     sol = Solution() if 'Solution' in globals() else None
     method = getattr(sol, "{func_name}", None) if sol else globals().get("{func_name}")
 
-    if not method and 'Solution' in globals():
-        methods = [m for m in dir(Solution) if not m.startswith('__')]
+    if not method and sol:
+        # Fallback to any public method in Solution class
+        methods = [m for m in dir(Solution) if not m.startswith('_')]
         if methods:
-            method = getattr(sol, methods[0])
+            # Prefer non-init method
+            for m in methods:
+                if m not in ('from_list', 'to_list'):
+                    method = getattr(sol, m)
+                    break
 
     if not method:
         raise AttributeError("Could not find required solution method '{func_name}' in Solution class.")
@@ -326,12 +331,19 @@ if __name__ == "__main__":
             if idx < len(parsed_args):
                 arg_val = parsed_args[idx]
                 ann = str(param.annotation).lower()
-                if "listnode" in ann or pname.lower() in ("head", "list1", "list2", "node"):
+                func_hint = "{func_name}".lower()
+                if "listnode" in ann or pname.lower() in ("head", "list1", "list2", "node", "l1", "l2") or "list" in func_hint:
                     if isinstance(arg_val, list):
                         arg_val = ListNode.from_list(arg_val)
-                elif "treenode" in ann or pname.lower() in ("root", "tree"):
+                    elif isinstance(arg_val, str) and arg_val:
+                        p_list = [int(t) for t in arg_val.split() if re.match(r'^-?\d+$', t)]
+                        arg_val = ListNode.from_list(p_list)
+                elif "treenode" in ann or pname.lower() in ("root", "tree", "p", "q") or "tree" in func_hint or "depth" in func_hint:
                     if isinstance(arg_val, list):
                         arg_val = TreeNode.from_list(arg_val)
+                    elif isinstance(arg_val, str) and arg_val:
+                        p_list = [None if t.lower() in ('null', 'none') else int(t) for t in arg_val.split() if re.match(r'^-?\d+$', t) or t.lower() in ('null', 'none')]
+                        arg_val = TreeNode.from_list(p_list)
                 adapted_args.append(arg_val)
         while len(adapted_args) < len(parsed_args):
             adapted_args.append(parsed_args[len(adapted_args)])
@@ -443,15 +455,15 @@ class TreeNode {{
 
 // --- ARGUMENT PARSER & DRIVER ---
 function parseVal(str) {{
-    str = str.trim();
+    str = (str || '').trim();
     if (!str) return "";
     if (str.toLowerCase() === 'true') return true;
     if (str.toLowerCase() === 'false') return false;
     if (str.toLowerCase() === 'null') return null;
     try {{ return JSON.parse(str); }} catch(e) {{}}
     let tokens = str.split(/\\s+/);
-    if (tokens.length > 1 && tokens.every(t => /^-?\\d+$/.test(t))) {{
-        return tokens.map(Number);
+    if (tokens.length > 1 && tokens.every(t => /^-?\\d+$/.test(t) || t.toLowerCase() === 'null')) {{
+        return tokens.map(t => t.toLowerCase() === 'null' ? null : Number(t));
     }}
     if (/^-?\\d+$/.test(str)) return Number(str);
     if (/^-?\\d+\\.\\d+$/.test(str)) return Number(str);
@@ -531,14 +543,25 @@ try {{
         throw new Error("Could not find solution method '{func_name}'");
     }}
 
-    let result = targetMethod(...parsedArgs);
+    let adaptedArgs = parsedArgs.map(arg => {{
+        let fnLower = '{func_name}'.toLowerCase();
+        if (fnLower.includes('tree') || fnLower.includes('depth') || fnLower.includes('root')) {{
+            if (Array.isArray(arg)) return TreeNode.fromArray(arg);
+        }}
+        if (fnLower.includes('list') || fnLower.includes('head') || fnLower.includes('node') || fnLower.includes('merge')) {{
+            if (Array.isArray(arg)) return ListNode.fromArray(arg);
+        }}
+        return arg;
+    }});
+
+    let result = targetMethod(...adaptedArgs);
     if (result instanceof ListNode) {{
         console.log(JSON.stringify(ListNode.toArray(result)));
     }} else if (result instanceof TreeNode) {{
         console.log(JSON.stringify(TreeNode.toArray(result)));
     }} else if (typeof result === 'boolean') {{
         console.log(result ? 'true' : 'false');
-    }} else if (typeof result === 'object') {{
+    }} else if (typeof result === 'object' && result !== null) {{
         console.log(JSON.stringify(result));
     }} else {{
         console.log(result);

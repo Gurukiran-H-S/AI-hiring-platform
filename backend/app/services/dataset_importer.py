@@ -12,6 +12,7 @@ SEED_PROBLEMS = [
     {
         "title": "Two Sum",
         "slug": "two-sum",
+        "function_name": "twoSum",
         "difficulty": ProblemDifficulty.EASY,
         "category": "Arrays",
         "tags": ["Array", "Hash Table"],
@@ -28,6 +29,7 @@ SEED_PROBLEMS = [
     {
         "title": "Best Time to Buy and Sell Stock",
         "slug": "best-time-to-buy-and-sell-stock",
+        "function_name": "maxProfit",
         "difficulty": ProblemDifficulty.EASY,
         "category": "Arrays",
         "tags": ["Array", "Dynamic Programming"],
@@ -43,6 +45,7 @@ SEED_PROBLEMS = [
     {
         "title": "3Sum",
         "slug": "3sum",
+        "function_name": "threeSum",
         "difficulty": ProblemDifficulty.MEDIUM,
         "category": "Arrays",
         "tags": ["Array", "Two Pointers", "Sorting"],
@@ -59,6 +62,7 @@ SEED_PROBLEMS = [
     {
         "title": "Valid Anagram",
         "slug": "valid-anagram",
+        "function_name": "isAnagram",
         "difficulty": ProblemDifficulty.EASY,
         "category": "Strings",
         "tags": ["Hash Table", "String", "Sorting"],
@@ -74,6 +78,7 @@ SEED_PROBLEMS = [
     {
         "title": "Longest Substring Without Repeating Characters",
         "slug": "longest-substring-without-repeating-characters",
+        "function_name": "lengthOfLongestSubstring",
         "difficulty": ProblemDifficulty.MEDIUM,
         "category": "Strings",
         "tags": ["Hash Table", "String", "Sliding Window"],
@@ -92,6 +97,7 @@ SEED_PROBLEMS = [
     {
         "title": "Reverse Linked List",
         "slug": "reverse-linked-list",
+        "function_name": "reverseList",
         "difficulty": ProblemDifficulty.EASY,
         "category": "Linked List",
         "tags": ["Linked List", "Recursion"],
@@ -107,6 +113,7 @@ SEED_PROBLEMS = [
     {
         "title": "Merge Two Sorted Lists",
         "slug": "merge-two-sorted-lists",
+        "function_name": "mergeTwoLists",
         "difficulty": ProblemDifficulty.EASY,
         "category": "Linked List",
         "tags": ["Linked List", "Recursion"],
@@ -123,6 +130,7 @@ SEED_PROBLEMS = [
     {
         "title": "Maximum Depth of Binary Tree",
         "slug": "maximum-depth-of-binary-tree",
+        "function_name": "maxDepth",
         "difficulty": ProblemDifficulty.EASY,
         "category": "Trees",
         "tags": ["Tree", "Depth-First Search", "Breadth-First Search", "Binary Tree"],
@@ -137,6 +145,7 @@ SEED_PROBLEMS = [
     {
         "title": "Invert Binary Tree",
         "slug": "invert-binary-tree",
+        "function_name": "invertTree",
         "difficulty": ProblemDifficulty.EASY,
         "category": "Trees",
         "tags": ["Tree", "DFS", "BFS", "Binary Tree"],
@@ -153,6 +162,7 @@ SEED_PROBLEMS = [
     {
         "title": "Number of Islands",
         "slug": "number-of-islands",
+        "function_name": "numIslands",
         "difficulty": ProblemDifficulty.MEDIUM,
         "category": "Graph",
         "tags": ["Array", "DFS", "BFS", "Union Find", "Matrix"],
@@ -167,6 +177,7 @@ SEED_PROBLEMS = [
     {
         "title": "Course Schedule",
         "slug": "course-schedule",
+        "function_name": "canFinish",
         "difficulty": ProblemDifficulty.MEDIUM,
         "category": "Graph",
         "tags": ["Depth-First Search", "Breadth-First Search", "Graph", "Topological Sort"],
@@ -183,6 +194,7 @@ SEED_PROBLEMS = [
     {
         "title": "Climbing Stairs",
         "slug": "climbing-stairs",
+        "function_name": "climbStairs",
         "difficulty": ProblemDifficulty.EASY,
         "category": "Dynamic Programming",
         "tags": ["Math", "Dynamic Programming", "Memoization"],
@@ -199,6 +211,7 @@ SEED_PROBLEMS = [
     {
         "title": "Coin Change",
         "slug": "coin-change",
+        "function_name": "coinChange",
         "difficulty": ProblemDifficulty.MEDIUM,
         "category": "Dynamic Programming",
         "tags": ["Array", "Dynamic Programming", "BFS"],
@@ -216,6 +229,7 @@ SEED_PROBLEMS = [
     {
         "title": "Jump Game",
         "slug": "jump-game",
+        "function_name": "canJump",
         "difficulty": ProblemDifficulty.MEDIUM,
         "category": "Greedy",
         "tags": ["Array", "Dynamic Programming", "Greedy"],
@@ -233,6 +247,7 @@ SEED_PROBLEMS = [
     {
         "title": "Subsets",
         "slug": "subsets",
+        "function_name": "subsets",
         "difficulty": ProblemDifficulty.MEDIUM,
         "category": "Backtracking",
         "tags": ["Array", "Backtracking", "Bit Manipulation"],
@@ -249,6 +264,7 @@ SEED_PROBLEMS = [
     {
         "title": "Valid Parentheses",
         "slug": "valid-parentheses",
+        "function_name": "isValid",
         "difficulty": ProblemDifficulty.EASY,
         "category": "Stack",
         "tags": ["String", "Stack"],
@@ -266,6 +282,7 @@ SEED_PROBLEMS = [
     {
         "title": "Binary Search",
         "slug": "binary-search",
+        "function_name": "search",
         "difficulty": ProblemDifficulty.EASY,
         "category": "Binary Search",
         "tags": ["Array", "Binary Search"],
@@ -282,6 +299,7 @@ SEED_PROBLEMS = [
     {
         "title": "Combine Two Tables",
         "slug": "combine-two-tables",
+        "function_name": "combineTwoTables",
         "difficulty": ProblemDifficulty.EASY,
         "category": "SQL",
         "tags": ["Database", "SQL"],
@@ -296,6 +314,7 @@ SEED_PROBLEMS = [
     {
         "title": "Maximum Subarray",
         "slug": "maximum-subarray",
+        "function_name": "maxSubArray",
         "difficulty": ProblemDifficulty.MEDIUM,
         "category": "Arrays",
         "tags": ["Array", "Divide and Conquer", "Dynamic Programming"],
@@ -303,7 +322,6 @@ SEED_PROBLEMS = [
         "constraints": "1 <= nums.length <= 10^5\n-10^4 <= nums[i] <= 10^4",
         "sample_input": "[-2,1,-3,4,-1,2,1,-5,4]",
         "sample_output": "6",
-        "function_name": "maxSubArray",
         "test_cases": [
             {"input_data": "-2 1 -3 4 -1 2 1 -5 4", "expected_output": "6", "is_hidden": False},
             {"input_data": "5 4 -1 7 8", "expected_output": "23", "is_hidden": True},
@@ -331,7 +349,11 @@ def seed_default_problems(db: Session):
                 )
                 db.add(testcase)
         else:
-            # Ensure existing problems have their test cases seeded
+            # Update fields on existing problem
+            for k, v in prob_dict.items():
+                setattr(existing, k, v)
+
+            # Ensure existing problems have their test cases seeded/updated
             existing_tcs = db.query(TestCase).filter(TestCase.problem_id == existing.id).count()
             if existing_tcs == 0 and tc_data:
                 for tc in tc_data:
@@ -346,7 +368,7 @@ def seed_default_problems(db: Session):
     db.commit()
 
 def import_huggingface_dataset(db: Session, folder_path: str = r"D:\huggingface") -> int:
-    """Ingests dataset parquet files from local HuggingFace cache folder D:\\huggingface."""
+    """Ingests dataset parquet files from local HuggingFace cache folder D:\\huggingface with test cases."""
     if not os.path.exists(folder_path):
         return 0
 
@@ -354,20 +376,29 @@ def import_huggingface_dataset(db: Session, folder_path: str = r"D:\huggingface"
     parquet_files = glob.glob(os.path.join(folder_path, "**", "*.parquet"), recursive=True)
     count = 0
 
-    for fpath in parquet_files[:5]:
+    for fpath in parquet_files:
         try:
             df = pd.read_parquet(fpath)
             for _, row in df.iterrows():
                 try:
-                    name = str(row.get("name") or row.get("question", "")[:30]).strip()
-                    if not name:
-                        continue
+                    name = str(row.get("name") or row.get("question", "")[:60]).strip()
+                    if not name or name == "None":
+                        # Try to extract from question first line
+                        q_raw = str(row.get("question", "")).strip()
+                        if q_raw:
+                            first_line = q_raw.split("\n")[0][:60].strip()
+                            name = re.sub(r'^[#\s*]+', '', first_line).strip()
+                    if not name or name == "None":
+                        name = f"Coding Challenge {count + 1}"
+
                     slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
                     if not slug:
                         slug = f"prob-{str(uuid.uuid4())[:8]}"
 
-                    # Ensure unique slug
-                    slug = f"{slug}-{str(uuid.uuid4())[:6]}"
+                    # Check if already imported
+                    existing = db.query(CodingProblem).filter(CodingProblem.slug == slug).first()
+                    if existing:
+                        continue
 
                     diff_raw = str(row.get("difficulty", "EASY")).upper()
                     diff = ProblemDifficulty.EASY
@@ -390,6 +421,45 @@ def import_huggingface_dataset(db: Session, folder_path: str = r"D:\huggingface"
                         cat = "Linked List"
                     elif "sql" in raw_src.lower():
                         cat = "SQL"
+                    elif "stack" in raw_src.lower() or "queue" in raw_src.lower():
+                        cat = "Stack"
+
+                    starter = str(row.get("starter_code") or "")
+                    func_name = "solution"
+                    match = re.search(r'def\s+([a-zA-Z0-9_]+)\s*\(', starter)
+                    if match:
+                        func_name = match.group(1)
+
+                    # Extract sample test cases from input_output JSON
+                    io_raw = row.get("input_output")
+                    test_cases_to_add = []
+                    sample_in = ""
+                    sample_out = ""
+
+                    if io_raw:
+                        try:
+                            if isinstance(io_raw, str):
+                                io_data = json.loads(io_raw)
+                            elif isinstance(io_raw, dict):
+                                io_data = io_raw
+                            else:
+                                io_data = {}
+
+                            inputs = io_data.get("inputs", [])
+                            outputs = io_data.get("outputs", [])
+                            for idx, (inp, outp) in enumerate(zip(inputs[:10], outputs[:10])):
+                                s_inp = str(inp).strip()
+                                s_outp = str(outp).strip()
+                                if idx == 0:
+                                    sample_in = s_inp
+                                    sample_out = s_outp
+                                test_cases_to_add.append({
+                                    "input_data": s_inp,
+                                    "expected_output": s_outp,
+                                    "is_hidden": idx > 1
+                                })
+                        except Exception:
+                            pass
 
                     problem = CodingProblem(
                         title=name[:250],
@@ -398,10 +468,22 @@ def import_huggingface_dataset(db: Session, folder_path: str = r"D:\huggingface"
                         category=cat,
                         description=str(row.get("question", "")),
                         constraints=str(row.get("constraints", "")),
-                        sample_input="",
-                        sample_output="",
+                        function_name=func_name,
+                        sample_input=sample_in[:500] if sample_in else "",
+                        sample_output=sample_out[:500] if sample_out else "",
                     )
                     db.add(problem)
+                    db.flush()
+
+                    for tc in test_cases_to_add:
+                        tcase = TestCase(
+                            problem_id=problem.id,
+                            input_data=tc["input_data"],
+                            expected_output=tc["expected_output"],
+                            is_hidden=tc["is_hidden"],
+                        )
+                        db.add(tcase)
+
                     db.commit()
                     count += 1
                     if count >= 300:
@@ -409,6 +491,8 @@ def import_huggingface_dataset(db: Session, folder_path: str = r"D:\huggingface"
                 except Exception:
                     db.rollback()
                     continue
+            if count >= 300:
+                break
         except Exception as e:
             print("Import error on file:", fpath, e)
             continue

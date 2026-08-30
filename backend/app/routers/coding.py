@@ -168,6 +168,12 @@ def generate_starter_codes(problem):
         "container-with-most-water": ("maxArea", "height: list[int]", "int", "int", "int[] height", "int", "vector<int>& height"),
         "valid-palindrome": ("isPalindrome", "s: str", "bool", "boolean", "String s", "bool", "string s"),
         "search-in-rotated-sorted-array": ("search", "nums: list[int], target: int", "int", "int", "int[] nums, int target", "int", "vector<int>& nums, int target"),
+        "maximum-depth-of-binary-tree": ("maxDepth", "root: Optional[TreeNode]", "int", "int", "TreeNode root", "int", "TreeNode* root"),
+        "invert-binary-tree": ("invertTree", "root: Optional[TreeNode]", "Optional[TreeNode]", "TreeNode", "TreeNode root", "TreeNode*", "TreeNode* root"),
+        "coin-change": ("coinChange", "coins: list[int], amount: int", "int", "int", "int[] coins, int amount", "int", "vector<int>& coins, int amount"),
+        "jump-game": ("canJump", "nums: list[int]", "bool", "boolean", "int[] nums", "bool", "vector<int>& nums"),
+        "subsets": ("subsets", "nums: list[int]", "list[list[int]]", "List<List<Integer>>", "int[] nums", "vector<vector<int>>", "vector<int>& nums"),
+        "course-schedule": ("canFinish", "numCourses: int, prerequisites: list[list[int]]", "bool", "boolean", "int numCourses, int[][] prerequisites", "bool", "int numCourses, vector<vector<int>>& prerequisites"),
         "min-stack": ("MinStack", "", "", "", "", "", ""),
     }
 

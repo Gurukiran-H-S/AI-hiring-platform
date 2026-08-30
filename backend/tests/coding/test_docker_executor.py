@@ -83,6 +83,56 @@ def test_python_reverse_linked_list(executor):
     assert res["passed_test_cases"] == 2
 
 
+def test_python_tree_problems(executor):
+    code = """class Solution:
+    def maxDepth(self, root) -> int:
+        if not root:
+            return 0
+        return 1 + max(self.maxDepth(root.left), self.maxDepth(root.right))
+"""
+    test_cases = [
+        {"input_data": "3 9 20 null null 15 7", "expected_output": "3"},
+    ]
+    res = executor.run_code("python", code, test_cases, "maxDepth")
+    assert res["status"] == "Accepted"
+    assert res["passed_test_cases"] == 1
+
+
+def test_python_invert_tree(executor):
+    code = """class Solution:
+    def invertTree(self, root):
+        if not root:
+            return None
+        root.left, root.right = self.invertTree(root.right), self.invertTree(root.left)
+        return root
+"""
+    test_cases = [
+        {"input_data": "4 2 7 1 3 6 9", "expected_output": "4 7 2 9 6 3 1"},
+    ]
+    res = executor.run_code("python", code, test_cases, "invertTree")
+    assert res["status"] == "Accepted"
+    assert res["passed_test_cases"] == 1
+
+
+def test_javascript_invert_tree(executor):
+    code = """class Solution {
+    invertTree(root) {
+        if (!root) return null;
+        const temp = root.left;
+        root.left = this.invertTree(root.right);
+        root.right = this.invertTree(temp);
+        return root;
+    }
+}
+"""
+    test_cases = [
+        {"input_data": "4 2 7 1 3 6 9", "expected_output": "4 7 2 9 6 3 1"},
+    ]
+    res = executor.run_code("javascript", code, test_cases, "invertTree")
+    assert res["status"] == "Accepted"
+    assert res["passed_test_cases"] == 1
+
+
 def test_empty_code_rejection(executor):
     res = executor.run_code("python", "", [{"input_data": "1", "expected_output": "1"}])
     assert res["status"] == "Compilation Error"
