@@ -991,29 +991,37 @@ export const CandidateProfile = () => {
               </span>
             </div>
 
-            <div className="flex flex-col items-center justify-center p-3 bg-white rounded-xl border border-blue-200 shadow-2xs space-y-2">
+            <div className="flex flex-col items-center justify-center p-3.5 bg-white rounded-xl border border-blue-200 shadow-2xs space-y-2.5">
               <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(`${window.location.origin}/candidate-360/${user?.id || profile?.user_id}`)}`}
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(
+                  `${window.location.origin}/candidate-360/${user?.id || profile?.user_id || profile?.id || 'verified'}`
+                )}`}
                 alt="Candidate 360 QR Code"
-                className="w-36 h-36 object-contain rounded-lg border border-slate-100"
+                className="w-36 h-36 object-contain rounded-lg border border-slate-100 shadow-xs"
               />
-              <p className="text-[11px] text-center text-slate-600 font-medium px-2 leading-relaxed">
-                Scan with any smartphone camera to instantly preview your verified 360° candidate profile &amp; scores.
-              </p>
+              <div className="text-center px-1">
+                <p className="text-[11px] font-bold text-slate-900">
+                  {profile?.name || user?.full_name || 'Candidate'} · 360° Verified Profile
+                </p>
+                <p className="text-[10.5px] text-slate-500 mt-0.5 leading-tight">
+                  Scan with any camera or scanner to instantly open full ATS, coding &amp; skill scores.
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-1">
               <Link
-                to={`/candidate-360/${user?.id || profile?.user_id}`}
+                to={`/candidate-360/${user?.id || profile?.user_id || profile?.id || 'verified'}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-primary btn-sm !text-xs font-bold flex items-center justify-center gap-1"
+                className="btn-primary btn-sm !text-xs font-bold flex items-center justify-center gap-1 shadow-2xs"
               >
-                <span>🔍</span> Preview 360°
+                <span>🔍</span> Open 360° View
               </Link>
               <button
+                type="button"
                 onClick={() => {
-                  const url = `${window.location.origin}/candidate-360/${user?.id || profile?.user_id}`
+                  const url = `${window.location.origin}/candidate-360/${user?.id || profile?.user_id || profile?.id || 'verified'}`
                   navigator.clipboard.writeText(url)
                   toast.success('🔗 360° Profile Link copied!')
                 }}

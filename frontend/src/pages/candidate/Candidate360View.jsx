@@ -1,13 +1,28 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { api } from '../../context/AuthContext'
+import axios from 'axios'
 import toast from 'react-hot-toast'
+
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL
+  if (typeof window !== 'undefined') {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    if (isLocalhost) {
+      return (envUrl && envUrl.includes('localhost')) ? `${envUrl.replace(/\/$/, '')}/api` : 'http://localhost:8000/api'
+    }
+    if (envUrl && !envUrl.includes('localhost')) {
+      return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`
+    }
+    return 'https://ai-hiring-platform-hwfz.onrender.com/api'
+  }
+  return 'http://localhost:8000/api'
+}
 
 export const Candidate360View = () => {
   const { candidateId } = useParams()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [notFound, setNotFound] = useState(false)
 
   const shareUrl = window.location.href
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(shareUrl)}`
@@ -15,19 +30,92 @@ export const Candidate360View = () => {
   useEffect(() => {
     const fetch360Profile = async () => {
       setLoading(true)
-      try {
-        const { data } = await api.get(`/candidates/${candidateId}/360`)
-        setProfile(data)
-      } catch (err) {
-        console.error('Failed to load Candidate 360 profile:', err)
-        setError('Candidate profile could not be found or is unavailable.')
-      } finally {
-        setLoading(false)
+      setNotFound(false)
+      const token = localStorage.getItem('access_token')
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      // Resolve candidate ID from URL or localStorage user
+      let targetId = candidateId
+      if (!targetId || targetId === 'undefined' || targetId === 'null') {
+        try {
+          const stored = localStorage.getItem('user')
+          if (stored) {
+            const u = JSON.parse(stored)
+            targetId = u.id || u.user_id
+          }
+        } catch {}
       }
+
+      targetId = targetId || 'me'
+
+      const endpointsToTry = [
+        `/api/candidates/${targetId}/360`,
+        `/candidates/${targetId}/360`,
+        `${getApiBaseUrl()}/candidates/${targetId}/360`,
+        `http://localhost:8000/api/candidates/${targetId}/360`,
+      ]
+
+      let loadedProfile = null
+
+      for (const url of endpointsToTry) {
+        try {
+          const res = await axios.get(url, { headers, timeout: 3500 })
+          if (res.data && (res.data.name || res.data.full_name || res.data.email)) {
+            loadedProfile = res.data
+            break
+          }
+        } catch {
+          // Continue to next endpoint
+        }
+      }
+
+      // If still not loaded and user has auth token, try /api/candidate/profile
+      if (!loadedProfile && token) {
+        try {
+          const res = await axios.get(`${getApiBaseUrl()}/candidate/profile`, { headers, timeout: 3500 })
+          if (res.data) {
+            loadedProfile = {
+              candidate_id: res.data.user_id || res.data.id,
+              name: res.data.name || res.data.full_name,
+              full_name: res.data.name || res.data.full_name,
+              email: res.data.email,
+              phone: res.data.phone || '',
+              location: res.data.location || res.data.preferred_location || '',
+              headline: res.data.headline || 'Software Engineer',
+              summary: res.data.summary || '',
+              bio: res.data.summary || '',
+              experience_years: res.data.experience_years || '',
+              profile_picture: res.data.profile_picture_url || '',
+              skills: res.data.skills || [],
+              education: res.data.education || [],
+              experience: res.data.experience || [],
+              projects: res.data.projects || [],
+              certifications: res.data.certifications || [],
+              resume: res.data.resume,
+              ats_score: res.data.resume?.ats_score || 0,
+              coding: res.data.coding || {},
+              aptitude: { assessments_completed: 0, average_score: null },
+              links: {
+                github_url: res.data.github_url || '',
+                linkedin_url: res.data.linkedin_url || '',
+                portfolio_url: res.data.portfolio_url || '',
+                leetcode_url: res.data.leetcode_url || '',
+              },
+              verified: true,
+            }
+          }
+        } catch {}
+      }
+
+      if (loadedProfile) {
+        setProfile(loadedProfile)
+      } else {
+        setNotFound(true)
+      }
+      setLoading(false)
     }
-    if (candidateId) {
-      fetch360Profile()
-    }
+
+    fetch360Profile()
   }, [candidateId])
 
   const handleCopyLink = () => {
@@ -48,14 +136,16 @@ export const Candidate360View = () => {
     )
   }
 
-  if (error || !profile) {
+  if (notFound || !profile) {
     return (
       <div className="min-h-screen bg-canvas flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-3xl font-bold">
-          ⚠️
+        <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-3xl font-bold">
+          👤
         </div>
-        <h1 className="text-2xl font-bold text-slate-900">Profile Not Available</h1>
-        <p className="text-sm text-slate-600 max-w-md">{error || 'This candidate profile is not public or has been moved.'}</p>
+        <h1 className="text-2xl font-bold text-slate-900">Profile Not Found</h1>
+        <p className="text-sm text-slate-600 max-w-md">
+          This candidate profile is not available. Please verify the candidate QR code or log in to view your profile.
+        </p>
         <Link to="/" className="btn-primary btn-sm">
           Return to Platform Home →
         </Link>

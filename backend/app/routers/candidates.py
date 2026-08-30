@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Header
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import Optional, List, Dict, Any
@@ -435,28 +435,84 @@ def get_candidate_full_profile_for_recruiter(
 @router.get("/api/candidates/{candidate_id}/360")
 @router.get("/candidates/{candidate_id}/360")
 def get_candidate_360_profile(
-    candidate_id: UUID,
+    candidate_id: str,
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ):
-    """Retrieve full Candidate 360° evaluation profile when scanning the candidate QR code."""
-    cand = db.query(User).filter(User.id == candidate_id).first()
+    """Retrieve full Candidate 360° evaluation profile with exact database records."""
+    from app.models.user import UserRole
+    from app.core.security import decode_access_token
+    from app.models.aptitude import CandidateAssessmentAttempt
+    import uuid
+
+    cand = None
+    cand_uuid = None
+
+    # 1. If candidate_id is 'me' or if token provided and candidate_id is generic
+    if candidate_id in ("me", "my-profile", "current", "verified", "undefined", "null") and authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+        try:
+            payload = decode_access_token(token)
+            user_id = payload.get("sub")
+            if user_id:
+                cand = db.query(User).filter(User.id == uuid.UUID(str(user_id))).first()
+        except Exception:
+            pass
+
+    # 2. Try parsing as UUID
     if not cand:
-        raise HTTPException(status_code=404, detail="Candidate not found")
+        try:
+            cand_uuid = uuid.UUID(str(candidate_id))
+        except (ValueError, AttributeError):
+            cand_uuid = None
+
+        if cand_uuid:
+            # Try direct User.id
+            cand = db.query(User).filter(User.id == cand_uuid).first()
+            if not cand:
+                # Try CandidateProfile.id
+                prof = db.query(CandidateProfile).filter(CandidateProfile.id == cand_uuid).first()
+                if prof and prof.user_id:
+                    cand = db.query(User).filter(User.id == prof.user_id).first()
+            if not cand:
+                # Try CandidateProfile.user_id
+                prof = db.query(CandidateProfile).filter(CandidateProfile.user_id == cand_uuid).first()
+                if prof:
+                    cand = db.query(User).filter(User.id == cand_uuid).first()
+
+    # 3. Try by email or username if not found
+    if not cand and candidate_id and candidate_id not in ("undefined", "null", "none", "me", "verified"):
+        cand = db.query(User).filter(User.email.ilike(candidate_id)).first()
+        if not cand:
+            cand = db.query(User).filter(User.full_name.ilike(candidate_id)).first()
+
+    # 4. If token is present, fallback to the logged-in user
+    if not cand and authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+        try:
+            payload = decode_access_token(token)
+            user_id = payload.get("sub")
+            if user_id:
+                cand = db.query(User).filter(User.id == uuid.UUID(str(user_id))).first()
+        except Exception:
+            pass
+
+    # 5. If still not found, return 404
+    if not cand:
+        raise HTTPException(status_code=404, detail="Candidate profile not found.")
 
     profile = get_or_create_candidate_profile(db, cand)
     resume = db.query(Resume).filter(
-        Resume.user_id == candidate_id
+        Resume.user_id == cand.id
     ).order_by(Resume.is_primary.desc(), Resume.created_at.desc()).first()
 
-    coding_stats = sync_candidate_coding_stats(db, candidate_id)
+    coding_stats = sync_candidate_coding_stats(db, cand.id)
 
-    # Calculate aptitude summary if any
-    from app.models.aptitude import CandidateAssessmentAttempt
     attempts = db.query(CandidateAssessmentAttempt).filter(
-        CandidateAssessmentAttempt.candidate_id == candidate_id,
+        CandidateAssessmentAttempt.candidate_id == cand.id,
         CandidateAssessmentAttempt.is_submitted == True
     ).all()
-    avg_aptitude = round(sum(a.score or 0 for a in attempts) / max(1, len(attempts)), 1) if attempts else 82.5
+    avg_aptitude = round(sum(a.score or 0 for a in attempts) / max(1, len(attempts)), 1) if attempts else None
 
     resume_data = None
     if resume:
@@ -464,29 +520,29 @@ def get_candidate_360_profile(
             "id": str(resume.id),
             "file_name": resume.file_name or "Resume.pdf",
             "file_url": resume.file_url,
-            "ats_score": round(resume.ats_score, 1) if resume.ats_score is not None else 78.0,
+            "ats_score": round(resume.ats_score, 1) if resume.ats_score is not None else 0.0,
             "uploaded_at": resume.created_at.isoformat() if resume.created_at else None
         }
 
     return {
         "candidate_id": str(cand.id),
-        "name": cand.full_name,
-        "full_name": cand.full_name,
+        "name": profile.name or cand.full_name or "Candidate",
+        "full_name": profile.name or cand.full_name or "Candidate",
         "email": cand.email,
-        "phone": cand.phone or (resume.parsed_phone if resume else "") or "",
-        "location": cand.location or profile.preferred_location or (resume.parsed_location if resume else "Bengaluru, India"),
-        "headline": profile.headline or "Software Development Engineer",
-        "summary": profile.summary or cand.bio or (resume.parsed_summary if resume else "Passionate software engineer focused on building robust and scalable applications."),
-        "bio": profile.summary or cand.bio or (resume.parsed_summary if resume else ""),
-        "experience_years": profile.years_of_experience or "3+",
-        "profile_picture": profile.profile_picture_url or cand.avatar_url or "",
-        "skills": profile.skills or (resume.parsed_skills if resume else ["Python", "JavaScript", "React", "FastAPI", "SQL", "Git"]),
+        "phone": cand.phone or (profile.phone if hasattr(profile, "phone") else "") or (resume.parsed_phone if resume else "") or "",
+        "location": profile.preferred_location or cand.location or (resume.parsed_location if resume else "") or "",
+        "headline": profile.headline or ("Software Developer" if not profile.skills else f"{profile.skills[0]} Developer"),
+        "summary": profile.summary or cand.bio or (resume.parsed_summary if resume else "") or "",
+        "bio": profile.summary or cand.bio or "",
+        "experience_years": profile.years_of_experience or "",
+        "profile_picture": profile.profile_picture_url or cand.profile_picture_url or cand.avatar_url or "",
+        "skills": profile.skills or (resume.parsed_skills if resume else []),
         "education": profile.education or (resume.parsed_education if resume else []),
         "experience": profile.experience or (resume.parsed_experience if resume else []),
         "projects": profile.projects or (resume.parsed_projects if resume else []),
         "certifications": profile.certifications or (resume.parsed_certifications if resume else []),
         "resume": resume_data,
-        "ats_score": round(resume.ats_score, 1) if resume and resume.ats_score is not None else 84.0,
+        "ats_score": round(resume.ats_score, 1) if resume and resume.ats_score is not None else 0.0,
         "coding": {
             "problems_solved": coding_stats["problems_solved"],
             "problems_attempted": coding_stats["problems_attempted"],

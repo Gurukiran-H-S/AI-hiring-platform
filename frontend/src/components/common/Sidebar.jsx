@@ -42,7 +42,8 @@ export const Sidebar = ({ role }) => {
     location.pathname === '/candidate/aptitude' ||
     location.pathname === '/candidate/interview'
 
-  const [skillArenaOpen, setSkillArenaOpen] = useState(true)
+  // Requirement: Initially Skill Arena is NOT expanded, only expands after clicking
+  const [skillArenaOpen, setSkillArenaOpen] = useState(false)
 
   // Track if HireLab is expanded in recruiter sidebar
   const isHireLabActive = location.pathname.startsWith('/recruiter/hirelab') ||
