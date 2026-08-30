@@ -25,17 +25,17 @@ router = APIRouter(prefix="/api/recruiter", tags=["Recruiter Operations"])
 # ─── Pydantic Request Schemas ──────────────────────────────────────────────
 
 class JobCreateSchema(BaseModel):
-    title: str = Field(..., min_length=2)
-    company: str = Field(..., min_length=2)
-    description: str = Field(..., min_length=10)
-    required_skills: List[str] = Field(..., min_items=1)
-    preferred_skills: Optional[List[str]] = []
-    min_experience_years: int = Field(0, ge=0)
+    title: str = Field(..., min_length=1)
+    company: Optional[str] = "Company"
+    description: Optional[str] = ""
+    required_skills: Optional[List[str]] = Field(default_factory=list)
+    preferred_skills: Optional[List[str]] = Field(default_factory=list)
+    min_experience_years: Optional[int] = Field(0, ge=0)
     max_experience_years: Optional[int] = Field(5, ge=0)
     required_education: Optional[str] = "Bachelor's Degree"
-    location: str = Field(..., min_length=2)
-    job_type: str = "Full-time"
-    is_remote: bool = False
+    location: Optional[str] = "Remote"
+    job_type: Optional[str] = "Full-time"
+    is_remote: Optional[bool] = False
     salary_min: Optional[int] = 500000
     salary_max: Optional[int] = 1200000
 
@@ -99,26 +99,45 @@ async def create_new_job(
     db: Session = Depends(get_db),
 ):
     """Create a new job posting with default evaluation weights."""
+    raw_type = (req.job_type or "full_time").lower().replace("-", "_").replace(" ", "_")
     try:
-        j_type = JobType(req.job_type)
+        j_type = JobType(raw_type)
     except ValueError:
         j_type = JobType.FULL_TIME
 
+    desc = req.description.strip() if req.description else f"{req.title} opening at {req.company or 'our organization'}."
+    skills_list = req.required_skills or []
+    if isinstance(skills_list, str):
+        skills_list = [s.strip() for s in skills_list.split(",") if s.strip()]
+
+    pref_skills = req.preferred_skills or []
+    if isinstance(pref_skills, str):
+        pref_skills = [s.strip() for s in pref_skills.split(",") if s.strip()]
+
+    # Generate embedding
+    job_text = f"{req.title} {desc} {' '.join(skills_list)}"
+    try:
+        embedding = semantic_matcher.encode(job_text)
+        emb_data = embedding[:128] if hasattr(embedding, '__getitem__') else None
+    except Exception:
+        emb_data = None
+
     job = Job(
         recruiter_id=current_user.id,
-        title=req.title,
-        company=req.company,
-        description=req.description,
-        required_skills=req.required_skills,
-        preferred_skills=req.preferred_skills,
-        min_experience_years=req.min_experience_years,
-        max_experience_years=req.max_experience_years,
-        required_education=req.required_education,
-        location=req.location,
+        title=req.title.strip(),
+        company=(req.company or "Company").strip(),
+        description=desc,
+        required_skills=skills_list,
+        preferred_skills=pref_skills,
+        min_experience_years=req.min_experience_years or 0,
+        max_experience_years=req.max_experience_years or 5,
+        required_education=req.required_education or "Bachelor's Degree",
+        location=(req.location or "Remote").strip(),
         job_type=j_type,
-        is_remote=req.is_remote,
+        is_remote=bool(req.is_remote),
         salary_min=req.salary_min,
         salary_max=req.salary_max,
+        description_embedding=emb_data,
         status=JobStatus.ACTIVE,
     )
     db.add(job)
@@ -136,7 +155,14 @@ async def create_new_job(
     db.add(weights)
     db.commit()
 
-    return {"message": "Job created successfully.", "job_id": str(job.id)}
+    return {
+        "message": "Job created successfully.",
+        "job_id": str(job.id),
+        "id": str(job.id),
+        "title": job.title,
+        "company": job.company
+    }
+
 
 
 @router.get("/jobs")

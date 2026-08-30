@@ -38,19 +38,27 @@ export const PostJob = () => {
     // Field Validations
     if (!formData.title.trim()) return toast.error('Job Title cannot be empty')
     if (!formData.description.trim()) return toast.error('Job Description cannot be empty')
-    if (!formData.required_skills.trim()) return toast.error('Required Skills must contain at least one skill')
     if (!formData.location.trim()) return toast.error('Location cannot be empty')
+
+    const reqSkills = formData.required_skills
+      ? formData.required_skills.split(',').map((s) => s.trim()).filter(Boolean)
+      : []
+    const prefSkills = formData.preferred_skills
+      ? formData.preferred_skills.split(',').map((s) => s.trim()).filter(Boolean)
+      : []
+
+    if (reqSkills.length === 0) return toast.error('Please enter at least one required skill (comma-separated)')
 
     setLoading(true)
 
     const payload = {
       ...formData,
-      required_skills: formData.required_skills.split(',').map((s) => s.trim()).filter(Boolean),
-      preferred_skills: formData.preferred_skills.split(',').map((s) => s.trim()).filter(Boolean),
-      min_experience_years: Number(formData.min_experience_years),
-      max_experience_years: Number(formData.max_experience_years),
-      salary_min: Number(formData.salary_min),
-      salary_max: Number(formData.salary_max),
+      required_skills: reqSkills,
+      preferred_skills: prefSkills,
+      min_experience_years: Number(formData.min_experience_years || 0),
+      max_experience_years: Number(formData.max_experience_years || 5),
+      salary_min: Number(formData.salary_min || 0),
+      salary_max: Number(formData.salary_max || 0),
     }
 
     try {
@@ -59,15 +67,24 @@ export const PostJob = () => {
       setPostedJobSuccess({
         title: formData.title,
         company: formData.company,
-        jobId: data.job_id
+        jobId: data.job_id || data.id
       })
     } catch (err) {
       console.error(err)
-      toast.error(err.response?.data?.detail || 'Failed to post job. Please check all fields.')
+      let msg = 'Failed to post job. Please check all fields.'
+      if (err.response?.data?.detail) {
+        if (Array.isArray(err.response.data.detail)) {
+          msg = err.response.data.detail.map(d => `${d.loc?.slice(-1)[0] || 'field'}: ${d.msg}`).join(', ')
+        } else if (typeof err.response.data.detail === 'string') {
+          msg = err.response.data.detail
+        }
+      }
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
   }
+
 
   return (
     <div className="space-y-8 w-full max-w-5xl mx-auto text-ink">
