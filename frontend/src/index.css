@@ -415,3 +415,28 @@ canvas { max-width:100%; }
 }
 .MuiDialog-paper { background:#fff !important; border-radius:14px !important; }
 
+/* ── Modals & Overlays ─────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.modal-card {
+  position: relative;
+  background: #FFFFFF;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+

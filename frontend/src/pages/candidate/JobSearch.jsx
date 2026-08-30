@@ -150,22 +150,32 @@ const JobCard = ({ job, onApply, isSaved, onSave, matchInfo, isApplied, onViewAp
 
       {/* Card Action Footer */}
       <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-        <button onClick={() => onSave(job)} className="btn-ghost btn-sm text-xs font-semibold cursor-pointer">
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSave(job); }}
+          className="btn-ghost btn-sm text-xs font-semibold cursor-pointer"
+        >
           {isSaved ? '★ Saved' : '☆ Save Job'}
         </button>
         {isApplied ? (
           <button
-            onClick={() => onViewApplication(job)}
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onViewApplication(job); }}
             className="btn-secondary btn-sm text-xs font-bold cursor-pointer px-4 bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
           >
             ✓ View Application ↗
           </button>
         ) : (
-          <button onClick={() => onApply(job)} className="btn-primary btn-sm text-xs font-bold cursor-pointer px-4">
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onApply(job); }}
+            className="btn-primary btn-sm text-xs font-bold cursor-pointer px-4"
+          >
             Apply Now →
           </button>
         )}
       </div>
+
     </div>
   )
 }
@@ -505,8 +515,11 @@ export const JobSearch = () => {
 
       {/* Application Submission & Tracking Modal */}
       {selectedJobForModal && (
-        <div className="modal-overlay">
-          <div className="modal-card max-w-lg w-full p-6 text-left space-y-4 shadow-2xl">
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedJobForModal(null); }}
+        >
+          <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 text-left space-y-4 my-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-3">
@@ -519,12 +532,14 @@ export const JobSearch = () => {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedJobForModal(null)}
-                className="text-slate-400 hover:text-slate-600 text-lg p-1 rounded-md"
+                className="text-slate-400 hover:text-slate-600 text-lg p-1 rounded-md cursor-pointer"
               >
                 ✕
               </button>
             </div>
+
 
             {/* Position Summary Pill */}
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs space-y-2">
