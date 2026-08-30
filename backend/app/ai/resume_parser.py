@@ -154,21 +154,131 @@ class ResumeParser:
             sections[current_section] = "\n".join(section_text)
         return sections
 
+    def _is_valid_name(self, name_cand: str) -> bool:
+        """Validate whether a string candidate is a legitimate human name."""
+        if not name_cand or not isinstance(name_cand, str):
+            return False
+        cleaned = re.sub(r'\s+', ' ', name_cand.strip())
+        
+        # Length & word count constraints
+        words = cleaned.split()
+        if len(words) < 1 or len(words) > 4:
+            return False
+        if len(cleaned) < 2 or len(cleaned) > 50:
+            return False
+        # Single-word names must be at least 3 characters (eliminates state codes like 'WA', 'CA')
+        if len(words) == 1 and len(cleaned) < 3:
+            return False
+            
+        # Must not contain emails, URLs, or domains
+        if any(c in cleaned.lower() for c in ['@', '.com', '.in', '.org', '.net', '.edu', '.io', 'http', 'www', 'github', 'linkedin']):
+            return False
+            
+        # Must not contain digits or invalid symbols
+        if re.search(r'[\d:;/\\[\]{}()*=+#$%^&_<>]', cleaned):
+            return False
+            
+        invalid_keywords = {
+            "resume", "curriculum", "vitae", "cv", "profile", "summary", "objective",
+            "career", "experience", "education", "skills", "technical", "projects",
+            "certifications", "certificates", "contact", "details", "personal", "phone",
+            "email", "address", "location", "developer", "engineer", "software",
+            "programmer", "candidate", "applicant", "page", "portfolio", "technologies",
+            "frameworks", "languages", "fullstack", "backend", "frontend", "internship",
+            "work", "employment", "history", "qualification", "academic", "university",
+            "college", "institute", "school", "bachelor", "master", "phd", "btech", "mtech",
+            "senior", "junior", "lead", "architect", "manager", "designer",
+            "docker", "kubernetes", "linux", "unix", "python", "java", "javascript", "typescript",
+            "react", "angular", "vue", "django", "fastapi", "flask", "spring", "aws", "azure", "gcp",
+            "html", "css", "sql", "nosql", "postgres", "mongodb", "redis", "git", "github", "gitlab", "cicd", "ci",
+            # Indian cities & common location words
+            "bengaluru", "bangalore", "hyderabad", "mumbai", "delhi", "chennai", "kolkata",
+            "pune", "ahmedabad", "surat", "jaipur", "lucknow", "kanpur", "nagpur", "noida",
+            "gurugram", "gurgaon", "chandigarh", "mysuru", "mysore", "mangaluru", "mangalore",
+            "udupi", "manipal", "tumkur", "hubli", "hubballi", "belagavi", "belgaum",
+            "kochi", "thiruvananthapuram", "visakhapatnam", "vizag", "coimbatore", "indore",
+            "bhopal", "patna", "bhubaneswar", "guwahati", "dehradun", "roorkee", "ranchi",
+            # Indian states & countries
+            "karnataka", "telangana", "maharashtra", "gujarat", "rajasthan", "punjab",
+            "haryana", "kerala", "tamilnadu", "andhra", "pradesh", "uttarakhand",
+            "india", "usa", "canada", "singapore", "australia", "germany", "france",
+            "remote", "worldwide", "global",
+            # Global cities
+            "seattle", "austin", "boston", "chicago", "toronto", "london", "berlin",
+            "paris", "amsterdam", "dublin", "tokyo", "sydney", "melbourne", "dubai",
+        }
+        words_lower = [w.lower().strip(".,-") for w in words]
+        if any(w in invalid_keywords for w in words_lower):
+            return False
+            
+        # Must be primarily alphabetic
+        if not re.match(r"^[A-Za-zÀ-ÖØ-öø-ÿ]+([ .'-][A-Za-zÀ-ÖØ-öø-ÿ]+)*$", cleaned):
+            return False
+
+        return True
+
     def _extract_name(self, text: str) -> Optional[str]:
+        """Extract candidate's full human name using hybrid NLP, labeled regex, and header scanning."""
+        if not text:
+            return None
+
+        def _clean_cand(line_str: str) -> str:
+            # Strip emails, phones, URLs, cid artifacts, and punctuation
+            s = re.sub(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}', '', line_str)
+            s = re.sub(r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', '', s)
+            s = re.sub(r'\+?\d{10,13}', '', s)
+            s = re.sub(r'\(cid:\d+\)', '', s)
+            s = re.sub(r'[|•·#*_\-~]+', ' ', s)
+            s = re.sub(r'\s+', ' ', s).strip()
+            return s
+
+        # 1. Labeled pattern extraction (e.g. "Name: John Doe" or "Candidate Name: Jane Smith")
+        labeled_pattern = r'(?:candidate\s*name|full\s*name|^name)\s*[:\-–]\s*([A-Za-z\s.\'-]{2,40})'
+        labeled_match = re.search(labeled_pattern, text, re.IGNORECASE | re.MULTILINE)
+        if labeled_match:
+            # Take only the first line of the captured group to avoid bleeding into next field
+            raw = labeled_match.group(1).split('\n')[0]
+            candidate = _clean_cand(raw)
+            if self._is_valid_name(candidate):
+                return candidate.title()
+
+        # 2. Line-by-line header inspection (top 15 non-empty lines)
+        lines = [l.strip() for l in text.split('\n') if l.strip()]
+        for line in lines[:15]:
+            # If line has separators like "|", "•", "·", "\t", ",", "#"
+            parts = re.split(r'[|•·\t#,]', line)
+            for part in parts:
+                part_clean = _clean_cand(part)
+                if self._is_valid_name(part_clean):
+                    return part_clean.title()
+            
+            clean_line = _clean_cand(line)
+            if self._is_valid_name(clean_line):
+                return clean_line.title()
+
+        # 3. spaCy Named Entity Recognition (with strict post-validation)
         nlp = self._get_nlp()
         if nlp:
-            doc = nlp(text[:500])
-            for ent in doc.ents:
-                if ent.label_ == "PERSON":
-                    return ent.text.strip()
-        # Fallback: first non-empty line
-        lines = [l.strip() for l in text.split('\n') if l.strip()]
-        if lines:
-            first_line = lines[0]
-            if len(first_line.split()) <= 4 and not any(
-                c in first_line for c in ['@', '.com', '/', '|']
-            ):
-                return first_line
+            try:
+                doc = nlp(text[:600])
+                for ent in doc.ents:
+                    if ent.label_ == "PERSON":
+                        ent_text = ent.text.strip()
+                        ent_clean = _clean_cand(ent_text.split('\n')[0])
+                        if self._is_valid_name(ent_clean):
+                            return ent_clean.title()
+            except Exception as e:
+                logger.warning(f"spaCy NER name extraction warning: {e}")
+
+        # 4. Fallback: Parse human name from email username if structured (e.g., john.doe@gmail.com -> John Doe)
+        email = self._extract_email(text)
+        if email:
+            username = email.split('@')[0]
+            derived = re.sub(r'[\._\-]+', ' ', username)
+            derived = re.sub(r'\d+$', '', derived).strip()
+            if len(derived) >= 3 and self._is_valid_name(derived):
+                return derived.title()
+
         return None
 
     def _extract_email(self, text: str) -> Optional[str]:
@@ -178,29 +288,125 @@ class ResumeParser:
 
     def _extract_phone(self, text: str) -> Optional[str]:
         patterns = [
-            r'\+?[\d\s\-\(\)]{10,15}',
+            r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b',
+            r'\+?\d{1,3}[-.\s]\d{10}\b',
+            r'\+?91[-.\s]?\d{10}\b',
             r'\b\d{10}\b',
-            r'\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b',
+            r'\+?[\d\s\-\(\)]{10,15}',
         ]
         for pattern in patterns:
             match = re.search(pattern, text)
             if match:
-                phone = re.sub(r'\s+', '', match.group(0))
-                if len(re.sub(r'\D', '', phone)) >= 10:
-                    return phone
+                phone_candidate = match.group(0).strip()
+                cleaned_digits = re.sub(r'\D', '', phone_candidate)
+                if 10 <= len(cleaned_digits) <= 15:
+                    return phone_candidate
         return None
 
     def _extract_location(self, text: str) -> Optional[str]:
-        # Common location patterns
-        patterns = [
-            r'\b[A-Z][a-z]+,\s*[A-Z]{2}\b',  # City, ST
-            r'\b[A-Z][a-z]+,\s*[A-Z][a-z]+\b',  # City, Country
-            r'\b(?:Bangalore|Mumbai|Delhi|Chennai|Hyderabad|Pune|Kolkata)\b',
+        if not text:
+            return None
+
+        # Blacklist of technical words and non-location keywords that should NEVER be extracted as location
+        non_location_terms = {
+            "linux", "unix", "windows", "macos", "ubuntu", "debian", "redhat", "centos",
+            "ci", "cd", "cicd", "git", "github", "gitlab", "docker", "kubernetes", "k8s",
+            "python", "java", "javascript", "typescript", "c++", "c#", "golang", "rust",
+            "react", "node", "nodejs", "angular", "vue", "nextjs", "django", "flask", "fastapi",
+            "spring", "html", "css", "sql", "nosql", "postgres", "postgresql", "mysql", "mongodb",
+            "redis", "aws", "azure", "gcp", "rest", "api", "apis", "graphql", "json", "xml",
+            "agile", "scrum", "jira", "unit", "testing", "postman", "figma", "machine", "learning",
+            "deep", "nlp", "ai", "ml", "data", "science", "developer", "engineer", "software"
+        }
+
+        valid_state_codes = {
+            "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL",
+            "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT",
+            "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
+            "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC", "ON", "BC", "QC", "AB"
+        }
+
+        # Indian cities & college hubs
+        indian_cities = [
+            "Bengaluru", "Bangalore", "Mysuru", "Mysore", "Mangaluru", "Mangalore", "Hubballi", "Hubli",
+            "Belagavi", "Belgaum", "Tumakuru", "Tumkur", "Shivamogga", "Shimoga", "Davangere", "Ballari",
+            "Bellary", "Udupi", "Manipal", "Kalaburagi", "Gulbarga", "Bidar", "Hassan", "Mandya", "Kolar",
+            "Hyderabad", "Secunderabad", "Chennai", "Coimbatore", "Madurai", "Trichy", "Tiruchirappalli",
+            "Salem", "Kochi", "Cochin", "Thiruvananthapuram", "Trivandrum", "Kozhikode", "Calicut", "Thrissur",
+            "Visakhapatnam", "Vizag", "Vijayawada", "Guntur", "Tirupati", "Warangal", "Nellore",
+            "Mumbai", "Navi Mumbai", "Thane", "Pune", "Nagpur", "Nashik", "Aurangabad", "Solapur", "Kolhapur",
+            "Ahmedabad", "Surat", "Vadodara", "Baroda", "Rajkot", "Gandhinagar",
+            "Indore", "Bhopal", "Gwalior", "Jabalpur", "Raipur",
+            "Delhi", "New Delhi", "Noida", "Greater Noida", "Gurugram", "Gurgaon", "Faridabad", "Ghaziabad",
+            "Chandigarh", "Mohali", "Panchkula", "Ludhiana", "Amritsar", "Jalandhar", "Patiala",
+            "Jaipur", "Jodhpur", "Udaipur", "Kota", "Bikaner", "Ajmer",
+            "Lucknow", "Kanpur", "Varanasi", "Agra", "Prayagraj", "Allahabad", "Meerut", "Dehradun", "Roorkee",
+            "Kolkata", "Calcutta", "Howrah", "Durgapur", "Siliguri", "Bhubaneswar", "Cuttack", "Rourkela",
+            "Patna", "Ranchi", "Jamshedpur", "Dhanbad", "Guwahati", "Shillong", "Goa", "Uppunda", "Byndoor"
         ]
-        for pattern in patterns:
-            match = re.search(pattern, text)
-            if match:
-                return match.group(0)
+
+        states_and_countries = [
+            "Karnataka", "Telangana", "Andhra Pradesh", "Tamil Nadu", "Kerala", "Maharashtra",
+            "Gujarat", "Madhya Pradesh", "Rajasthan", "Punjab", "Haryana", "Uttar Pradesh",
+            "Uttarakhand", "Himachal Pradesh", "West Bengal", "Odisha", "Bihar", "Jharkhand",
+            "Assam", "Goa", "Delhi", "India", "USA", "United States", "Canada", "UK", "United Kingdom",
+            "Germany", "France", "Netherlands", "Ireland", "Australia", "Singapore", "UAE", "Dubai"
+        ]
+
+        global_cities = [
+            "San Francisco", "San Jose", "Sunnyvale", "Mountain View", "Palo Alto", "Santa Clara",
+            "Seattle", "Redmond", "Austin", "Dallas", "Houston", "New York", "Boston", "Cambridge",
+            "Chicago", "Los Angeles", "San Diego", "Atlanta", "Denver", "Phoenix", "Portland", "Miami",
+            "London", "Manchester", "Birmingham", "Edinburgh", "Dublin", "Berlin", "Munich", "Frankfurt",
+            "Paris", "Amsterdam", "Zurich", "Toronto", "Vancouver", "Montreal", "Singapore", "Tokyo", "Sydney", "Melbourne", "Dubai", "Remote"
+        ]
+
+        all_cities = indian_cities + global_cities
+
+        # 1. Explicit location / address / city / residence header
+        labeled_match = re.search(r'(?:location|address|city|place|current\s*city|residence)\s*[:\-–]\s*([A-Za-z0-9\s,.-]{2,70})', text, re.IGNORECASE)
+        if labeled_match:
+            loc = labeled_match.group(1).strip().split('\n')[0].strip()
+            # If address contains District / City name
+            for city in all_cities:
+                if re.search(r'\b' + re.escape(city) + r'\b', loc, re.IGNORECASE):
+                    if city.lower() in ["bangalore", "bengaluru", "tumkur", "tumakuru", "mysore", "mysuru", "mangaluru", "mangalore", "udupi", "manipal", "uppunda", "byndoor", "shivamogga", "shimoga", "hubli", "hubballi", "belgaum", "belagavi"]:
+                        return f"{city.title()}, Karnataka"
+                    return city.title()
+
+            loc_lower_words = [w.lower().strip(".,-") for w in loc.split()]
+            if loc and len(loc) <= 50 and not any(w in non_location_terms for w in loc_lower_words) and not any(c in loc for c in ['@', 'http']):
+                return loc.title()
+
+        # 2. Check City + State / City + Country (e.g. "Bengaluru, Karnataka" or "Bangalore, India" or "Tumkur, Karnataka")
+        city_state_pattern = r'\b(' + '|'.join(re.escape(c) for c in all_cities) + r'),\s*(' + '|'.join(re.escape(s) for s in states_and_countries) + r')\b'
+        match_city_state = re.search(city_state_pattern, text, re.IGNORECASE)
+        if match_city_state:
+            return f"{match_city_state.group(1).title()}, {match_city_state.group(2).title()}"
+
+        # 3. Check City alone in top header lines (first 15 lines)
+        header_text = '\n'.join(text.split('\n')[:15])
+        for city in all_cities:
+            if re.search(r'\b' + re.escape(city) + r'\b', header_text, re.IGNORECASE):
+                if city.lower() in ["bangalore", "bengaluru", "tumkur", "tumakuru", "mysore", "mysuru", "mangaluru", "mangalore", "udupi", "manipal", "uppunda", "byndoor", "shivamogga", "shimoga", "hubli", "hubballi", "belgaum", "belagavi"]:
+                    return f"{city.title()}, Karnataka"
+                return city.title()
+
+        # 4. Check College / University / Education place (e.g. "Bangalore Institute of Technology", "Polytechnic, Mangaluru", "Siddaganga Institute of Technology, Tumkur")
+        for city in all_cities:
+            if re.search(r'\b' + re.escape(city) + r'\b', text, re.IGNORECASE):
+                if city.lower() in ["bangalore", "bengaluru", "tumkur", "tumakuru", "mysore", "mysuru", "mangaluru", "mangalore", "udupi", "manipal", "uppunda", "byndoor", "shivamogga", "shimoga", "hubli", "hubballi", "belgaum", "belagavi"]:
+                    return f"{city.title()}, Karnataka"
+                return city.title()
+
+        # 5. Valid US/Canada City, ST format (with non_location_terms check)
+        us_match = re.search(r'\b([A-Z][a-z]+),\s*([A-Z]{2})\b', text)
+        if us_match:
+            city_cand = us_match.group(1)
+            state_cand = us_match.group(2)
+            if state_cand in valid_state_codes and city_cand.lower() not in non_location_terms:
+                return f"{city_cand}, {state_cand}"
+
         return None
 
     def _extract_skills(self, text: str) -> List[str]:

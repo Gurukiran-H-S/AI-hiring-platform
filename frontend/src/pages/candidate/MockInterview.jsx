@@ -40,11 +40,19 @@ export const MockInterview = () => {
   const [liveScore, setLiveScore] = useState(0)
   const [liveFillerCount, setLiveFillerCount] = useState(0)
   const [analyzingLive, setAnalyzingLive] = useState(false)
+  const [isEditingTranscript, setIsEditingTranscript] = useState(false)
+
+  // AI Voice Synthesis (Text-to-Speech)
+  const [isSpeakingAi, setIsSpeakingAi] = useState(false)
+  const [ttsSupported, setTtsSupported] = useState(true)
 
   // Final Report State
   const [finalReport, setFinalReport] = useState(null)
 
   const recognitionRef = useRef(null)
+  const recordingRef = useRef(false)
+  const finalTranscriptRef = useRef('')
+  const restartTimeoutRef = useRef(null)
   const timerRef = useRef(null)
   const debounceAnalyzeRef = useRef(null)
 
@@ -60,9 +68,18 @@ export const MockInterview = () => {
       }
     }
     fetchJobs()
+
+    if (!('speechSynthesis' in window)) {
+      setTtsSupported(false)
+    }
   }, [])
 
-  // Initialize Web Speech Recognition
+  // Keep finalTranscriptRef synchronized
+  useEffect(() => {
+    finalTranscriptRef.current = finalTranscript
+  }, [finalTranscript])
+
+  // Initialize Web Speech Recognition ONCE on mount
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
@@ -78,49 +95,68 @@ export const MockInterview = () => {
 
       recognition.onstart = () => {
         setRecording(true)
+        recordingRef.current = true
         setMicPermissionDenied(false)
       }
 
       recognition.onresult = (event) => {
         let interim = ''
-        let finalStr = ''
+        let newFinal = ''
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           const result = event.results[i]
-          const transcriptChunk = result[0]?.transcript || ''
+          const chunk = result[0]?.transcript || ''
           if (result.isFinal) {
-            finalStr += transcriptChunk + ' '
+            newFinal += chunk + ' '
           } else {
-            interim += transcriptChunk
+            interim += chunk
           }
         }
 
-        if (finalStr) {
-          setFinalTranscript((prev) => {
-            const combined = (prev + ' ' + finalStr).trim()
-            triggerLivePointAnalysis(combined)
-            return combined
-          })
+        if (newFinal) {
+          const combined = (finalTranscriptRef.current + ' ' + newFinal).trim()
+          finalTranscriptRef.current = combined
+          setFinalTranscript(combined)
+          triggerLivePointAnalysis(combined)
         }
+
         setInterimTranscript(interim)
         if (interim) {
-          triggerLivePointAnalysis((finalTranscript + ' ' + interim).trim())
+          const liveCombined = (finalTranscriptRef.current + ' ' + interim).trim()
+          triggerLivePointAnalysis(liveCombined)
         }
       }
 
       recognition.onerror = (event) => {
-        console.warn('Speech recognition event error:', event.error)
+        console.warn('Speech recognition event:', event.error)
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           setMicPermissionDenied(true)
-          toast.error('Microphone permission is required for AI Mock Interview.')
-        } else if (event.error !== 'no-speech') {
-          toast.error(`Speech recognition: ${event.error}`)
+          recordingRef.current = false
+          setRecording(false)
+          toast.error('Microphone permission is required. Please allow microphone access in your browser.')
+        } else if (event.error === 'no-speech') {
+          // Normal pause in speech
+        } else if (event.error !== 'aborted') {
+          console.warn(`Speech recognition event error: ${event.error}`)
         }
-        setRecording(false)
       }
 
       recognition.onend = () => {
-        setRecording(false)
+        // Auto-restart recognition if recording mode is still active!
+        if (recordingRef.current) {
+          if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current)
+          restartTimeoutRef.current = setTimeout(() => {
+            if (recordingRef.current) {
+              try {
+                recognition.start()
+              } catch (err) {
+                console.warn('Auto-restart recognition exception:', err)
+              }
+            }
+          }, 150)
+        } else {
+          setRecording(false)
+        }
       }
 
       recognitionRef.current = recognition
@@ -130,11 +166,16 @@ export const MockInterview = () => {
     }
 
     return () => {
+      recordingRef.current = false
+      if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current)
       if (recognitionRef.current) {
         try { recognitionRef.current.stop() } catch (e) {}
       }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel()
+      }
     }
-  }, [finalTranscript])
+  }, [])
 
   // Recording Timer
   useEffect(() => {
@@ -180,6 +221,45 @@ export const MockInterview = () => {
     }, 450)
   }
 
+  // AI Voice Reader: Speaks Question Aloud using Web Speech Synthesis
+  const handleSpeakQuestion = (text) => {
+    if (!('speechSynthesis' in window)) return
+    window.speechSynthesis.cancel()
+
+    if (isSpeakingAi) {
+      setIsSpeakingAi(false)
+      return
+    }
+
+    const questionText = text || currentQuestion?.question_text || ''
+    if (!questionText) return
+
+    const utterance = new SpeechSynthesisUtterance(questionText)
+    utterance.rate = 0.95
+    utterance.pitch = 1.0
+    utterance.lang = 'en-US'
+
+    const voices = window.speechSynthesis.getVoices()
+    const englishVoice = voices.find(v => v.lang.startsWith('en') && (
+      v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('David') || v.name.includes('Zira')
+    )) || voices.find(v => v.lang.startsWith('en'))
+
+    if (englishVoice) utterance.voice = englishVoice
+
+    utterance.onstart = () => setIsSpeakingAi(true)
+    utterance.onend = () => setIsSpeakingAi(false)
+    utterance.onerror = () => setIsSpeakingAi(false)
+
+    window.speechSynthesis.speak(utterance)
+  }
+
+  const handleStopSpeakingAi = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+      setIsSpeakingAi(false)
+    }
+  }
+
   // Start Interview Handler
   const handleStartInterview = async () => {
     setLoading(true)
@@ -197,6 +277,11 @@ export const MockInterview = () => {
       resetQuestionState(data.questions[0])
       setStage('interview')
       toast.success(`AI Interview Started for ${data.role_title}!`)
+      
+      // Read initial question aloud
+      if ('speechSynthesis' in window && data.questions?.[0]?.question_text) {
+        setTimeout(() => handleSpeakQuestion(data.questions[0].question_text), 600)
+      }
     } catch (err) {
       console.error(err)
       toast.error(err.response?.data?.detail || 'Failed to start interview session.')
@@ -207,11 +292,13 @@ export const MockInterview = () => {
 
   const resetQuestionState = (questionObj) => {
     setFinalTranscript('')
+    finalTranscriptRef.current = ''
     setInterimTranscript('')
     setRecordingSeconds(0)
     setLiveCoverage(0)
     setLiveScore(0)
     setLiveFillerCount(0)
+    setIsEditingTranscript(false)
     if (questionObj?.expected_points) {
       setLivePointsAnalysis(
         questionObj.expected_points.map((p) => ({
@@ -232,24 +319,30 @@ export const MockInterview = () => {
     if (!recognitionRef.current) return
 
     try {
+      handleStopSpeakingAi() // Stop AI TTS if speaking
       setInterimTranscript('')
-      recognitionRef.current.start()
+      recordingRef.current = true
       setRecording(true)
+      recognitionRef.current.start()
     } catch (err) {
       console.warn('Recognition start exception:', err)
+      recordingRef.current = true
+      setRecording(true)
     }
   }
 
   // Stop Microphone Recording
   const handleStopRecording = () => {
-    if (recognitionRef.current && recording) {
+    recordingRef.current = false
+    setRecording(false)
+    if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current)
+    if (recognitionRef.current) {
       try {
         recognitionRef.current.stop()
       } catch (err) {
         console.warn(err)
       }
     }
-    setRecording(false)
   }
 
   // Submit Answer & Move to Next Question
@@ -584,16 +677,45 @@ export const MockInterview = () => {
           </div>
         )}
 
-        {/* Question Banner */}
+        {/* Question Banner with AI Voice Reader */}
         <div className="card bg-gradient-to-br from-white to-blue-50/40 border-2 border-blue-200/80 p-6 space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="badge badge-purple text-[10.5px] font-bold uppercase tracking-wider">
-              {currentQuestion.category || 'Core Question'}
-            </span>
-            <span className="badge badge-neutral text-[10.5px] font-semibold">
-              Difficulty: {currentQuestion.difficulty || 'Medium'}
-            </span>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="badge badge-purple text-[10.5px] font-bold uppercase tracking-wider">
+                {currentQuestion.category || 'Core Question'}
+              </span>
+              <span className="badge badge-neutral text-[10.5px] font-semibold">
+                Difficulty: {currentQuestion.difficulty || 'Medium'}
+              </span>
+            </div>
+
+            {/* AI Voice Question Reader Button */}
+            {ttsSupported && (
+              <button
+                type="button"
+                onClick={() => handleSpeakQuestion(currentQuestion.question_text)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs border ${
+                  isSpeakingAi
+                    ? 'bg-rose-50 text-rose-700 border-rose-300 animate-pulse ring-2 ring-rose-200'
+                    : 'bg-blue-50 text-[#0A66C2] border-blue-200 hover:bg-blue-100/80 hover:text-blue-800'
+                }`}
+                title="AI Interviewer reads the question aloud"
+              >
+                {isSpeakingAi ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
+                    <span>⏸️ Stop AI Voice</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🔊</span>
+                    <span>Read Question Aloud</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
+
           <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 leading-snug font-display">
             "{currentQuestion.question_text}"
           </h2>
@@ -604,7 +726,7 @@ export const MockInterview = () => {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
               <span>🎯 Expected Answer Points &amp; Coverage</span>
-              {analyzingLive && <span className="text-[10px] text-[#0A66C2] animate-pulse">Evaluating live speech...</span>}
+              {analyzingLive && <span className="text-[10px] text-[#0A66C2] animate-pulse">Evaluating answer...</span>}
             </h3>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold font-mono px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
@@ -662,18 +784,50 @@ export const MockInterview = () => {
               <h3 className="section-title flex items-center gap-2">
                 <span>🎙️ Live Candidate Transcript</span>
                 {recording && (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-rose-600 font-bold bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 animate-pulse">
-                    <span className="w-2 h-2 rounded-full bg-rose-600"></span> Live Listening
+                  <span className="inline-flex items-center gap-2 text-xs text-rose-600 font-bold bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 animate-pulse">
+                    {/* Sound Waveform Animation */}
+                    <div className="flex items-center gap-0.5 h-3">
+                      <span className="w-0.5 h-2 bg-rose-600 animate-pulse"></span>
+                      <span className="w-0.5 h-3.5 bg-rose-600 animate-pulse" style={{ animationDelay: '150ms' }}></span>
+                      <span className="w-0.5 h-2.5 bg-rose-600 animate-pulse" style={{ animationDelay: '300ms' }}></span>
+                      <span className="w-0.5 h-1.5 bg-rose-600 animate-pulse" style={{ animationDelay: '75ms' }}></span>
+                    </div>
+                    <span>Continuous Listening Active</span>
                   </span>
                 )}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Speak clearly into your microphone. Words are transcribed and evaluated against expected answer points in real time.
+                Speak clearly into your microphone or type/edit your response. Words are evaluated against expected answer points in real time.
               </p>
             </div>
 
-            {/* Microphone Action Buttons */}
-            <div className="flex items-center gap-2">
+            {/* Action Buttons: Voice Recording + Manual Edit */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setIsEditingTranscript((prev) => !prev)}
+                className="btn-secondary text-xs font-bold !py-2 !px-3"
+                title="Toggle manual text editing"
+              >
+                {isEditingTranscript ? '👁️ View Transcript' : '✍️ Edit / Type'}
+              </button>
+
+              {(finalTranscript || interimTranscript) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFinalTranscript('')
+                    finalTranscriptRef.current = ''
+                    setInterimTranscript('')
+                    triggerLivePointAnalysis('')
+                  }}
+                  className="btn-ghost text-xs text-slate-500 hover:text-rose-600 !py-2 !px-2.5"
+                  title="Clear current transcript"
+                >
+                  🗑️ Clear
+                </button>
+              )}
+
               {!recording ? (
                 <button
                   type="button"
@@ -694,26 +848,41 @@ export const MockInterview = () => {
             </div>
           </div>
 
-          {/* Transcript Display Area */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900 text-slate-100 min-h-[140px] font-sans text-sm leading-relaxed border border-slate-800 shadow-inner flex flex-col justify-between">
-            <div>
-              {finalTranscript || interimTranscript ? (
-                <div>
-                  <span className="text-slate-100 font-medium">{finalTranscript}</span>
-                  {interimTranscript && (
-                    <span className="text-blue-300 italic opacity-85 ml-1 animate-pulse">
-                      {interimTranscript}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div className="text-slate-500 italic text-xs py-7 text-center">
-                  {recording
-                    ? 'Listening... Speak your answer into the microphone...'
-                    : 'Click "Start Speaking" above and state your answer clearly.'}
-                </div>
-              )}
-            </div>
+          {/* Transcript Display / Input Area */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900 text-slate-100 min-h-[150px] font-sans text-sm leading-relaxed border border-slate-800 shadow-inner flex flex-col justify-between">
+            {isEditingTranscript ? (
+              <textarea
+                rows={4}
+                value={finalTranscript}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setFinalTranscript(val)
+                  finalTranscriptRef.current = val
+                  triggerLivePointAnalysis(val)
+                }}
+                placeholder="Type or paste your answer response here..."
+                className="w-full bg-slate-950 text-slate-100 rounded-xl p-3 text-xs sm:text-sm border border-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] focus:border-transparent font-sans resize-y leading-relaxed"
+              />
+            ) : (
+              <div>
+                {finalTranscript || interimTranscript ? (
+                  <div>
+                    <span className="text-slate-100 font-medium">{finalTranscript}</span>
+                    {interimTranscript && (
+                      <span className="text-blue-300 italic opacity-85 ml-1 animate-pulse">
+                        {interimTranscript}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-slate-500 italic text-xs py-7 text-center">
+                    {recording
+                      ? 'Listening continuously... Speak your answer into the microphone...'
+                      : 'Click "Start Speaking" or "Edit / Type" above to state your answer.'}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Live Metrics Footer inside transcript box */}
             <div className="pt-3 mt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
@@ -722,7 +891,7 @@ export const MockInterview = () => {
                 <span>Filler Words: <strong className={liveFillerCount > 3 ? 'text-amber-400' : 'text-slate-200'}>{liveFillerCount}</strong></span>
               </div>
               <div className="text-[10.5px] text-slate-500">
-                {recording ? '🔴 Continuous Streaming Audio' : 'Microphone Ready'}
+                {recording ? '🔴 Continuous Streaming Voice Active' : 'Microphone Ready'}
               </div>
             </div>
           </div>

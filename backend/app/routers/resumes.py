@@ -121,10 +121,14 @@ async def upload_resume(
         # Truncate strings to prevent PostgreSQL StringDataRightTruncation errors
         safe_file_name = (file.filename or "resume")[:250]
         safe_file_type = (file.content_type or "application/vnd.openxmlformats-officedocument.wordprocessingml.document")[:250]
-        safe_parsed_name = (parsed.get("name") or "")[:250] if parsed.get("name") else None
-        safe_parsed_email = (parsed.get("email") or "")[:250] if parsed.get("email") else None
-        safe_parsed_phone = (parsed.get("phone") or "")[:250] if parsed.get("phone") else None
-        safe_parsed_location = (parsed.get("location") or "")[:250] if parsed.get("location") else None
+        # Candidate Name fallback: if parsed name is empty or looks like an email, fallback to user full_name if clean
+        extracted_name = parsed.get("name")
+        if not extracted_name and current_user.full_name and "@" not in current_user.full_name:
+            extracted_name = current_user.full_name
+        safe_parsed_name = (extracted_name or "")[:250] if extracted_name else None
+        safe_parsed_email = (parsed.get("email") or current_user.email or "")[:250] if (parsed.get("email") or current_user.email) else None
+        safe_parsed_phone = (parsed.get("phone") or current_user.phone or "")[:250] if (parsed.get("phone") or current_user.phone) else None
+        safe_parsed_location = (parsed.get("location") or current_user.location or "")[:250] if (parsed.get("location") or current_user.location) else None
 
         resume = Resume(
             user_id=current_user.id,
@@ -187,9 +191,19 @@ async def get_resume_analysis(
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found or unauthorized access.")
 
+    # Determine clean candidate name
+    cand_name = resume.parsed_name
+    if not cand_name or "@" in cand_name:
+        if current_user.full_name and "@" not in current_user.full_name:
+            cand_name = current_user.full_name
+        else:
+            cand_name = "Candidate"
+
     parsed = {
-        "name": resume.parsed_name,
-        "email": resume.parsed_email,
+        "name": cand_name,
+        "email": resume.parsed_email or current_user.email,
+        "phone": resume.parsed_phone or current_user.phone or "",
+        "location": resume.parsed_location or current_user.location or "",
         "summary": resume.parsed_summary,
         "skills": resume.parsed_skills or [],
         "education": resume.parsed_education or [],
@@ -242,6 +256,15 @@ async def get_resume_analysis(
         "learning_resources": learning_resources,
         "improvement_suggestions": ats_result.get("threshold_warning", {}).get("recommended_improvements", []),
         "explanation": ats_result["explanation"],
+        "parsed_name": cand_name,
+        "parsed_email": resume.parsed_email or current_user.email,
+        "parsed_phone": resume.parsed_phone or current_user.phone or "",
+        "parsed_location": resume.parsed_location or current_user.location or "",
+        "parsed_skills": resume.parsed_skills or [],
+        "parsed_education": resume.parsed_education or [],
+        "parsed_experience": resume.parsed_experience or [],
+        "parsed_projects": resume.parsed_projects or [],
+        "parsed_certifications": resume.parsed_certifications or [],
     }
 
 

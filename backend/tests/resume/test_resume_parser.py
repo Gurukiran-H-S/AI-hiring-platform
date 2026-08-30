@@ -50,11 +50,34 @@ PROJECTS
 def test_resume_parser_extraction():
     parsed = resume_parser.parse(SAMPLE_RESUME_TEXT)
     assert parsed is not None
+    assert parsed.get("name") == "Jane Doe"
     assert "jane.doe@example.com" in (parsed.get("email") or "")
     assert len(parsed.get("skills", [])) > 0
     assert any("python" in s.lower() for s in parsed.get("skills", []))
     assert parsed.get("experience") is not None
     assert parsed.get("education") is not None
+
+
+def test_candidate_name_robustness():
+    # 1. Delimited header line
+    res1 = resume_parser.parse("Rohit Sharma | ro45che@gmail.com | +91-9353064227\nBengaluru, Karnataka\nSkills: Python")
+    assert res1.get("name") == "Rohit Sharma"
+    assert res1.get("email") == "ro45che@gmail.com"
+    assert res1.get("location") == "Bengaluru, Karnataka"
+
+    # 2. Labeled format
+    res2 = resume_parser.parse("Full Name: Alice Wonderland\nEmail: alice@test.com\nPhone: +91-9876543210")
+    assert res2.get("name") == "Alice Wonderland"
+
+    # 3. Email only on line 1 - Ensure raw email is NEVER classified as candidate name
+    res3 = resume_parser.parse("ro45che@gmail.com\n+91-9353064227\nBengaluru, Karnataka\nSkills: React, FastAPI")
+    assert res3.get("name") is None  # Must NOT be 'ro45che@gmail.com'
+    assert res3.get("email") == "ro45che@gmail.com"
+    assert "9353064227" in (res3.get("phone") or "")
+
+    # 4. Clean structured email fallback
+    res4 = resume_parser.parse("john.doe@gmail.com\n+1 555-123-4567\nSeattle, WA")
+    assert res4.get("name") == "John Doe"
 
 
 def test_skill_normalizer():
@@ -82,3 +105,4 @@ def test_ats_scorer_pipeline():
 
 if __name__ == "__main__":
     pytest.main([__file__])
+

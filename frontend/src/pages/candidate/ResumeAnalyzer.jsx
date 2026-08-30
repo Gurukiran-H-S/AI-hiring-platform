@@ -289,6 +289,40 @@ ${selectedResume?.parsed_name || 'Applicant'}`
         <div className="lg:col-span-2 space-y-6">
           {selectedResume ? (
             <>
+              {/* Extracted Candidate Details (spaCy NLP Parsed) */}
+              <div className="card">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="section-title !text-[16px] !mb-0 font-extrabold text-slate-900">Extracted Candidate Details</h2>
+                  <span className="badge badge-blue font-bold text-xs">NLP Parsed</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="bg-page p-3.5 rounded-xl border border-line">
+                    <span className="text-ink-3 block text-[10px] uppercase font-bold tracking-wider mb-1">CANDIDATE NAME</span>
+                    <p className="font-semibold text-sm text-ink truncate">
+                      {analysisDetails?.parsed_name || selectedResume?.parsed_name || 'Candidate'}
+                    </p>
+                  </div>
+                  <div className="bg-page p-3.5 rounded-xl border border-line">
+                    <span className="text-ink-3 block text-[10px] uppercase font-bold tracking-wider mb-1">EMAIL ADDRESS</span>
+                    <p className="font-semibold text-sm text-ink truncate">
+                      {analysisDetails?.parsed_email || selectedResume?.parsed_email || '—'}
+                    </p>
+                  </div>
+                  <div className="bg-page p-3.5 rounded-xl border border-line">
+                    <span className="text-ink-3 block text-[10px] uppercase font-bold tracking-wider mb-1">PHONE</span>
+                    <p className="font-semibold text-sm text-ink truncate">
+                      {analysisDetails?.parsed_phone || selectedResume?.parsed_phone || '—'}
+                    </p>
+                  </div>
+                  <div className="bg-page p-3.5 rounded-xl border border-line">
+                    <span className="text-ink-3 block text-[10px] uppercase font-bold tracking-wider mb-1">LOCATION</span>
+                    <p className="font-semibold text-sm text-ink truncate">
+                      {analysisDetails?.parsed_location || selectedResume?.parsed_location || '—'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* ATS Score card */}
               <div className="card">
                 <div className="flex items-center justify-between mb-1">

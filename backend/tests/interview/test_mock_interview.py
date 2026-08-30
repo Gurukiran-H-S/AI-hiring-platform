@@ -7,7 +7,14 @@ Tests for AI Mock Interview Module:
 - End-to-end interview flow & evaluation engine integration
 """
 
+import os
+import sys
 import pytest
+
+backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
 from app.ai.interview_analyzer import analyze_transcript, synthesize_interview_report
 from app.services.interview_service import generate_interview_questions
 
@@ -209,4 +216,8 @@ def test_communication_score_positive_when_answers_spoken():
     report = synthesize_interview_report(responses, questions)
     assert report["final_score"] > 80.0
     assert report["communication_score"] >= 70.0
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])
 
