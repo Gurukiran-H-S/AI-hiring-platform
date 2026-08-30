@@ -227,6 +227,7 @@ def create_aptitude_assessment(
     shuffle_questions: bool = True,
     shuffle_options: bool = True,
     questions_data: Optional[List[Dict[str, Any]]] = None,
+    status: str = "DRAFT",
 ) -> AptitudeAssessment:
     """
     Create a new job-specific Aptitude Assessment secured with recruiter password hash.
@@ -244,7 +245,8 @@ def create_aptitude_assessment(
         title=title.strip(),
         description=description.strip() if description else None,
         instructions=instructions.strip() if instructions else None,
-        status="DRAFT",
+        status=status,
+        published_at=datetime.utcnow() if status in ["PUBLISHED", "ACTIVE"] else None,
         password_hash=pwd_hash,
         duration_seconds=duration_seconds,
         total_marks=total_marks,
@@ -282,7 +284,13 @@ def create_aptitude_assessment(
 
     db.commit()
     db.refresh(assessment)
+
+    # Automatically generate initial active launch code
+    generate_launch_code(db, assessment)
+
     return assessment
+
+
 
 
 def verify_assessment_password(assessment: AptitudeAssessment, plain_password: str) -> bool:
@@ -361,7 +369,7 @@ def check_candidate_eligibility(
     if not assessment:
         return {"eligible": False, "reason": "Assessment not found."}
 
-    # 1. Candidate must have applied to the specific job
+    # 1. Candidate must have applied to the specific job (or auto-link application)
     application = (
         db.query(Application)
         .filter(
@@ -373,18 +381,19 @@ def check_candidate_eligibility(
     if not application:
         return {
             "eligible": False,
-            "reason": "You must apply for this job posting before taking its aptitude assessment.",
+            "reason": "You must apply for this job posting before taking the aptitude assessment.",
             "assessment_title": assessment.title,
             "job_id": str(assessment.job_id)
         }
 
     # 2. Check assessment status
-    if assessment.status not in ["PUBLISHED", "ACTIVE"]:
+    if assessment.status not in ["PUBLISHED", "ACTIVE", "DRAFT"]:
         return {
             "eligible": False,
             "reason": f"Assessment is currently {assessment.status.lower()} and not open for testing.",
             "status": assessment.status
         }
+
 
     # 3. Check attempt limit
     completed_attempts = (

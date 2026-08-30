@@ -21,6 +21,79 @@ router = APIRouter(prefix="/api/admin", tags=["Admin"])
 analytics_router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
 
 
+@analytics_router.get("/recruiter")
+async def get_recruiter_analytics_metrics(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Retrieve real-time recruiter analytics KPI summary for the Recruiter Dashboard."""
+    jobs = db.query(Job).filter(Job.recruiter_id == current_user.id).all()
+    if not jobs:
+        jobs = db.query(Job).filter(Job.status == JobStatus.ACTIVE).all()
+    job_ids = [j.id for j in jobs]
+    
+    active_jobs = sum(1 for j in jobs if j.status == JobStatus.ACTIVE)
+    
+    if job_ids:
+        applications = db.query(Application).filter(Application.job_id.in_(job_ids)).all()
+        total_applications = len(applications)
+        shortlisted = sum(
+            1 for a in applications
+            if a.is_shortlisted or str(getattr(a.status, 'value', a.status)).lower() in [
+                "shortlisted", "interview", "interview_scheduled", "offered", "hired"
+            ]
+        )
+    else:
+        total_applications = 0
+        shortlisted = 0
+        
+    interviews = db.query(Interview).filter(
+        (Interview.recruiter_id == current_user.id) | (Interview.job_id.in_(job_ids) if job_ids else False),
+        Interview.status != InterviewStatus.CANCELLED
+    ).count()
+
+    recent_apps = []
+    if job_ids:
+        recent_records = (
+            db.query(Application)
+            .filter(Application.job_id.in_(job_ids))
+            .order_by(Application.applied_at.desc())
+            .limit(10)
+            .all()
+        )
+        for app in recent_records:
+            cand = db.query(User).filter(User.id == app.candidate_id).first()
+            job_obj = next((j for j in jobs if j.id == app.job_id), None)
+            recent_apps.append({
+                "id": str(app.id),
+                "candidate_name": cand.full_name if cand else "Candidate",
+                "job_title": job_obj.title if job_obj else "Position",
+                "status": getattr(app.status, 'value', str(app.status)),
+                "ats_score": app.ats_score,
+                "applied_at": app.applied_at.isoformat() if app.applied_at else None
+            })
+
+    return {
+        "summary": {
+            "active_jobs": active_jobs,
+            "total_applications": total_applications,
+            "shortlisted": shortlisted,
+            "interviews": interviews
+        },
+        "recent_applications": recent_apps,
+        "jobs": [
+            {
+                "id": str(j.id),
+                "title": j.title,
+                "status": getattr(j.status, 'value', str(j.status)),
+                "total_applications": db.query(Application).filter(Application.job_id == j.id).count()
+            }
+            for j in jobs
+        ]
+    }
+
+
+
 # ─── 1. ADMIN DASHBOARD & KPI SUMMARY ──────────────────────────────────────
 
 @router.get("/dashboard")

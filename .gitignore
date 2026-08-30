@@ -31,5 +31,13 @@ Thumbs.db
 dist/
 build/
 
+# Tests & Coverage
+.pytest_cache/
+*/.pytest_cache/
+.coverage
+htmlcov/
+*.coverage.*
+
 # Logs
 *.log
+

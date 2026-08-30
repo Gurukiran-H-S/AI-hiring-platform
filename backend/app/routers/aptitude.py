@@ -444,20 +444,32 @@ def list_candidate_available_assessments(
     including eligibility status, schedule, and attempt count.
     """
     applications = db.query(Application).filter(Application.candidate_id == current_user.id).all()
-    job_ids = [app.job_id for app in applications]
+    applied_job_ids = {app.job_id for app in applications if app.job_id}
+    applied_titles = {app.job.title.lower().strip() for app in applications if app.job and app.job.title}
+    app_map = {app.job_id: app for app in applications if app.job_id}
+
+    # Fetch all assessments across candidate's applied jobs and all active jobs
+    all_active_jobs = db.query(Job).filter(Job.status == JobStatus.ACTIVE).all()
+    all_job_ids = [j.id for j in all_active_jobs]
 
     assessments = (
         db.query(AptitudeAssessment)
-        .filter(AptitudeAssessment.job_id.in_(job_ids), AptitudeAssessment.status.in_(["PUBLISHED", "ACTIVE"]))
+        .filter(AptitudeAssessment.job_id.in_(all_job_ids + list(applied_job_ids)))
+        .order_by(AptitudeAssessment.created_at.desc())
         .all()
-    ) if job_ids else []
+    ) if (all_job_ids or applied_job_ids) else []
 
-    app_map = {app.job_id: app for app in applications}
     results = []
+    seen_ids = set()
 
     for a in assessments:
+        if a.id in seen_ids:
+            continue
+        seen_ids.add(a.id)
+
         job = db.query(Job).filter(Job.id == a.job_id).first()
         app = app_map.get(a.job_id)
+        is_applied = (a.job_id in applied_job_ids) or (job and job.title.lower().strip() in applied_titles)
         
         # Check attempts
         completed_attempt = (
@@ -495,7 +507,8 @@ def list_candidate_available_assessments(
             "passing_score": a.passing_score,
             "start_time": a.start_time.isoformat() if a.start_time else None,
             "end_time": a.end_time.isoformat() if a.end_time else None,
-            "application_status": app.status.value if (app and hasattr(app.status, 'value')) else str(app.status) if app else "applied",
+            "is_applied": is_applied,
+            "application_status": app.status.value if (app and hasattr(app.status, 'value')) else str(app.status) if app else "open",
             "is_completed": completed_attempt is not None,
             "score": completed_attempt.score if completed_attempt else None,
             "percentage": completed_attempt.percentage if completed_attempt else None,
@@ -505,6 +518,7 @@ def list_candidate_available_assessments(
         })
 
     return results
+
 
 
 @router.get("/api/candidate/aptitude-assessments/{assessment_id}/eligibility")
