@@ -18,15 +18,21 @@ class PortableUUID(TypeDecorator):
         return dialect.type_descriptor(CHAR(36))
 
     def process_bind_param(self, value, dialect):
-        if value is not None:
+        if value is None:
+            return None
+        if dialect.name == "postgresql":
             if isinstance(value, str):
                 return uuid.UUID(value)
             return value
-        return value
+        else:
+            return str(value)
 
     def process_result_value(self, value, dialect):
-        if value is not None:
-            if isinstance(value, str):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            try:
                 return uuid.UUID(value)
-            return value
+            except (ValueError, AttributeError):
+                return value
         return value

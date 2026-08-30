@@ -1,6 +1,8 @@
 """Resume router - Upload, Parse, ATS Score, Delete, Versioning & Primary Designation."""
 
 import io
+import os
+import time
 import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
@@ -25,12 +27,12 @@ router = APIRouter(prefix="/api/resumes", tags=["Resumes"])
 
 
 def _extract_text_from_file(file_content: bytes, filename: str) -> str:
-    """Extract text from PDF or DOCX file using PyMuPDF (fitz), pdfplumber, PyPDF2 & docx fallback."""
+    """Extract text from PDF or DOCX file using PyMuPDF (fitz), pdfplumber, PyPDF2, pypdf & docx table/paragraph parser."""
     text = ""
     filename_lower = filename.lower()
 
     if filename_lower.endswith(".pdf"):
-        # 1. Primary: PyMuPDF (fitz)
+        # 1. PyMuPDF (fitz)
         try:
             import fitz
             doc = fitz.open(stream=file_content, filetype="pdf")
@@ -40,9 +42,9 @@ def _extract_text_from_file(file_content: bytes, filename: str) -> str:
                     text += t + "\n"
             doc.close()
         except Exception as e:
-            logger.warning(f"PyMuPDF extraction failed: {e}")
+            logger.debug(f"PyMuPDF extraction note: {e}")
 
-        # 2. Fallback: pdfplumber
+        # 2. pdfplumber
         if not text.strip():
             try:
                 import pdfplumber
@@ -52,19 +54,27 @@ def _extract_text_from_file(file_content: bytes, filename: str) -> str:
                         if extracted:
                             text += extracted + "\n"
             except Exception as e:
-                logger.warning(f"pdfplumber extraction failed: {e}")
+                logger.debug(f"pdfplumber extraction note: {e}")
 
-        # 3. Fallback: PyPDF2
+        # 3. pypdf / PyPDF2
         if not text.strip():
             try:
-                import PyPDF2
-                reader = PyPDF2.PdfReader(io.BytesIO(file_content))
+                import pypdf
+                reader = pypdf.PdfReader(io.BytesIO(file_content))
                 for page in reader.pages:
                     t = page.extract_text()
                     if t:
                         text += t + "\n"
-            except Exception as e:
-                logger.error(f"PyPDF2 extraction failed: {e}")
+            except Exception:
+                try:
+                    import PyPDF2
+                    reader = PyPDF2.PdfReader(io.BytesIO(file_content))
+                    for page in reader.pages:
+                        t = page.extract_text()
+                        if t:
+                            text += t + "\n"
+                except Exception as e:
+                    logger.warning(f"PyPDF2 extraction note: {e}")
 
     elif filename_lower.endswith((".docx", ".doc")):
         try:
@@ -73,8 +83,20 @@ def _extract_text_from_file(file_content: bytes, filename: str) -> str:
             for para in doc.paragraphs:
                 if para.text.strip():
                     text += para.text + "\n"
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                    if row_text:
+                        text += " | ".join(row_text) + "\n"
         except Exception as e:
-            logger.error(f"DOCX extraction failed: {e}")
+            logger.warning(f"DOCX extraction note: {e}")
+
+    # Plain text fallback if binary decoding works
+    if not text.strip():
+        try:
+            text = file_content.decode("utf-8", errors="ignore")
+        except Exception:
+            pass
 
     return text.strip()
 
@@ -88,39 +110,60 @@ async def upload_resume(
     db: Session = Depends(get_db),
 ):
     """Upload a resume file (PDF/DOCX), parse with hybrid NLP, normalize skills, and calculate explainable ATS score."""
+    logger.info(f"[ResumeUpload] Step 1: Request received for user ID={current_user.id} ({current_user.email})")
+    
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
 
-    allowed_extensions = [".pdf", ".doc", ".docx"]
+    allowed_extensions = [".pdf", ".doc", ".docx", ".txt"]
     if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
         raise HTTPException(status_code=400, detail="Only PDF and DOCX files are allowed.")
 
     file_content = await file.read()
-    if len(file_content) > 10 * 1024 * 1024:
+    file_size = len(file_content)
+    logger.info(f"[ResumeUpload] Step 2: File received: filename='{file.filename}', size={file_size} bytes, content_type='{file.content_type}'")
+
+    if file_size > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
 
+    logger.info(f"[ResumeUpload] Step 3: Extracting text from {file.filename}...")
     raw_text = _extract_text_from_file(file_content, file.filename)
-    if not raw_text or len(raw_text) < 50:
+    logger.info(f"[ResumeUpload] Step 4: Text extracted ({len(raw_text)} chars)")
+
+    if not raw_text or len(raw_text.strip()) < 5:
+        logger.warning(f"[ResumeUpload] Insufficient text extracted from {file.filename}")
         raise HTTPException(
             status_code=400,
-            detail="Could not extract readable text from the resume. If this is a scanned PDF, please ensure it contains selectable text."
+            detail="Could not extract readable text from the resume. If this is a scanned image PDF, please ensure it contains selectable text."
         )
 
     try:
+        logger.info("[ResumeUpload] Step 5: Running NLP resume parser...")
         parsed = resume_parser.parse(raw_text)
-        normalized_skills = skill_normalizer.normalize_list(parsed.get("skills", []))
+        
+        logger.info("[ResumeUpload] Step 6: Normalizing skills...")
+        normalized_skills = skill_normalizer.normalize_list(parsed.get("skills", []) or [])
         parsed["normalized_skills"] = normalized_skills
 
+        logger.info("[ResumeUpload] Step 7: Calculating ATS score breakdown...")
         ats_result = ats_scorer.score(parsed)
-        embedding = semantic_matcher.encode(raw_text[:5000])
+        
+        logger.info("[ResumeUpload] Step 8: Generating semantic vector embedding...")
+        embed_start_t = time.time()
+        if os.getenv("DISABLE_SEMANTIC_EMBEDDING", "false").lower() == "true":
+            logger.info("[ResumeUpload] Semantic embedding temporarily disabled for diagnostic test")
+            safe_embedding = [0.0] * 64
+        else:
+            embedding = semantic_matcher.encode(raw_text[:2000])
+            safe_embedding = [float(x) for x in (embedding[:128] if embedding else [])]
+        logger.info(f"[ResumeUpload] Step 8 completed in {time.time() - embed_start_t:.3f}s")
 
         if is_primary or db.query(Resume).filter(Resume.user_id == current_user.id).count() == 0:
             db.query(Resume).filter(Resume.user_id == current_user.id).update({"is_primary": False})
             is_primary = True
 
-        # Truncate strings to prevent PostgreSQL StringDataRightTruncation errors
         safe_file_name = (file.filename or "resume")[:250]
-        safe_file_type = (file.content_type or "application/vnd.openxmlformats-officedocument.wordprocessingml.document")[:250]
+        safe_file_type = (file.content_type or "application/pdf")[:250]
         # Candidate Name fallback: if parsed name is empty or looks like an email, fallback to user full_name if clean
         extracted_name = parsed.get("name")
         if not extracted_name and current_user.full_name and "@" not in current_user.full_name:
@@ -130,6 +173,7 @@ async def upload_resume(
         safe_parsed_phone = (parsed.get("phone") or current_user.phone or "")[:250] if (parsed.get("phone") or current_user.phone) else None
         safe_parsed_location = (parsed.get("location") or current_user.location or "")[:250] if (parsed.get("location") or current_user.location) else None
 
+        logger.info(f"[ResumeUpload] Step 9: Storing resume in database (ATS Score={ats_result['ats_score']})...")
         resume = Resume(
             user_id=current_user.id,
             title=(title or safe_file_name)[:250],
@@ -145,27 +189,31 @@ async def upload_resume(
             parsed_location=safe_parsed_location,
             parsed_summary=parsed.get("summary"),
             parsed_skills=[s["normalized_skill"] for s in normalized_skills],
-            parsed_education=parsed.get("education", []),
-            parsed_experience=parsed.get("experience", []),
-            parsed_certifications=parsed.get("certifications", []),
-            parsed_projects=parsed.get("projects", []),
-            parsed_languages=parsed.get("languages", []),
+            parsed_education=parsed.get("education", []) or [],
+            parsed_experience=parsed.get("experience", []) or [],
+            parsed_certifications=parsed.get("certifications", []) or [],
+            parsed_projects=parsed.get("projects", []) or [],
+            parsed_languages=parsed.get("languages", []) or [],
             ats_score=ats_result["ats_score"],
             ats_breakdown=ats_result["score_breakdown"],
-            quality_score=ats_result["score_breakdown"]["keyword_score"],
+            quality_score=ats_result["score_breakdown"].get("keyword_score", 70.0),
             improvement_suggestions=ats_result.get("threshold_warning", {}).get("recommended_improvements", []),
-            keywords_found=ats_result["matched_skills"],
-            keywords_missing=ats_result["missing_skills"],
-            embedding_vector=embedding[:128],
+            keywords_found=ats_result.get("matched_skills", []),
+            keywords_missing=ats_result.get("missing_skills", []),
+            embedding_vector=safe_embedding,
             parsed_at=datetime.utcnow(),
         )
         db.add(resume)
         db.commit()
         db.refresh(resume)
 
+        logger.info(f"[ResumeUpload] Step 10: Resume analysis complete and persisted with ID={resume.id}")
         return ResumeResponse.from_orm(resume)
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
-        logger.exception(f"Resume analysis failed: {e}")
+        logger.exception(f"[ResumeUpload] Unexpected error during resume analysis: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Resume analysis failed: {str(e)}")
 
@@ -241,9 +289,25 @@ async def get_resume_analysis(
             })
 
     return {
+        "id": str(resume.id),
         "resume_id": str(resume.id),
+        "user_id": str(resume.user_id),
         "title": resume.title,
+        "file_name": resume.file_name,
+        "file_url": resume.file_url,
         "is_primary": resume.is_primary,
+        "is_parsed": resume.is_parsed,
+        "parsed_name": resume.parsed_name,
+        "parsed_email": resume.parsed_email,
+        "parsed_phone": resume.parsed_phone,
+        "parsed_location": resume.parsed_location,
+        "parsed_summary": resume.parsed_summary,
+        "parsed_skills": resume.parsed_skills or [],
+        "parsed_education": resume.parsed_education or [],
+        "parsed_experience": resume.parsed_experience or [],
+        "parsed_certifications": resume.parsed_certifications or [],
+        "parsed_projects": resume.parsed_projects or [],
+        "parsed_languages": resume.parsed_languages or [],
         "ats_score": ats_result["ats_score"],
         "level": ats_result["level"],
         "badge_color": ats_result["badge_color"],
@@ -265,6 +329,8 @@ async def get_resume_analysis(
         "parsed_experience": resume.parsed_experience or [],
         "parsed_projects": resume.parsed_projects or [],
         "parsed_certifications": resume.parsed_certifications or [],
+        "created_at": resume.created_at.isoformat() if resume.created_at else None,
+        "parsed_at": resume.parsed_at.isoformat() if resume.parsed_at else None,
     }
 
 

@@ -24,13 +24,19 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
   const fetchResumes = async () => {
     try {
       const { data } = await api.get('/resumes/')
-      setResumes(data)
-      if (data.length > 0) {
-        loadResumeAnalysis(data[0].id)
+      const list = Array.isArray(data) ? data : []
+      setResumes(list)
+      if (list.length > 0) {
+        loadResumeAnalysis(list[0].id)
+      } else {
+        setSelectedResume(null)
+        setAnalysisDetails(null)
       }
     } catch (err) {
-      console.error(err)
-      toast.error('Failed to load resumes')
+      console.warn('Could not load resumes:', err)
+      if (err.response?.status && err.response.status !== 404 && err.response.status !== 401) {
+        toast.error(err.response?.data?.detail || 'Unable to load resumes from server.')
+      }
     }
   }
 
@@ -42,14 +48,10 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
     try {
       const { data } = await api.get(`/resumes/${id}`)
       setAnalysisDetails(data)
-      setSelectedResume(resumes.find(r => r.id === id) || data)
+      setSelectedResume(data)
       const score = data.ats_score ?? 0
       if (autoAlert && score > 0 && score < 60) {
         setShowLowAtsPopup(true)
-        toast.error(`⚠️ Low ATS Score Detected: ${score}%. Improve your resume to pass recruiter screening.`, {
-          id: 'low-ats-toast',
-          duration: 6000
-        })
       }
     } catch (err) {
       console.error(err)
@@ -59,7 +61,7 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
   const handleFileChange = (e) => {
     if (e.target.files[0]) {
       setFile(e.target.files[0])
-      setTitle(e.target.files[0].name.split('.')[0])
+      setTitle(e.target.files[0].name.replace(/\.[^/.]+$/, ''))
     }
   }
 
@@ -70,23 +72,28 @@ export const ResumeAnalyzer = ({ onPrimaryChange }) => {
     setUploading(true)
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('title', title)
+    formData.append('title', title || file.name.replace(/\.[^/.]+$/, ''))
     formData.append('is_primary', resumes.length === 0)
 
     try {
       const { data } = await api.post('/resumes/upload', formData)
       toast.success('Resume parsed & analyzed!')
-      setResumes([data, ...resumes])
-      await loadResumeAnalysis(data.id, true)
       setFile(null)
       setTitle('')
-      if (data.ats_score > 0 && data.ats_score < 60) {
-        setShowLowAtsPopup(true)
-      }
+      setResumes((prev) => [data, ...prev.filter((r) => r.id !== data.id)])
+      await loadResumeAnalysis(data.id, true)
       if (onPrimaryChange) onPrimaryChange()
     } catch (err) {
-      console.error(err)
-      toast.error(err.response?.data?.detail || 'Failed to process resume')
+      console.error('Resume upload error:', err)
+      let msg = 'Failed to process resume'
+      if (typeof err.response?.data?.detail === 'string') {
+        msg = err.response.data.detail
+      } else if (Array.isArray(err.response?.data?.detail)) {
+        msg = err.response.data.detail.map((d) => d.msg || JSON.stringify(d)).join(', ')
+      } else if (err.message) {
+        msg = err.message
+      }
+      toast.error(msg)
     } finally {
       setUploading(false)
     }
@@ -371,6 +378,67 @@ ${selectedResume?.parsed_name || 'Applicant'}`
                   </div>
                 )}
               </div>
+
+              {/* Extracted Profile & Experience Information */}
+              {(selectedResume.parsed_name || selectedResume.parsed_summary || selectedResume.parsed_email || (selectedResume.parsed_experience && selectedResume.parsed_experience.length > 0)) && (
+                <div className="card space-y-4">
+                  <div className="flex items-center justify-between border-b border-line pb-3">
+                    <h2 className="section-title !text-[16px] !mb-0">Extracted Candidate Details</h2>
+                    <span className="badge badge-blue">NLP Parsed</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {selectedResume.parsed_name && (
+                      <div className="bg-page p-3 rounded-lg border border-line">
+                        <span className="text-ink-3 block text-[10px] uppercase font-bold tracking-wider">Candidate Name</span>
+                        <span className="font-semibold text-ink text-sm">{selectedResume.parsed_name}</span>
+                      </div>
+                    )}
+                    {selectedResume.parsed_email && (
+                      <div className="bg-page p-3 rounded-lg border border-line">
+                        <span className="text-ink-3 block text-[10px] uppercase font-bold tracking-wider">Email Address</span>
+                        <span className="font-semibold text-ink text-sm">{selectedResume.parsed_email}</span>
+                      </div>
+                    )}
+                    {selectedResume.parsed_phone && (
+                      <div className="bg-page p-3 rounded-lg border border-line">
+                        <span className="text-ink-3 block text-[10px] uppercase font-bold tracking-wider">Phone</span>
+                        <span className="font-semibold text-ink text-sm">{selectedResume.parsed_phone}</span>
+                      </div>
+                    )}
+                    {selectedResume.parsed_location && (
+                      <div className="bg-page p-3 rounded-lg border border-line">
+                        <span className="text-ink-3 block text-[10px] uppercase font-bold tracking-wider">Location</span>
+                        <span className="font-semibold text-ink text-sm">{selectedResume.parsed_location}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedResume.parsed_summary && (
+                    <div className="bg-page p-3.5 rounded-lg border border-line text-xs">
+                      <span className="text-ink-3 block text-[10px] uppercase font-bold tracking-wider mb-1">Professional Summary</span>
+                      <p className="text-ink-2 leading-relaxed">{selectedResume.parsed_summary}</p>
+                    </div>
+                  )}
+
+                  {selectedResume.parsed_experience && selectedResume.parsed_experience.length > 0 && (
+                    <div className="pt-2">
+                      <span className="text-ink-3 block text-[11px] uppercase font-bold tracking-wider mb-2">Detected Work Experience</span>
+                      <div className="space-y-2">
+                        {selectedResume.parsed_experience.map((exp, idx) => (
+                          <div key={idx} className="p-3 bg-page rounded-lg border border-line text-xs">
+                            <div className="flex justify-between font-semibold text-ink">
+                              <span>{typeof exp === 'object' ? (exp.role || exp.title || exp.company || 'Experience') : String(exp)}</span>
+                              {exp.company && <span className="text-brand font-normal">{exp.company}</span>}
+                            </div>
+                            {exp.description && <p className="text-ink-2 text-[11.5px] mt-1">{exp.description}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Skills found */}
               <div className="card">

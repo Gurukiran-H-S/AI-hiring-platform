@@ -10,19 +10,10 @@ AI Mock Interview NLP Engine:
 import re
 from typing import List, Dict, Any, Optional, Tuple
 
-_st_model = None
-_st_attempted = False
+from app.ai.semantic_matcher import get_embedding_model
 
 def _get_st_model():
-    global _st_model, _st_attempted
-    if not _st_attempted:
-        _st_attempted = True
-        try:
-            from sentence_transformers import SentenceTransformer
-            _st_model = SentenceTransformer("all-MiniLM-L6-v2")
-        except Exception:
-            _st_model = None
-    return _st_model
+    return get_embedding_model("all-MiniLM-L6-v2")
 
 
 FILLER_REGEX = re.compile(r"\b(um|uh|like|you know|actually|basically|sort of|kind of|i mean|right)\b", re.IGNORECASE)

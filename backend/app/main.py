@@ -58,14 +58,17 @@ def create_application() -> FastAPI:
 ### Built With:
 FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
         """,
-        docs_url="/api/docs",
-        redoc_url="/api/redoc",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
     )
 
     # ─── CORS ──────────────────────────────────────────────────────────────────
+    origins = list(set(settings.ALLOWED_ORIGINS + [settings.FRONTEND_URL]))
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
+        allow_origins=origins,
+        allow_origin_regex=r"https://.*\.onrender\.com|https://.*\.vercel\.app|https://.*\.netlify\.app|http://localhost:\d+",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -86,6 +89,29 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
         logger.info("🚀 Starting AI Hiring Platform...")
         create_tables()
         logger.info("✅ Database tables created/verified")
+        try:
+            from app.database import SessionLocal
+            from app.services.initial_seeder import seed_all_initial_data
+            with SessionLocal() as db:
+                seed_all_initial_data(db)
+        except Exception as seed_err:
+            logger.warning(f"Initial seeding warning: {seed_err}")
+            
+        # Pre-warm AI models once at startup (spaCy + SentenceTransformer)
+        try:
+            from app.ai.resume_parser import resume_parser
+            resume_parser.initialize_model()
+            logger.info("✅ spaCy NLP pipeline pre-warmed & ready in memory")
+        except Exception as nlp_err:
+            logger.warning(f"spaCy pre-warm warning: {nlp_err}")
+
+        try:
+            from app.ai.semantic_matcher import semantic_matcher
+            semantic_matcher.initialize_model()
+            logger.info("✅ SentenceTransformer model pre-warmed & ready in memory")
+        except Exception as model_err:
+            logger.warning(f"SentenceTransformer pre-warm warning: {model_err}")
+
         start_market_scheduler()
         logger.info("✅ AI Job Market Intelligence Scheduler activated")
         logger.info("✅ Application ready!")
@@ -95,19 +121,37 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
         logger.info("Shutting down background services...")
         stop_market_scheduler()
 
-    # ─── Health Check ─────────────────────────────────────────────────────────
-    @app.get("/", tags=["Health"])
+    # ─── Health & Docs Check ──────────────────────────────────────────────────
+    @app.api_route("/", methods=["GET", "HEAD"], tags=["Health"])
     async def root():
         return {
             "status": "healthy",
+            "service": "HireAI backend",
             "app": settings.APP_NAME,
             "version": settings.APP_VERSION,
-            "docs": "/api/docs",
+            "docs": "/docs",
         }
 
-    @app.get("/health", tags=["Health"])
+    @app.api_route("/health", methods=["GET", "HEAD"], tags=["Health"])
     async def health_check():
-        return {"status": "ok", "timestamp": time.time()}
+        return {
+            "status": "ok",
+            "service": "HireAI backend",
+            "timestamp": time.time(),
+        }
+
+    @app.api_route("/api/health", methods=["GET", "HEAD"], tags=["Health"])
+    async def api_health_check():
+        return {
+            "status": "ok",
+            "service": "HireAI backend",
+            "timestamp": time.time(),
+        }
+
+    @app.get("/api/docs", include_in_schema=False)
+    async def api_docs_redirect():
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/docs")
 
     # ─── Register Routers ─────────────────────────────────────────────────────
     app.include_router(auth_router)
@@ -142,11 +186,13 @@ FastAPI · PostgreSQL · spaCy · Sentence Transformers · SQLAlchemy
 app = create_application()
 
 if __name__ == "__main__":
+    import os
     import uvicorn
+    port = int(os.getenv("PORT", 8000))
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=port,
         reload=settings.DEBUG,
         workers=1,
     )

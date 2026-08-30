@@ -58,6 +58,12 @@ for category_skills in SKILL_KEYWORDS.values():
     ALL_SKILLS.extend(category_skills)
 ALL_SKILLS = list(set(ALL_SKILLS))
 
+# Pre-compile regex patterns for all skills to achieve microsecond execution
+SKILL_PATTERNS = [
+    (skill.title(), re.compile(r'\b' + re.escape(skill) + r'\b', re.IGNORECASE))
+    for skill in ALL_SKILLS
+]
+
 EDUCATION_KEYWORDS = [
     "bachelor", "master", "phd", "doctorate", "b.e", "b.tech", "m.tech",
     "m.e", "b.sc", "m.sc", "mba", "diploma", "associate", "b.com", "m.com",
@@ -91,15 +97,20 @@ class ResumeParser:
     def __init__(self):
         self._nlp = None
 
+    def initialize_model(self):
+        """Warm up spaCy NLP pipeline during application startup."""
+        return self._get_nlp()
+
     def _get_nlp(self):
         if self._nlp is None:
             try:
                 import spacy
-                self._nlp = spacy.load("en_core_web_sm")
+                self._nlp = spacy.load("en_core_web_sm", disable=["parser", "tagger", "lemmatizer", "textcat"])
+                logger.info("Loaded lightweight spaCy entity pipeline")
             except Exception:
-                logger.warning("spaCy model not found, using basic parsing")
+                logger.warning("spaCy model not found, using regex parsing")
                 self._nlp = False
-        return self._nlp
+        return self._nlp if self._nlp is not False else None
 
     def parse(self, text: str) -> Dict[str, Any]:
         """Main parse method. Returns structured resume data."""
@@ -410,11 +421,12 @@ class ResumeParser:
         return None
 
     def _extract_skills(self, text: str) -> List[str]:
-        text_lower = text.lower()
+        if not text:
+            return []
         found_skills = []
-        for skill in ALL_SKILLS:
-            if re.search(r'\b' + re.escape(skill) + r'\b', text_lower):
-                found_skills.append(skill.title())
+        for skill_title, pattern in SKILL_PATTERNS:
+            if pattern.search(text):
+                found_skills.append(skill_title)
         return list(set(found_skills))
 
     def _extract_education(self, text: str) -> List[Dict]:

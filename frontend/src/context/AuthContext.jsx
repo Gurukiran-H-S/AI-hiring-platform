@@ -4,7 +4,23 @@ import toast from 'react-hot-toast'
 
 const AuthContext = createContext(null)
 
-const api = axios.create({ baseURL: '/api' })
+const getBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL
+  if (typeof window !== 'undefined') {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    if (isLocalhost) {
+      return (envUrl && envUrl.includes('localhost')) ? `${envUrl.replace(/\/$/, '')}/api` : 'http://localhost:8000/api'
+    }
+    // Deployed HTTPS domain (e.g. Vercel or Render)
+    if (envUrl && !envUrl.includes('localhost')) {
+      return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`
+    }
+    return 'https://ai-hiring-platform-hwfz.onrender.com/api'
+  }
+  return envUrl ? (envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`) : 'http://localhost:8000/api'
+}
+
+const api = axios.create({ baseURL: getBaseUrl() })
 
 // Request interceptor — add JWT token
 api.interceptors.request.use((config) => {
@@ -22,7 +38,7 @@ api.interceptors.response.use(
       original._retry = true
       try {
         const refresh = localStorage.getItem('refresh_token')
-        const { data } = await axios.post('/api/auth/refresh', null, {
+        const { data } = await axios.post(`${getBaseUrl()}/auth/refresh`, null, {
           params: { refresh_token: refresh },
         })
         localStorage.setItem('access_token', data.access_token)

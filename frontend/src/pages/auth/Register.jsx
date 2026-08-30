@@ -49,7 +49,7 @@ export const Register = () => {
     setLoading(true)
     try {
       await api.post('/auth/send-otp', { email: email.trim() })
-      toast.success(`6-Digit verification code sent to ${email}!`)
+      toast.success(`Verification code sent to ${email.trim()}! Please check your inbox.`)
       setStep('otp')
       setOtp('')
     } catch (err) {

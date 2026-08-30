@@ -26,10 +26,57 @@ async def search_jobs(
     query: Optional[str] = Query(None),
     location: Optional[str] = Query(None),
     job_type: Optional[str] = Query(None),
-    limit: int = Query(20, le=50)
+    limit: int = Query(20, le=50),
+    db: Session = Depends(get_db),
 ):
-    """Modular External/Demo Job Search API endpoint."""
-    return external_job_provider.search_jobs(query, location, job_type, limit)
+    """Search active jobs posted by recruiters in database."""
+    q = db.query(Job).filter(Job.status == JobStatus.ACTIVE)
+    if query:
+        q = q.filter(
+            (Job.title.ilike(f"%{query}%")) |
+            (Job.description.ilike(f"%{query}%")) |
+            (Job.company.ilike(f"%{query}%"))
+        )
+    if location:
+        q = q.filter(Job.location.ilike(f"%{location}%"))
+    if job_type:
+        q = q.filter(Job.job_type == job_type)
+
+    jobs = q.order_by(Job.created_at.desc()).limit(limit).all()
+
+    formatted_jobs = []
+    for j in jobs:
+        salary_str = ""
+        if j.salary_min and j.salary_max:
+            salary_str = f"${j.salary_min:,} - ${j.salary_max:,} / year"
+        elif j.salary_min:
+            salary_str = f"From ${j.salary_min:,} / year"
+
+        formatted_jobs.append({
+            "id": str(j.id),
+            "title": j.title,
+            "company": j.company,
+            "location": j.location or "Remote",
+            "employment_type": j.job_type.value if hasattr(j.job_type, "value") else str(j.job_type or "Full-time"),
+            "salary": salary_str,
+            "salary_min": j.salary_min,
+            "salary_max": j.salary_max,
+            "description": j.description,
+            "skills": j.required_skills or [],
+            "posted_date": j.created_at.strftime("%d %b %Y") if j.created_at else "Recently",
+            "is_remote": j.is_remote,
+            "experience_level": j.experience_level.value if hasattr(j.experience_level, "value") else str(j.experience_level or "Mid-level"),
+            "url": f"/candidate/jobs/{j.id}",
+            "source": "Internal Recruiter Posting",
+        })
+
+    return {
+        "status": "success",
+        "provider": "Database Job Registry",
+        "message": f"Found {len(formatted_jobs)} active openings.",
+        "total": len(formatted_jobs),
+        "jobs": formatted_jobs,
+    }
 
 
 @router.get("/", response_model=List[JobResponse])
