@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
-const JobCard = ({ job, onApply, isSaved, onSave, matchInfo }) => {
+const JobCard = ({ job, onApply, isSaved, onSave, matchInfo, isApplied, onViewApplication }) => {
   const {
     hasCandidateSkills,
     matchedSkills = [],
@@ -14,7 +14,7 @@ const JobCard = ({ job, onApply, isSaved, onSave, matchInfo }) => {
   } = matchInfo || {}
 
   return (
-    <div className="card card-hover flex flex-col justify-between space-y-4 p-5">
+    <div className={`card card-hover flex flex-col justify-between space-y-4 p-5 ${isApplied ? 'ring-1 ring-emerald-300/80 bg-emerald-50/10' : ''}`}>
       <div>
         {/* Header: Avatar, Title, Company, Location & Dynamic Match Badge */}
         <div className="flex gap-4">
@@ -25,7 +25,14 @@ const JobCard = ({ job, onApply, isSaved, onSave, matchInfo }) => {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h3 className="font-bold text-base text-slate-900 truncate">{job.title}</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-base text-slate-900 truncate">{job.title}</h3>
+                  {isApplied && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+                      ✓ Applied
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs font-semibold text-slate-600">{job.company}</p>
                 <p className="text-[11.5px] text-slate-400 mt-0.5">📍 {job.location}</p>
               </div>
@@ -146,13 +153,23 @@ const JobCard = ({ job, onApply, isSaved, onSave, matchInfo }) => {
         <button onClick={() => onSave(job)} className="btn-ghost btn-sm text-xs font-semibold cursor-pointer">
           {isSaved ? '★ Saved' : '☆ Save Job'}
         </button>
-        <button onClick={() => onApply(job)} className="btn-primary btn-sm text-xs font-bold cursor-pointer px-4">
-          Apply Now →
-        </button>
+        {isApplied ? (
+          <button
+            onClick={() => onViewApplication(job)}
+            className="btn-secondary btn-sm text-xs font-bold cursor-pointer px-4 bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+          >
+            ✓ View Application ↗
+          </button>
+        ) : (
+          <button onClick={() => onApply(job)} className="btn-primary btn-sm text-xs font-bold cursor-pointer px-4">
+            Apply Now →
+          </button>
+        )}
       </div>
     </div>
   )
 }
+
 
 export const JobSearch = () => {
   const navigate = useNavigate()
@@ -161,11 +178,33 @@ export const JobSearch = () => {
   const [jobType, setJobType] = useState('')
   const [jobs, setJobs] = useState([])
   const [candidateSkills, setCandidateSkills] = useState([])
+  const [appliedJobIds, setAppliedJobIds] = useState(new Set())
+  const [appliedJobTitles, setAppliedJobTitles] = useState(new Set())
   const [loading, setLoading] = useState(false)
   const [providerMessage, setProviderMessage] = useState('')
   const [selectedJobForModal, setSelectedJobForModal] = useState(null)
   const [savedJobs, setSavedJobs] = useState([])
   const [showFilters, setShowFilters] = useState(false)
+
+  const loadAppliedJobs = async () => {
+    try {
+      const { data } = await api.get('/applications/')
+      if (Array.isArray(data)) {
+        const idSet = new Set()
+        const titleSet = new Set()
+        data.forEach(app => {
+          if (app.job_id) idSet.add(String(app.job_id))
+          if (app.id) idSet.add(String(app.id))
+          if (app.title) titleSet.add(app.title.toLowerCase().trim())
+          if (app.job?.title) titleSet.add(app.job.title.toLowerCase().trim())
+        })
+        setAppliedJobIds(idSet)
+        setAppliedJobTitles(titleSet)
+      }
+    } catch (e) {
+      console.warn('Could not load applications:', e)
+    }
+  }
 
   const loadCandidateSkills = async () => {
     try {
@@ -216,6 +255,7 @@ export const JobSearch = () => {
 
   useEffect(() => {
     loadCandidateSkills()
+    loadAppliedJobs()
     fetchJobs()
   }, [])
 
@@ -264,7 +304,19 @@ export const JobSearch = () => {
     fetchJobs()
   }
 
+  const checkIsApplied = (job) => {
+    if (!job) return false
+    if (job.id && appliedJobIds.has(String(job.id))) return true
+    if (job.title && appliedJobTitles.has(job.title.toLowerCase().trim())) return true
+    return false
+  }
+
   const handleApplyClick = (job) => {
+    if (checkIsApplied(job)) {
+      toast('You have already applied for this job!', { icon: 'ℹ️' })
+      navigate('/candidate/applications')
+      return
+    }
     if (job.application_url) {
       window.open(job.application_url, '_blank')
     }
@@ -292,12 +344,19 @@ export const JobSearch = () => {
         toast.success('Application tracked successfully!')
       }
       setSelectedJobForModal(null)
+      loadAppliedJobs()
       navigate('/candidate/applications')
     } catch (err) {
       const errorMsg = err.response?.data?.detail || err.message || 'Failed to submit application.'
-      if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('already applied')) {
+      const isAlready = typeof errorMsg === 'string' && (
+        errorMsg.toLowerCase().includes('already applied') ||
+        errorMsg.toLowerCase().includes('already') ||
+        err.response?.status === 400
+      )
+      if (isAlready) {
         toast.success('You have already applied to this job!')
         setSelectedJobForModal(null)
+        loadAppliedJobs()
         navigate('/candidate/applications')
       } else {
         console.error(err)
@@ -305,6 +364,7 @@ export const JobSearch = () => {
       }
     }
   }
+
 
   const toggleSaveJob = (job) => {
     if (savedJobs.some((j) => j.id === job.id)) {
@@ -425,11 +485,14 @@ export const JobSearch = () => {
               job={job}
               matchInfo={calculateMatch(job.skills, job.title, job.description)}
               isSaved={savedJobs.some((j) => j.id === job.id)}
+              isApplied={checkIsApplied(job)}
               onSave={toggleSaveJob}
               onApply={handleApplyClick}
+              onViewApplication={() => navigate('/candidate/applications')}
             />
           ))}
         </div>
+
       )}
 
       {/* External Application Tracking Confirmation Modal */}
