@@ -11,7 +11,10 @@ from app.models.interview import (
     Interview, InterviewType, InterviewStatus,
     MockInterview, MockInterviewQuestion, MockInterviewResponse
 )
-from app.models.aptitude import AptitudeScore
+from app.models.aptitude import (
+    AptitudeScore, AptitudeAssessment, AssessmentQuestion,
+    AssessmentLaunchCode, AssessmentAttempt, AssessmentAnswer
+)
 from app.models.coding import CodingProblem, TestCase, CandidateSubmission, CandidateCodingStats, ProblemDifficulty
 from app.models.evaluation import EvaluationWeight, CandidateScore, CandidateSkillEvaluation
 from app.models.market import JobMarketData, TechnologyTrend, TechnologyDailySnapshot, MarketForecast, DataSourceStatus, MarketCollectionRun
@@ -29,7 +32,8 @@ __all__ = [
     "Notification", "NotificationType",
     "Interview", "InterviewType", "InterviewStatus",
     "MockInterview", "MockInterviewQuestion", "MockInterviewResponse",
-    "AptitudeScore",
+    "AptitudeScore", "AptitudeAssessment", "AssessmentQuestion",
+    "AssessmentLaunchCode", "AssessmentAttempt", "AssessmentAnswer",
     "CodingProblem", "TestCase", "CandidateSubmission", "CandidateCodingStats", "ProblemDifficulty",
     "EvaluationWeight", "CandidateScore", "CandidateSkillEvaluation",
     "JobMarketData", "TechnologyTrend", "TechnologyDailySnapshot", "MarketForecast", "DataSourceStatus", "MarketCollectionRun",

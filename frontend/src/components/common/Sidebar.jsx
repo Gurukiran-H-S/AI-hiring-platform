@@ -49,6 +49,7 @@ export const Sidebar = ({ role }) => {
     { to: '/recruiter/post-job', label: 'Post Job', icon: icons.plus, color: 'text-emerald-600', activeBg: 'bg-emerald-50 text-emerald-700 font-bold border-l-4 border-emerald-600' },
     { to: '/recruiter/jobs', label: 'Manage Jobs', icon: icons.briefcase, color: 'text-indigo-600', activeBg: 'bg-indigo-50 text-indigo-700 font-bold border-l-4 border-indigo-600' },
     { to: '/recruiter/candidates', label: 'Search Candidates', icon: icons.search, color: 'text-purple-600', activeBg: 'bg-purple-50 text-purple-700 font-bold border-l-4 border-purple-600' },
+    { to: '/recruiter/aptitude', label: 'Aptitude Builder', icon: icons.assessment, color: 'text-teal-600', activeBg: 'bg-teal-50 text-teal-700 font-bold border-l-4 border-teal-600' },
     { to: '/recruiter/rankings', label: 'Rankings & Coding', icon: icons.trophy, color: 'text-amber-600', activeBg: 'bg-amber-50 text-amber-700 font-bold border-l-4 border-amber-600' },
     { to: '/recruiter/market-intelligence', label: 'Market Intelligence', icon: icons.market, color: 'text-indigo-600', activeBg: 'bg-indigo-50 text-indigo-700 font-bold border-l-4 border-indigo-600' },
     { to: '/recruiter/interviews', label: 'Interviews', icon: icons.calendar, color: 'text-rose-600', activeBg: 'bg-rose-50 text-rose-700 font-bold border-l-4 border-rose-600' },

@@ -12,7 +12,7 @@ class NormalizedJob(BaseModel):
     id: str
     title: str
     company: str
-    location: str
+    location: Optional[str] = "Remote"
     description: str
     skills: List[str]
     salary: Optional[str] = "Competitive"

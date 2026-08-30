@@ -10,6 +10,7 @@ import { CandidateSearch } from './CandidateSearch'
 import { CandidateRankings } from './CandidateRankings'
 import { InterviewScheduler } from './InterviewScheduler'
 import { MarketIntelligence } from '../candidate/MarketIntelligence'
+import { AptitudeAssessmentBuilder } from './AptitudeAssessmentBuilder'
 
 const pipelineSteps = [
   { label: 'Applied', cls: 'badge-blue' },
@@ -295,6 +296,8 @@ export const RecruiterDashboard = () => {
               <Route path="/jobs/create" element={<PostJob />} />
               <Route path="/jobs" element={<ManageJobs />} />
               <Route path="/candidates" element={<CandidateSearch />} />
+              <Route path="/aptitude" element={<AptitudeAssessmentBuilder />} />
+              <Route path="/assessments" element={<AptitudeAssessmentBuilder />} />
               <Route path="/rankings" element={<CandidateRankings />} />
               <Route path="/interviews" element={<InterviewScheduler />} />
               <Route path="/market-intelligence" element={<MarketIntelligence />} />
