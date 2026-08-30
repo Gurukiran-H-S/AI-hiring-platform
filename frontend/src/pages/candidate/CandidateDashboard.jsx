@@ -16,6 +16,8 @@ import { SkillArena } from './SkillArena'
 
 const DashboardHome = ({ stats, loading }) => {
   const [trends, setTrends] = useState(null)
+  const [jobAssessments, setJobAssessments] = useState([])
+  const [loadingAssessments, setLoadingAssessments] = useState(true)
   const { user } = useAuth()
 
   useEffect(() => {
@@ -28,8 +30,24 @@ const DashboardHome = ({ stats, loading }) => {
         setTrends({ high_demand_skills: [], emerging_roles: [] })
       }
     }
+
+    const fetchAssessments = async () => {
+      try {
+        const { data } = await api.get('/candidate/aptitude-assessments')
+        setJobAssessments(Array.isArray(data) ? data : [])
+      } catch (err) {
+        console.error('Could not load candidate assessments:', err)
+      } finally {
+        setLoadingAssessments(false)
+      }
+    }
+
     fetchTrends()
+    fetchAssessments()
   }, [])
+
+  const pendingAssessments = jobAssessments.filter(a => !a.is_completed)
+  const completedAssessments = jobAssessments.filter(a => a.is_completed)
 
   const s = stats?.summary || {}
   const atsScore = Math.round(s.average_ats_score || 0)
@@ -59,7 +77,7 @@ const DashboardHome = ({ stats, loading }) => {
               <span className="text-xs font-semibold uppercase tracking-wider text-blue-700 bg-blue-100/70 px-2.5 py-0.5 rounded-full">
                 Candidate Dashboard
               </span>
-              <span className="text-xs text-slate-500 font-medium">Â· {todayFormatted}</span>
+              <span className="text-xs text-slate-500 font-medium">· {todayFormatted}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               {greeting}, {user?.full_name?.split(' ')[0] || 'Candidate'} 👋
@@ -79,6 +97,94 @@ const DashboardHome = ({ stats, loading }) => {
           </div>
         </div>
       </div>
+
+      {/* ─── MANDATORY RECRUITER JOB ASSESSMENTS PANEL (Visible until submitted) ─── */}
+      {pendingAssessments.length > 0 && (
+        <div className="card bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border-2 border-amber-400 p-6 rounded-2xl space-y-4 shadow-sm animate-fadeIn">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200/80 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl font-bold shrink-0 shadow-xs animate-pulse">
+                ⚡
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-amber-950">
+                    Mandatory Job Assessments Pending ({pendingAssessments.length})
+                  </h2>
+                  <span className="badge badge-amber text-[10px] font-extrabold px-2 py-0.5">
+                    Action Required
+                  </span>
+                </div>
+                <p className="text-xs text-amber-900/80 mt-0.5">
+                  Recruiters require you to complete these examinations to qualify for technical shortlisting and interview rounds.
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/candidate/skill-arena/aptitude"
+              className="text-xs font-bold text-amber-800 hover:text-amber-950 underline self-start sm:self-auto"
+            >
+              View Assessment Arena →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+            {pendingAssessments.map((ass) => (
+              <div
+                key={ass.id}
+                className="bg-white border border-amber-200/90 rounded-xl p-4.5 shadow-xs flex flex-col justify-between space-y-3 hover:border-amber-400 transition-all"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-[10.5px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                        {ass.company}
+                      </span>
+                      <h3 className="font-bold text-sm text-slate-900 mt-1.5">
+                        {ass.job_title} • {ass.title}
+                      </h3>
+                    </div>
+                    {ass.has_active_attempt ? (
+                      <span className="badge-rose text-[10px] font-extrabold shrink-0 animate-pulse">
+                        ⚡ Exam In Progress
+                      </span>
+                    ) : (
+                      <span className="badge-amber text-[10px] font-extrabold shrink-0">
+                        ⏳ Pending Exam
+                      </span>
+                    )}
+                  </div>
+
+                  {ass.description && (
+                    <p className="text-xs text-slate-600 mt-2 line-clamp-2 leading-relaxed">
+                      {ass.description}
+                    </p>
+                  )}
+
+                  {/* Assessment Meta Badges */}
+                  <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600 mt-3 pt-2 border-t border-slate-100">
+                    <span className="bg-slate-100 px-2 py-0.5 rounded-md text-slate-700">⏱ {ass.duration_minutes} Mins</span>
+                    <span className="bg-slate-100 px-2 py-0.5 rounded-md text-slate-700">❓ {ass.total_questions} Questions</span>
+                    <span className="bg-slate-100 px-2 py-0.5 rounded-md text-slate-700">🎯 Passing: {ass.passing_score}%</span>
+                    {ass.negative_marking && (
+                      <span className="bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-md">⚠️ Negative Marking</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Link
+                    to="/candidate/skill-arena/aptitude"
+                    className="btn-primary w-full text-xs font-bold flex items-center justify-center gap-1.5 py-2 shadow-sm"
+                  >
+                    <span>🚀</span> {ass.has_active_attempt ? 'Resume Active Exam' : 'Enter Waiting Room & Launch Exam'} →
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Low ATS Score Warning Alert Banner (Below 60%) */}
       {atsScore > 0 && atsScore < 60 && (
@@ -107,6 +213,7 @@ const DashboardHome = ({ stats, loading }) => {
           </Link>
         </div>
       )}
+
 
       {/* 4 Differentiated High-Contrast KPI Stat Cards */}
       <div>
