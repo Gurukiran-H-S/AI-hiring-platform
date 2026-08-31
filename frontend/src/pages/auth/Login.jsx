@@ -63,12 +63,12 @@ export const Login = () => {
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <img
-                  src="/logo.svg"
-                  alt="HireAI Logo"
-                  className="w-11 h-auto object-contain shrink-0"
+                  src="/logo-mark.png"
+                  alt="AI Hiring Logo"
+                  className="w-12 h-auto object-contain shrink-0"
                 />
                 <div>
-                  <p className="font-extrabold text-lg text-[#172B4D] leading-tight font-display">HireAI</p>
+                  <p className="font-extrabold text-lg text-[#172B4D] leading-tight font-display"><span className="text-[#0A66C2]">AI</span> Hiring</p>
                   <p className="text-[11px] text-[#5E6C84]">AI-Powered Hiring &amp; Candidate Evaluation Platform</p>
                 </div>
               </div>
@@ -116,8 +116,8 @@ export const Login = () => {
               <div className="flex items-center justify-center lg:justify-start mb-3">
                 <img
                   src="/logo.png"
-                  alt="HireAI Logo"
-                  className="w-16 h-auto object-contain"
+                  alt="AI Hiring Logo"
+                  className="w-32 h-auto object-contain"
                 />
               </div>
               <h2 className="page-title">Welcome Back!</h2>

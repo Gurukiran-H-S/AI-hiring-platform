@@ -15,16 +15,16 @@ export const Landing = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 shrink-0 group">
             <img
-              src="/logo.png"
-              alt="HireAI Logo"
-              className="h-9 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
+              src="/logo-mark.png"
+              alt="AI Hiring Logo"
+              className="h-10 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
             />
             <div>
               <span className="font-extrabold text-xl text-[#172B4D] tracking-tight font-display flex items-center gap-1">
-                Hire<span className="text-[#0A66C2]">AI</span>
+                <span className="text-[#0A66C2]">AI</span> Hiring
               </span>
               <span className="text-[10px] text-[#5E6C84] font-medium tracking-wide block -mt-1">
-                Talent &amp; Opportunity
+                Candidate Evaluation Platform
               </span>
             </div>
           </Link>
@@ -597,12 +597,12 @@ export const Landing = () => {
           <div className="space-y-3">
             <div className="flex items-center gap-2.5">
               <img
-                src="/logo.png"
-                alt="HireAI Logo"
+                src="/logo-mark.png"
+                alt="AI Hiring Logo"
                 className="h-8 w-auto object-contain shrink-0"
               />
               <span className="font-extrabold text-base text-[#172B4D] font-display">
-                Hire<span className="text-[#0A66C2]">AI</span>
+                <span className="text-[#0A66C2]">AI</span> Hiring
               </span>
             </div>
             <p className="text-[11.5px] leading-relaxed text-[#5E6C84]">

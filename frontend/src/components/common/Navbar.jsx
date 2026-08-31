@@ -18,14 +18,14 @@ export const Navbar = () => {
         <div className="flex items-center gap-3 shrink-0">
           <Link to="/" className="flex items-center gap-2.5 group">
             <img
-              src="/logo.png"
-              alt="HireAI Logo"
-              className="w-10 h-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
+              src="/logo-mark.png"
+              alt="AI Hiring Logo"
+              className="h-10 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
             />
             <div className="leading-tight">
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-[18px] text-slate-900 tracking-tight font-display group-hover:text-[#0A66C2] transition-colors">
-                  HireAI
+                  <span className="text-[#0A66C2]">AI</span> Hiring
                 </span>
                 {isRecruiter && (
                   <span className="badge-purple font-extrabold text-[10.5px] px-2 py-0.5 hidden sm:inline-flex">

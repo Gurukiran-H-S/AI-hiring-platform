@@ -7,12 +7,12 @@ export const Footer = () => {
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           <div className="flex items-center gap-2.5">
             <img
-              src="/logo.png"
-              alt="HireAI Logo"
+              src="/logo-mark.png"
+              alt="AI Hiring Logo"
               className="h-8 w-auto object-contain shrink-0"
             />
             <span className="font-display font-extrabold text-base text-ink">
-              HireAI
+              <span className="text-[#0A66C2]">AI</span> Hiring
             </span>
           </div>
           <p className="text-ink-3 text-[11px] leading-relaxed">

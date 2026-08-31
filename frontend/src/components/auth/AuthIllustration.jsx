@@ -12,8 +12,8 @@ export const AuthIllustration = ({ title, subtitle }) => {
           {/* AI Mascot Tile */}
           <div className="w-28 h-28 rounded-3xl bg-brand-light border border-line shadow-sm flex items-center justify-center p-3">
             <img
-              src="/logo.svg"
-              alt="HireAI Logo"
+              src="/logo-mark.png"
+              alt="AI Hiring Logo"
               className="w-20 h-auto object-contain"
             />
           </div>
@@ -38,7 +38,7 @@ export const AuthIllustration = ({ title, subtitle }) => {
         {/* Branding & Subtitle */}
         <div className="space-y-2 pt-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-brand-light border border-line text-brand text-xs font-semibold">
-            <span>✨</span> HireAI Unified Platform
+            <span>✨</span> AI Hiring Platform
           </div>
           <h2 className="text-3xl font-extrabold font-display text-ink">
             {title || 'AI-Powered Recruitment'}
