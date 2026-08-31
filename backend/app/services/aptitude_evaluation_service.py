@@ -300,6 +300,49 @@ def verify_assessment_password(assessment: AptitudeAssessment, plain_password: s
     return verify_password(plain_password.strip(), assessment.password_hash)
 
 
+def delete_aptitude_assessment(
+    db: Session,
+    assessment: AptitudeAssessment,
+    force: bool = False
+) -> None:
+    """
+    Safely delete an aptitude assessment, its questions, and launch codes.
+    If completed candidate submissions exist and force is False, raises ValueError.
+    """
+    completed_attempts = (
+        db.query(AssessmentAttempt)
+        .filter(
+            AssessmentAttempt.assessment_id == assessment.id,
+            AssessmentAttempt.status.in_(["SUBMITTED", "AUTO_SUBMITTED"])
+        )
+        .count()
+    )
+    if completed_attempts > 0 and not force:
+        raise ValueError(
+            f"Cannot delete assessment '{assessment.title}' because {completed_attempts} candidate submission(s) exist. Archive the job instead."
+        )
+
+    # Clear any Job.assessment_id references
+    db.query(Job).filter(Job.assessment_id == assessment.id).update({"assessment_id": None}, synchronize_session=False)
+
+    # Delete answers and attempts
+    attempt_ids = [a.id for a in assessment.attempts]
+    if attempt_ids:
+        db.query(AssessmentAnswer).filter(AssessmentAnswer.attempt_id.in_(attempt_ids)).delete(synchronize_session=False)
+        db.query(AptitudeScore).filter(AptitudeScore.attempt_id.in_(attempt_ids)).delete(synchronize_session=False)
+        db.query(AssessmentAttempt).filter(AssessmentAttempt.id.in_(attempt_ids)).delete(synchronize_session=False)
+
+    # Delete launch codes
+    db.query(AssessmentLaunchCode).filter(AssessmentLaunchCode.assessment_id == assessment.id).delete(synchronize_session=False)
+
+    # Delete questions
+    db.query(AssessmentQuestion).filter(AssessmentQuestion.assessment_id == assessment.id).delete(synchronize_session=False)
+
+    # Delete assessment
+    db.delete(assessment)
+    db.commit()
+
+
 def generate_launch_code(
     db: Session,
     assessment: AptitudeAssessment,

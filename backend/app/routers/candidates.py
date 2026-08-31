@@ -441,8 +441,8 @@ def get_candidate_360_profile(
 ):
     """Retrieve full Candidate 360° evaluation profile with exact database records."""
     from app.models.user import UserRole
-    from app.core.security import decode_access_token
-    from app.models.aptitude import CandidateAssessmentAttempt
+    from app.utils.jwt_handler import decode_token
+    from app.models.aptitude import AssessmentAttempt
     import uuid
 
     cand = None
@@ -452,7 +452,7 @@ def get_candidate_360_profile(
     if candidate_id in ("me", "my-profile", "current", "verified", "undefined", "null") and authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ")[1]
         try:
-            payload = decode_access_token(token)
+            payload = decode_token(token)
             user_id = payload.get("sub")
             if user_id:
                 cand = db.query(User).filter(User.id == uuid.UUID(str(user_id))).first()
@@ -508,9 +508,9 @@ def get_candidate_360_profile(
 
     coding_stats = sync_candidate_coding_stats(db, cand.id)
 
-    attempts = db.query(CandidateAssessmentAttempt).filter(
-        CandidateAssessmentAttempt.candidate_id == cand.id,
-        CandidateAssessmentAttempt.is_submitted == True
+    attempts = db.query(AssessmentAttempt).filter(
+        AssessmentAttempt.candidate_id == cand.id,
+        AssessmentAttempt.is_submitted == True
     ).all()
     avg_aptitude = round(sum(a.score or 0 for a in attempts) / max(1, len(attempts)), 1) if attempts else None
 

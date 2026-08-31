@@ -170,24 +170,41 @@ async def get_recruiter_jobs(
     current_user: User = Depends(get_current_recruiter),
     db: Session = Depends(get_db),
 ):
-    """Get all jobs posted by the logged-in recruiter (or all active workspace jobs)."""
+    """Get all jobs posted by the logged-in recruiter."""
     jobs = db.query(Job).filter(Job.recruiter_id == current_user.id).order_by(Job.created_at.desc()).all()
-    if not jobs:
-        jobs = db.query(Job).order_by(Job.created_at.desc()).all()
 
-    return [
-        {
+    results = []
+    for j in jobs:
+        app_count = db.query(Application).filter(Application.job_id == j.id).count()
+        short_count = db.query(Application).filter(
+            Application.job_id == j.id,
+            (Application.is_shortlisted == True) | (Application.status.in_([
+                ApplicationStatus.SHORTLISTED, ApplicationStatus.INTERVIEW_SCHEDULED,
+                ApplicationStatus.OFFERED, ApplicationStatus.HIRED
+            ]))
+        ).count()
+        iv_count = db.query(Interview).filter(
+            Interview.job_id == j.id,
+            Interview.status != InterviewStatus.CANCELLED
+        ).count()
+
+        results.append({
             "id": str(j.id),
             "title": j.title,
             "company": j.company,
             "location": j.location,
+            "job_type": j.job_type.value if hasattr(j.job_type, 'value') else str(j.job_type or "Full-time"),
+            "is_remote": bool(j.is_remote),
             "status": j.status.value if hasattr(j.status, 'value') else j.status,
             "required_skills": j.required_skills,
-            "created_at": j.created_at.isoformat(),
-            "applicant_count": db.query(Application).filter(Application.job_id == j.id).count(),
-        }
-        for j in jobs
-    ]
+            "created_at": j.created_at.isoformat() if j.created_at else None,
+            "applicant_count": app_count,
+            "applications_count": app_count,
+            "shortlisted_count": short_count,
+            "interviews_count": iv_count,
+        })
+
+    return results
 
 
 @router.put("/jobs/{job_id}/status")
@@ -262,9 +279,9 @@ async def get_job_weights(
     db: Session = Depends(get_db),
 ):
     """Get evaluation weights (percent) for a specific job."""
-    job = db.query(Job).filter(Job.id == job_id).first()
+    job = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == current_user.id).first()
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found.")
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
     return evaluation_engine.get_job_weights_percent(db, job_id)
 
 
@@ -333,9 +350,9 @@ async def recalculate_job_ranking(
     db: Session = Depends(get_db),
 ):
     """Full ranking pipeline: validate -> evaluate -> rank -> persist -> summarize."""
-    job = db.query(Job).filter(Job.id == job_id).first()
+    job = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == current_user.id).first()
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found.")
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
 
     weights = evaluation_engine._load_raw_weights(db, job_id)
     if 0 < sum(weights.values()) <= 1.001:
@@ -387,9 +404,9 @@ async def get_job_analytics_summary(
     db: Session = Depends(get_db),
 ):
     """Retrieve job-specific analytics for CandidateRankings analytics panel."""
-    job = db.query(Job).filter(Job.id == job_id).first()
+    job = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == current_user.id).first()
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found.")
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
 
     apps = db.query(Application).filter(Application.job_id == job_id).all()
     total_apps = len(apps)
@@ -446,9 +463,9 @@ async def get_score_breakdown(
     db: Session = Depends(get_db),
 ):
     """Explain Score: component scores x weights = contributions -> final."""
-    job = db.query(Job).filter(Job.id == job_id).first()
+    job = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == current_user.id).first()
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found.")
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
     app_row = db.query(Application).filter(
         Application.job_id == job_id, Application.candidate_id == candidate_id
     ).first()
@@ -624,9 +641,9 @@ async def get_candidate_detail_profile(
     db: Session = Depends(get_db),
 ):
     """360-degree Candidate Profile details for recruiters."""
-    job = db.query(Job).filter(Job.id == job_id).first()
+    job = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == current_user.id).first()
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
 
     cand = db.query(User).filter(User.id == candidate_id).first()
     if not cand:
@@ -708,9 +725,9 @@ async def compare_candidates(
     db: Session = Depends(get_db),
 ):
     """Side-by-side comparison of candidate scores and skill profiles."""
-    job = db.query(Job).filter(Job.id == job_id).first()
+    job = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == current_user.id).first()
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found.")
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
 
     results = []
     for cid in req.candidate_ids:
@@ -791,12 +808,15 @@ async def shortlist_candidate(
     db: Session = Depends(get_db),
 ):
     """Shortlist a candidate for a job and dispatch real-time candidate notification."""
+    job = db.query(Job).filter(Job.id == req.job_id, Job.recruiter_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
+
     app = db.query(Application).filter(
         Application.candidate_id == req.candidate_id,
         Application.job_id == req.job_id
     ).first()
 
-    job = db.query(Job).filter(Job.id == req.job_id).first()
     job_title = job.title if job else "Applied Position"
 
     if not app:
@@ -836,9 +856,11 @@ async def send_offer_letter(
     """Generate and dispatch an official offer letter to a candidate."""
     from app.models.application import OfferLetter
 
-    job = db.query(Job).filter(Job.id == req.job_id).first()
-    candidate = db.query(User).filter(User.id == req.candidate_id).first()
+    job = db.query(Job).filter(Job.id == req.job_id, Job.recruiter_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
 
+    candidate = db.query(User).filter(User.id == req.candidate_id).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found.")
 
@@ -937,6 +959,10 @@ async def reject_candidate(
     db: Session = Depends(get_db),
 ):
     """Reject a candidate with reason."""
+    job = db.query(Job).filter(Job.id == req.job_id, Job.recruiter_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
+
     app = db.query(Application).filter(
         Application.candidate_id == req.candidate_id,
         Application.job_id == req.job_id
@@ -966,6 +992,10 @@ async def schedule_interview(
     db: Session = Depends(get_db),
 ):
     """Schedule interview with application association."""
+    job = db.query(Job).filter(Job.id == req.job_id, Job.recruiter_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
+
     try:
         itype = InterviewType(req.interview_type)
     except ValueError:
@@ -1025,9 +1055,9 @@ async def get_matched_candidates_for_job(
     current_user: User = Depends(get_current_recruiter),
 ):
     """Retrieve ranked matched candidate list for a specific job."""
-    job = db.query(Job).filter(Job.id == job_id).first()
+    job = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == current_user.id).first()
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
 
     resumes = db.query(Resume).filter(Resume.is_parsed == True).all()
     results = []
@@ -1129,21 +1159,17 @@ async def get_recruiter_candidates_list(
     current_user: User = Depends(get_current_recruiter),
 ):
     """Retrieve ONLY candidates who have applied for jobs posted by this recruiter."""
-    # 1. Fetch jobs posted by this recruiter
+    # 1. Fetch jobs posted strictly by this authenticated recruiter
     if job_id:
         jobs = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == current_user.id).all()
-        if not jobs:
-            jobs = db.query(Job).filter(Job.id == job_id).all()
     else:
         jobs = db.query(Job).filter(Job.recruiter_id == current_user.id).all()
-        if not jobs:
-            jobs = db.query(Job).filter(Job.status == JobStatus.ACTIVE).all()
 
     job_ids = [j.id for j in jobs]
     if not job_ids:
         return []
 
-    # 2. Fetch applications specifically for these jobs
+    # 2. Fetch applications specifically for this recruiter's jobs
     applications = (
         db.query(Application)
         .filter(Application.job_id.in_(job_ids))
@@ -1168,7 +1194,9 @@ async def get_recruiter_candidates_list(
 
         job_obj = next((j for j in jobs if j.id == app.job_id), None)
         if not job_obj:
-            job_obj = db.query(Job).filter(Job.id == app.job_id).first()
+            job_obj = db.query(Job).filter(Job.id == app.job_id, Job.recruiter_id == current_user.id).first()
+        if not job_obj:
+            continue
 
         resume = None
         if app.resume_id:
@@ -1247,10 +1275,8 @@ async def get_recruiter_dashboard_analytics(
     current_user: User = Depends(get_current_recruiter),
     db: Session = Depends(get_db),
 ):
-    """Retrieve recruiter dashboard analytics summary."""
+    """Retrieve recruiter dashboard analytics summary scoped strictly to logged-in recruiter."""
     jobs = db.query(Job).filter(Job.recruiter_id == current_user.id).all()
-    if not jobs:
-        jobs = db.query(Job).filter(Job.status == JobStatus.ACTIVE).all()
     job_ids = [j.id for j in jobs]
     
     active_jobs = sum(1 for j in jobs if j.status == JobStatus.ACTIVE)
@@ -1269,7 +1295,7 @@ async def get_recruiter_dashboard_analytics(
     )
         
     interviews = db.query(Interview).filter(
-        (Interview.recruiter_id == current_user.id) | (Interview.job_id.in_(job_ids) if job_ids else False),
+        Interview.recruiter_id == current_user.id,
         Interview.status != InterviewStatus.CANCELLED
     ).count()
 

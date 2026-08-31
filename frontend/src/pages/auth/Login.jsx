@@ -62,9 +62,11 @@ export const Login = () => {
           <div className="hidden lg:flex flex-col justify-between bg-gradient-to-br from-[#EAF3FF]/90 via-[#F7F9FC] to-white border-r border-[#E1E5EB] p-8 relative overflow-hidden">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0A66C2] via-indigo-600 to-purple-600 flex items-center justify-center text-white font-extrabold text-base shadow-sm">
-                  ✨
-                </div>
+                <img
+                  src="/logo.svg"
+                  alt="HireAI Logo"
+                  className="w-11 h-auto object-contain shrink-0"
+                />
                 <div>
                   <p className="font-extrabold text-lg text-[#172B4D] leading-tight font-display">HireAI</p>
                   <p className="text-[11px] text-[#5E6C84]">AI-Powered Hiring &amp; Candidate Evaluation Platform</p>
@@ -110,7 +112,14 @@ export const Login = () => {
 
           {/* RIGHT PANEL: Login Form */}
           <div className="p-8 md:p-10 space-y-6">
-            <div>
+            <div className="space-y-2">
+              <div className="flex lg:hidden items-center justify-center mb-2">
+                <img
+                  src="/logo.svg"
+                  alt="HireAI Logo"
+                  className="w-14 h-auto object-contain"
+                />
+              </div>
               <h2 className="page-title">Welcome Back</h2>
               <p className="text-sm text-ink-2 mt-1">
                 Access candidate analytics, recruiter job management, or system governance.

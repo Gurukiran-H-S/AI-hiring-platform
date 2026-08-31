@@ -8,7 +8,7 @@ from sqlalchemy import func
 
 from app.database import get_db
 from app.models.user import User, UserRole
-from app.models.job import Job
+from app.models.job import Job, JobStatus
 from app.models.application import Application
 from app.models.aptitude import (
     AptitudeScore, AptitudeAssessment, AssessmentQuestion,
@@ -148,6 +148,48 @@ def create_job_aptitude_assessment(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/api/recruiter/aptitude-assessments")
+def list_all_recruiter_aptitude_assessments(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_recruiter)
+):
+    """List all aptitude assessments configured across all jobs by the authenticated recruiter."""
+    assessments = (
+        db.query(AptitudeAssessment)
+        .filter(AptitudeAssessment.recruiter_id == current_user.id)
+        .order_by(AptitudeAssessment.created_at.desc())
+        .all()
+    )
+
+    results = []
+    for a in assessments:
+        job = db.query(Job).filter(Job.id == a.job_id).first()
+        attempts_count = db.query(AssessmentAttempt).filter(AssessmentAttempt.assessment_id == a.id).count()
+        completed_count = db.query(AssessmentAttempt).filter(
+            AssessmentAttempt.assessment_id == a.id,
+            AssessmentAttempt.status.in_(["SUBMITTED", "AUTO_SUBMITTED"])
+        ).count()
+        results.append({
+            "id": str(a.id),
+            "job_id": str(a.job_id),
+            "job_title": job.title if job else "Job Position",
+            "title": a.title,
+            "status": a.status,
+            "duration_minutes": round(a.duration_seconds / 60),
+            "total_marks": a.total_marks,
+            "total_questions": len(a.questions),
+            "passing_score": a.passing_score,
+            "negative_marking": a.negative_marking,
+            "start_time": a.start_time.isoformat() if a.start_time else None,
+            "end_time": a.end_time.isoformat() if a.end_time else None,
+            "total_attempts": attempts_count,
+            "completed_attempts": completed_count,
+            "created_at": a.created_at.isoformat()
+        })
+
+    return results
+
+
 @router.get("/api/recruiter/jobs/{job_id}/aptitude-assessments")
 def list_job_aptitude_assessments(
     job_id: UUID,
@@ -191,6 +233,34 @@ def list_job_aptitude_assessments(
         })
 
     return results
+
+
+@router.delete("/api/recruiter/aptitude-assessments/{assessment_id}", status_code=status.HTTP_200_OK)
+def delete_recruiter_aptitude_assessment(
+    assessment_id: UUID,
+    password: Optional[str] = Query(None),
+    force: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_recruiter)
+):
+    """Delete an aptitude assessment belonging to the recruiter."""
+    assessment = (
+        db.query(AptitudeAssessment)
+        .filter(AptitudeAssessment.id == assessment_id, AptitudeAssessment.recruiter_id == current_user.id)
+        .first()
+    )
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found or unauthorized.")
+
+    if password:
+        if not service.verify_assessment_password(assessment, password):
+            raise HTTPException(status_code=401, detail="Incorrect assessment security password.")
+
+    try:
+        service.delete_aptitude_assessment(db, assessment, force=force)
+        return {"message": f"Assessment '{assessment.title}' deleted successfully.", "id": str(assessment_id)}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/api/recruiter/aptitude-assessments/{assessment_id}")
@@ -448,16 +518,20 @@ def list_candidate_available_assessments(
     applied_titles = {app.job.title.lower().strip() for app in applications if app.job and app.job.title}
     app_map = {app.job_id: app for app in applications if app.job_id}
 
-    # Fetch all assessments across candidate's applied jobs and all active jobs
+    # Fetch all published/active assessments across candidate's applied jobs and all active jobs
     all_active_jobs = db.query(Job).filter(Job.status == JobStatus.ACTIVE).all()
     all_job_ids = [j.id for j in all_active_jobs]
 
+    candidate_job_ids = list(all_job_ids) + list(applied_job_ids)
     assessments = (
         db.query(AptitudeAssessment)
-        .filter(AptitudeAssessment.job_id.in_(all_job_ids + list(applied_job_ids)))
+        .filter(
+            AptitudeAssessment.job_id.in_(candidate_job_ids),
+            AptitudeAssessment.status.in_(["PUBLISHED", "ACTIVE"])
+        )
         .order_by(AptitudeAssessment.created_at.desc())
         .all()
-    ) if (all_job_ids or applied_job_ids) else []
+    ) if candidate_job_ids else []
 
     results = []
     seen_ids = set()

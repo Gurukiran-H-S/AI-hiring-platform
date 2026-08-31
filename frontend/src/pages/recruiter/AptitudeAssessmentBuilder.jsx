@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
@@ -51,7 +52,7 @@ export const AptitudeAssessmentBuilder = () => {
   const [passwordModal, setPasswordModal] = useState({
     open: false,
     assessmentId: null,
-    action: null, // 'publish', 'regenerate_code', 'results'
+    action: null, // 'publish', 'regenerate_code', 'delete'
     password: '',
     loading: false
   })
@@ -121,6 +122,8 @@ export const AptitudeAssessmentBuilder = () => {
   useEffect(() => {
     if (selectedJob?.id) {
       fetchAssessments(selectedJob.id)
+    } else {
+      setAssessments([])
     }
   }, [selectedJob])
 
@@ -155,6 +158,10 @@ export const AptitudeAssessmentBuilder = () => {
 
   // Handle Create Assessment Submit
   const handleCreateAssessment = async () => {
+    if (!selectedJob) {
+      toast.error('Please select an active job first')
+      return
+    }
     if (!formData.title.trim()) {
       toast.error('Please enter an assessment title')
       return
@@ -232,7 +239,7 @@ export const AptitudeAssessmentBuilder = () => {
     }
   }
 
-  // Handle Password Verification Actions (Publish, Regenerate Code)
+  // Handle Password Verification Actions (Publish, Regenerate Code, Delete)
   const handleVerifyPasswordAction = async () => {
     if (!passwordModal.password) {
       toast.error('Please enter the assessment security password')
@@ -253,6 +260,13 @@ export const AptitudeAssessmentBuilder = () => {
           password: passwordModal.password
         })
         toast.success(`New Launch Code Generated: ${data.launch_code}`)
+        setPasswordModal({ open: false, assessmentId: null, action: null, password: '', loading: false })
+        fetchAssessments(selectedJob.id)
+      } else if (passwordModal.action === 'delete') {
+        await api.delete(`/recruiter/aptitude-assessments/${passwordModal.assessmentId}`, {
+          params: { password: passwordModal.password }
+        })
+        toast.success('Assessment deleted successfully')
         setPasswordModal({ open: false, assessmentId: null, action: null, password: '', loading: false })
         fetchAssessments(selectedJob.id)
       }
@@ -316,147 +330,178 @@ export const AptitudeAssessmentBuilder = () => {
         </div>
       </div>
 
-      {/* Job Selector Bar */}
-      <div className="card p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Select Job Posting:</span>
-          <select
-            value={selectedJob?.id || ''}
-            onChange={(e) => {
-              const j = jobs.find(job => job.id === e.target.value)
-              setSelectedJob(j)
-            }}
-            className="input text-xs font-bold text-slate-900 bg-slate-50 border-slate-300 py-1.5 px-3 rounded-lg"
-          >
-            {jobs.map(job => (
-              <option key={job.id} value={job.id}>
-                {job.title} ({job.company || 'Active'})
-              </option>
-            ))}
-          </select>
+      {/* Job Selector Bar or Zero Jobs Card */}
+      {jobs.length === 0 ? (
+        <div className="card py-12 text-center space-y-3 bg-white border border-slate-200 rounded-2xl">
+          <div className="text-4xl">💼</div>
+          <h3 className="text-base font-bold text-slate-800">No Job Postings Found</h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            You must post an active job listing before creating and scheduling aptitude assessments for candidates.
+          </p>
+          <Link to="/recruiter/jobs/create" className="btn-primary btn-sm text-xs font-bold inline-block">
+            + Post Your First Job
+          </Link>
         </div>
-
-        {selectedJob && (
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span>Job ID: <span className="font-mono text-slate-700">{selectedJob.id.slice(0, 8)}...</span></span>
-            <span>•</span>
-            <span className="badge badge-blue">{selectedJob.job_type || 'Full-time'}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Assessments List for Selected Job */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <h2 className="section-title !mb-0 text-lg font-extrabold text-slate-900 flex items-center gap-2">
-            <span>📋</span> Configured Assessments for {selectedJob?.title || 'Job'}
-          </h2>
-          <span className="text-xs text-slate-400 font-medium">
-            {assessments.length} assessment{assessments.length !== 1 ? 's' : ''} configured
-          </span>
-        </div>
-
-        {loadingAssessments ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="skeleton h-44 rounded-2xl"></div>
-            <div className="skeleton h-44 rounded-2xl"></div>
-          </div>
-        ) : assessments.length === 0 ? (
-          <div className="card py-12 text-center space-y-3">
-            <div className="text-4xl">📝</div>
-            <h3 className="text-base font-bold text-slate-800">No Aptitude Assessments Created Yet</h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              You haven't built an aptitude test for this job opening. Build your assessment using the curated question bank or manual questions.
-            </p>
-            <button
-              onClick={() => {
-                setFormData(prev => ({ ...prev, title: `${selectedJob?.title || ''} Aptitude Assessment` }))
-                setShowCreateModal(true)
-              }}
-              className="btn-primary btn-sm text-xs font-bold"
-            >
-              + Create Assessment for {selectedJob?.title}
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {assessments.map((a) => (
-              <div
-                key={a.id}
-                className="card border-2 border-slate-200 hover:border-teal-300 p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-xs hover:shadow-md transition-all group"
+      ) : (
+        <>
+          <div className="card p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Select Job Posting:</span>
+              <select
+                value={selectedJob?.id || ''}
+                onChange={(e) => {
+                  const j = jobs.find(job => job.id === e.target.value)
+                  setSelectedJob(j)
+                }}
+                className="input text-xs font-bold text-slate-900 bg-slate-50 border-slate-300 py-1.5 px-3 rounded-lg"
               >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className={`badge ${a.status === 'PUBLISHED' ? 'badge-emerald' : 'badge-amber'} font-bold text-[11px]`}>
-                      {a.status === 'PUBLISHED' ? '✓ PUBLISHED' : '✏️ DRAFT'}
-                    </span>
-                    <span className="text-xs font-mono text-slate-400">
-                      {a.total_questions} Questions
-                    </span>
-                  </div>
+                {jobs.map(job => (
+                  <option key={job.id} value={job.id}>
+                    {job.title} ({job.company || 'Active'})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                  <div>
-                    <h3 className="font-extrabold text-slate-900 text-base group-hover:text-teal-700 transition-colors">
-                      {a.title}
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Duration: <strong>{a.duration_minutes} mins</strong> · Total Marks: <strong>{a.total_marks}</strong>
-                    </p>
-                  </div>
-
-                  {/* Config details */}
-                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Passing Score</span>
-                      <span className="font-bold text-slate-800">{a.passing_score}%</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Negative Marking</span>
-                      <span className="font-bold text-rose-600">-{a.negative_marking} mark</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Candidates</span>
-                      <span className="font-bold text-slate-800">{a.completed_attempts} Completed</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Attempts</span>
-                      <span className="font-bold text-slate-800">{a.total_attempts}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
-                  {a.status === 'DRAFT' ? (
-                    <button
-                      onClick={() => setPasswordModal({ open: true, assessmentId: a.id, action: 'publish', password: '', loading: false })}
-                      className="btn-primary w-full py-2 text-xs font-bold !bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600"
-                    >
-                      🚀 Publish & Generate Launch Code
-                    </button>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleOpenResults(a.id)}
-                        className="btn-primary flex-1 py-2 text-xs font-bold !bg-blue-600 hover:!bg-blue-700"
-                      >
-                        📊 View Results & Rankings
-                      </button>
-                      <button
-                        onClick={() => setPasswordModal({ open: true, assessmentId: a.id, action: 'regenerate_code', password: '', loading: false })}
-                        className="btn-secondary py-2 px-3 text-xs font-bold"
-                        title="Regenerate Launch Code"
-                      >
-                        🔄 Code
-                      </button>
-                    </div>
-                  )}
-                </div>
+            {selectedJob && (
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span>Job ID: <span className="font-mono text-slate-700">{selectedJob.id.slice(0, 8)}...</span></span>
+                <span>•</span>
+                <span className="badge badge-blue">{selectedJob.job_type || 'Full-time'}</span>
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </div>
+
+          {/* Assessments List for Selected Job */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+              <h2 className="section-title !mb-0 text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                <span>📋</span> Configured Assessments for {selectedJob?.title || 'Job'}
+              </h2>
+              <span className="text-xs text-slate-400 font-medium">
+                {assessments.length} assessment{assessments.length !== 1 ? 's' : ''} configured
+              </span>
+            </div>
+
+            {loadingAssessments ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="skeleton h-44 rounded-2xl"></div>
+                <div className="skeleton h-44 rounded-2xl"></div>
+              </div>
+            ) : assessments.length === 0 ? (
+              <div className="card py-12 text-center space-y-3">
+                <div className="text-4xl">📝</div>
+                <h3 className="text-base font-bold text-slate-800">No Aptitude Assessments Created Yet</h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  You haven't built an aptitude test for this job opening. Build your assessment using the curated question bank or manual questions.
+                </p>
+                <button
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, title: `${selectedJob?.title || ''} Aptitude Assessment` }))
+                    setShowCreateModal(true)
+                  }}
+                  className="btn-primary btn-sm text-xs font-bold"
+                >
+                  + Create Assessment for {selectedJob?.title}
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {assessments.map((a) => (
+                  <div
+                    key={a.id}
+                    className="card border-2 border-slate-200 hover:border-teal-300 p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-xs hover:shadow-md transition-all group"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className={`badge ${a.status === 'PUBLISHED' ? 'badge-emerald' : 'badge-amber'} font-bold text-[11px]`}>
+                          {a.status === 'PUBLISHED' ? '✓ PUBLISHED' : '✏️ DRAFT'}
+                        </span>
+                        <span className="text-xs font-mono text-slate-400">
+                          {a.total_questions} Questions
+                        </span>
+                      </div>
+
+                      <div>
+                        <h3 className="font-extrabold text-slate-900 text-base group-hover:text-teal-700 transition-colors">
+                          {a.title}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Duration: <strong>{a.duration_minutes} mins</strong> · Total Marks: <strong>{a.total_marks}</strong>
+                        </p>
+                      </div>
+
+                      {/* Config details */}
+                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Passing Score</span>
+                          <span className="font-bold text-slate-800">{a.passing_score}%</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Negative Marking</span>
+                          <span className="font-bold text-rose-600">-{a.negative_marking} mark</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Candidates</span>
+                          <span className="font-bold text-slate-800">{a.completed_attempts} Completed</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Attempts</span>
+                          <span className="font-bold text-slate-800">{a.total_attempts}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+                      {a.status === 'DRAFT' ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setPasswordModal({ open: true, assessmentId: a.id, action: 'publish', password: '', loading: false })}
+                            className="btn-primary flex-1 py-2 text-xs font-bold !bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600"
+                          >
+                            🚀 Publish & Generate Code
+                          </button>
+                          <button
+                            onClick={() => setPasswordModal({ open: true, assessmentId: a.id, action: 'delete', password: '', loading: false })}
+                            className="btn-danger py-2 px-3 text-xs font-bold"
+                            title="Delete Assessment"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleOpenResults(a.id)}
+                            className="btn-primary flex-1 py-2 text-xs font-bold !bg-blue-600 hover:!bg-blue-700"
+                          >
+                            📊 Results
+                          </button>
+                          <button
+                            onClick={() => setPasswordModal({ open: true, assessmentId: a.id, action: 'regenerate_code', password: '', loading: false })}
+                            className="btn-secondary py-2 px-3 text-xs font-bold"
+                            title="Regenerate Launch Code"
+                          >
+                            🔄 Code
+                          </button>
+                          <button
+                            onClick={() => setPasswordModal({ open: true, assessmentId: a.id, action: 'delete', password: '', loading: false })}
+                            className="btn-danger py-2 px-3 text-xs font-bold"
+                            title="Delete Assessment"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* CREATE ASSESSMENT WIZARD MODAL */}
       {showCreateModal && (
@@ -889,7 +934,13 @@ export const AptitudeAssessmentBuilder = () => {
             </div>
 
             <p className="text-xs text-slate-600">
-              Please enter the security password configured for this assessment to {passwordModal.action === 'publish' ? 'publish and generate candidate Launch Codes' : 'regenerate a new Launch Code'}.
+              Please enter the security password configured for this assessment to {
+                passwordModal.action === 'publish'
+                  ? 'publish and generate candidate Launch Codes'
+                  : passwordModal.action === 'delete'
+                  ? 'permanently delete this assessment'
+                  : 'regenerate a new Launch Code'
+              }.
             </p>
 
             <div>
@@ -917,9 +968,13 @@ export const AptitudeAssessmentBuilder = () => {
                 type="button"
                 disabled={passwordModal.loading}
                 onClick={handleVerifyPasswordAction}
-                className="btn-primary text-xs font-bold !bg-teal-600 hover:!bg-teal-700"
+                className={`btn-primary text-xs font-bold ${
+                  passwordModal.action === 'delete'
+                    ? '!bg-rose-600 hover:!bg-rose-700 !border-rose-600'
+                    : '!bg-teal-600 hover:!bg-teal-700'
+                }`}
               >
-                {passwordModal.loading ? 'Verifying...' : 'Verify & Continue'}
+                {passwordModal.loading ? 'Verifying...' : passwordModal.action === 'delete' ? 'Delete Assessment' : 'Verify & Continue'}
               </button>
             </div>
           </div>

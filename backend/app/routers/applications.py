@@ -304,6 +304,14 @@ async def update_application_status(
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
+    if current_user.role == UserRole.CANDIDATE:
+        if str(app.candidate_id) != str(current_user.id):
+            raise HTTPException(status_code=403, detail="Not authorized to update this application.")
+    elif current_user.role == UserRole.RECRUITER:
+        job = db.query(Job).filter(Job.id == app.job_id, Job.recruiter_id == current_user.id).first()
+        if not job:
+            raise HTTPException(status_code=403, detail="Not authorized to update an application for another recruiter's job.")
+
     try:
         new_status = ApplicationStatus(req.status.lower())
         app.status = new_status
@@ -331,6 +339,10 @@ async def delete_application(
 
     if current_user.role == UserRole.CANDIDATE and str(app.candidate_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to delete this application")
+    elif current_user.role == UserRole.RECRUITER:
+        job = db.query(Job).filter(Job.id == app.job_id, Job.recruiter_id == current_user.id).first()
+        if not job:
+            raise HTTPException(status_code=403, detail="Not authorized to delete an application for another recruiter's job.")
 
     try:
         from app.models.interview import Interview

@@ -113,12 +113,11 @@ export const Register = () => {
       {/* Top Header Bar */}
       <header className="px-6 py-4 border-b border-[#E1E5EB] bg-white/95 backdrop-blur-md flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-xl bg-[#0A66C2] text-white flex items-center justify-center font-extrabold text-sm shadow-xs group-hover:bg-[#004182] transition-colors">
-            <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="9" cy="7" r="4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
+          <img
+            src="/logo.svg"
+            alt="HireAI Logo"
+            className="w-10 h-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
+          />
           <span className="font-extrabold text-lg text-[#172B4D] tracking-tight font-display">
             Hire<span className="text-[#0A66C2]">AI</span>
           </span>

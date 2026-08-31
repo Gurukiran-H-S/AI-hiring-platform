@@ -106,6 +106,10 @@ async def schedule_interview(
     db: Session = Depends(get_db),
 ):
     """Schedule an interview."""
+    job = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
+
     interview = Interview(
         application_id=application_id,
         job_id=job_id,
@@ -187,9 +191,12 @@ async def update_interview_status(
     db: Session = Depends(get_db),
 ):
     """Update interview status."""
-    interview = db.query(Interview).filter(Interview.id == interview_id).first()
+    interview = db.query(Interview).filter(
+        Interview.id == interview_id,
+        Interview.recruiter_id == current_user.id
+    ).first()
     if not interview:
-        raise HTTPException(status_code=404, detail="Interview not found")
+        raise HTTPException(status_code=404, detail="Interview not found or unauthorized.")
 
     interview.status = InterviewStatus(new_status)
     if feedback:

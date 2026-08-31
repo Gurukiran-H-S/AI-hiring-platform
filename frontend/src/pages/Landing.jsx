@@ -14,14 +14,11 @@ export const Landing = () => {
           
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 shrink-0 group">
-            <div className="w-10 h-10 rounded-xl bg-[#0A66C2] text-white flex items-center justify-center font-extrabold text-base shadow-sm group-hover:bg-[#004182] transition-colors">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx="9" cy="7" r="4" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M22 21v-2a4 4 0 0 0-3-3.87" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
+            <img
+              src="/logo.svg"
+              alt="HireAI Logo"
+              className="w-10 h-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
+            />
             <div>
               <span className="font-extrabold text-xl text-[#172B4D] tracking-tight font-display flex items-center gap-1">
                 Hire<span className="text-[#0A66C2]">AI</span>
@@ -599,9 +596,11 @@ export const Landing = () => {
           
           <div className="space-y-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#0A66C2] text-white flex items-center justify-center font-bold text-xs">
-                Hi
-              </div>
+              <img
+                src="/logo.svg"
+                alt="HireAI Logo"
+                className="w-8 h-auto object-contain shrink-0"
+              />
               <span className="font-extrabold text-base text-[#172B4D] font-display">
                 Hire<span className="text-[#0A66C2]">AI</span>
               </span>

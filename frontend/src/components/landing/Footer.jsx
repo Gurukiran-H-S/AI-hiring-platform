@@ -5,11 +5,12 @@ export const Footer = () => {
   return (
     <footer className="border-t border-line bg-white text-ink-2 py-12 px-6 text-xs">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-brand flex items-center justify-center font-bold text-white text-sm">
-              AI
-            </div>
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/logo.svg"
+              alt="HireAI Logo"
+              className="w-8 h-auto object-contain shrink-0"
+            />
             <span className="font-display font-extrabold text-base text-ink">
               HireAI
             </span>

@@ -17,9 +17,11 @@ export const Navbar = () => {
         {/* Left: Brand Logo & Title */}
         <div className="flex items-center gap-3 shrink-0">
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#0A66C2] via-indigo-600 to-purple-600 flex items-center justify-center text-white font-extrabold text-base shadow-sm group-hover:scale-105 transition-transform">
-              ✨
-            </div>
+            <img
+              src="/logo.svg"
+              alt="HireAI Logo"
+              className="w-10 h-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
+            />
             <div className="leading-tight">
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-[18px] text-slate-900 tracking-tight font-display group-hover:text-[#0A66C2] transition-colors">

@@ -326,9 +326,9 @@ async def analyze_job_description(
     current_user: User = Depends(get_current_recruiter),
 ):
     """Analyze job description to extract required skills, experience, education, responsibilities."""
-    job = db.query(Job).filter(Job.id == job_id).first()
+    job = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == current_user.id).first()
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail="Job not found or unauthorized.")
 
     from ml.preprocessing.job_parser import job_parser
     from app.models.ml_models import Skill, JobSkill

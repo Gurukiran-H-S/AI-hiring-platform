@@ -28,8 +28,6 @@ async def get_recruiter_analytics_metrics(
 ):
     """Retrieve real-time recruiter analytics KPI summary for the Recruiter Dashboard."""
     jobs = db.query(Job).filter(Job.recruiter_id == current_user.id).all()
-    if not jobs:
-        jobs = db.query(Job).filter(Job.status == JobStatus.ACTIVE).all()
     job_ids = [j.id for j in jobs]
     
     active_jobs = sum(1 for j in jobs if j.status == JobStatus.ACTIVE)
@@ -44,11 +42,12 @@ async def get_recruiter_analytics_metrics(
             ]
         )
     else:
+        applications = []
         total_applications = 0
         shortlisted = 0
         
     interviews = db.query(Interview).filter(
-        (Interview.recruiter_id == current_user.id) | (Interview.job_id.in_(job_ids) if job_ids else False),
+        Interview.recruiter_id == current_user.id,
         Interview.status != InterviewStatus.CANCELLED
     ).count()
 

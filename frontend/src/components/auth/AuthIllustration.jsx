@@ -10,8 +10,12 @@ export const AuthIllustration = ({ title, subtitle }) => {
           <div className="absolute w-44 h-44 rounded-full border border-dashed border-line"></div>
 
           {/* AI Mascot Tile */}
-          <div className="w-28 h-28 rounded-3xl bg-brand-light border border-line shadow-sm flex items-center justify-center text-5xl">
-            🤖
+          <div className="w-28 h-28 rounded-3xl bg-brand-light border border-line shadow-sm flex items-center justify-center p-3">
+            <img
+              src="/logo.svg"
+              alt="HireAI Logo"
+              className="w-20 h-auto object-contain"
+            />
           </div>
 
           {/* Floating Card 1: ATS Score */}
