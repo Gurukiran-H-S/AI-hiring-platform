@@ -112,17 +112,17 @@ export const Login = () => {
 
           {/* RIGHT PANEL: Login Form */}
           <div className="p-8 md:p-10 space-y-6">
-            <div className="space-y-2">
-              <div className="flex lg:hidden items-center justify-center mb-2">
+            <div className="space-y-2 text-center lg:text-left">
+              <div className="flex items-center justify-center lg:justify-start mb-3">
                 <img
-                  src="/logo.svg"
+                  src="/logo.png"
                   alt="HireAI Logo"
-                  className="w-14 h-auto object-contain"
+                  className="w-16 h-auto object-contain"
                 />
               </div>
-              <h2 className="page-title">Welcome Back</h2>
+              <h2 className="page-title">Welcome Back!</h2>
               <p className="text-sm text-ink-2 mt-1">
-                Access candidate analytics, recruiter job management, or system governance.
+                Sign in to your account to access candidate analytics, recruiter job management, or system governance.
               </p>
             </div>
 

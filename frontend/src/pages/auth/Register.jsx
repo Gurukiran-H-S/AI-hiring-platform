@@ -114,9 +114,9 @@ export const Register = () => {
       <header className="px-6 py-4 border-b border-[#E1E5EB] bg-white/95 backdrop-blur-md flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2.5 group">
           <img
-            src="/logo.svg"
+            src="/logo.png"
             alt="HireAI Logo"
-            className="w-10 h-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
+            className="h-9 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
           />
           <span className="font-extrabold text-lg text-[#172B4D] tracking-tight font-display">
             Hire<span className="text-[#0A66C2]">AI</span>

@@ -18,7 +18,7 @@ export const Navbar = () => {
         <div className="flex items-center gap-3 shrink-0">
           <Link to="/" className="flex items-center gap-2.5 group">
             <img
-              src="/logo.svg"
+              src="/logo.png"
               alt="HireAI Logo"
               className="w-10 h-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
             />

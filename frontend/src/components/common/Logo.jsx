@@ -21,7 +21,7 @@ export const Logo = ({ size = 'md', className = '', showText = false, textClassN
   return (
     <div className={`inline-flex items-center gap-2.5 shrink-0 ${className}`}>
       <img
-        src="/logo.svg"
+        src="/logo.png"
         alt="HireAI Logo"
         className={`${dimensionClass} object-contain select-none transition-transform duration-200`}
         loading="eager"

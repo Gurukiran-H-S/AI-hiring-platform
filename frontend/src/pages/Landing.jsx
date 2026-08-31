@@ -15,9 +15,9 @@ export const Landing = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 shrink-0 group">
             <img
-              src="/logo.svg"
+              src="/logo.png"
               alt="HireAI Logo"
-              className="w-10 h-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
+              className="h-9 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
             />
             <div>
               <span className="font-extrabold text-xl text-[#172B4D] tracking-tight font-display flex items-center gap-1">
@@ -597,9 +597,9 @@ export const Landing = () => {
           <div className="space-y-3">
             <div className="flex items-center gap-2.5">
               <img
-                src="/logo.svg"
+                src="/logo.png"
                 alt="HireAI Logo"
-                className="w-8 h-auto object-contain shrink-0"
+                className="h-8 w-auto object-contain shrink-0"
               />
               <span className="font-extrabold text-base text-[#172B4D] font-display">
                 Hire<span className="text-[#0A66C2]">AI</span>
