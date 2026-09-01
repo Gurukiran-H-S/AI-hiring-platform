@@ -235,12 +235,26 @@ async def track_external_application(
         try:
             target_job = db.query(Job).filter(Job.id == UUID(req.source_job_id)).first()
         except Exception:
-            target_job = db.query(Job).filter(Job.title == req.job_title).first()
+            target_job = db.query(Job).filter(Job.title.ilike(req.job_title), Job.company.ilike(req.company)).first()
+    elif req.job_title and req.company:
+        target_job = db.query(Job).filter(Job.title.ilike(req.job_title), Job.company.ilike(req.company)).first()
 
     if not target_job:
-        target_job = db.query(Job).first()
+        recruiter = db.query(User).filter(User.role == UserRole.RECRUITER).first()
+        recruiter_id = recruiter.id if recruiter else current_user.id
+        target_job = Job(
+            recruiter_id=recruiter_id,
+            title=req.job_title,
+            company=req.company,
+            description=f"External job application for {req.job_title} at {req.company}.",
+            status=JobStatus.DRAFT,
+            is_demo=False
+        )
+        db.add(target_job)
+        db.commit()
+        db.refresh(target_job)
 
-    job_id = target_job.id if target_job else None
+    job_id = target_job.id
 
     # Check for existing application
     if job_id:

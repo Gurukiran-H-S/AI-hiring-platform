@@ -854,9 +854,13 @@ def get_assessments(
     else:
         # Candidate: Fetch linked assessments through applications
         apps = db.query(Application).filter(Application.candidate_id == current_user.id).all()
-        job_ids = [a.job_id for a in apps if a.job]
+        job_ids = [a.job_id for a in apps if a.job_id]
+        if not job_ids:
+            return []
         jobs = db.query(Job).filter(Job.id.in_(job_ids), Job.assessment_id != None).all()
-        assessment_ids = [j.assessment_id for j in jobs]
+        assessment_ids = [j.assessment_id for j in jobs if j.assessment_id]
+        if not assessment_ids:
+            return []
         assessments = db.query(RecruiterAssessment).filter(RecruiterAssessment.id.in_(assessment_ids)).all()
 
     return [
@@ -883,6 +887,13 @@ def get_assessment_details(
     assessment = db.query(RecruiterAssessment).filter(RecruiterAssessment.id == assessment_id).first()
     if not assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
+
+    if current_user.role == UserRole.CANDIDATE:
+        apps = db.query(Application).filter(Application.candidate_id == current_user.id).all()
+        job_ids = [a.job_id for a in apps if a.job_id]
+        linked_job = db.query(Job).filter(Job.id.in_(job_ids), Job.assessment_id == assessment.id).first() if job_ids else None
+        if not linked_job:
+            raise HTTPException(status_code=403, detail="You must apply for the associated job posting before accessing this coding assessment.")
 
     problems = db.query(CodingProblem).filter(CodingProblem.id.in_(assessment.problem_ids)).all()
 
@@ -929,6 +940,13 @@ def start_assessment_attempt(
     if not assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
 
+    if current_user.role == UserRole.CANDIDATE:
+        apps = db.query(Application).filter(Application.candidate_id == current_user.id).all()
+        job_ids = [a.job_id for a in apps if a.job_id]
+        linked_job = db.query(Job).filter(Job.id.in_(job_ids), Job.assessment_id == assessment.id).first() if job_ids else None
+        if not linked_job:
+            raise HTTPException(status_code=403, detail="You must apply for the associated job posting before starting this coding assessment.")
+
     # Prevent re-starting completed assessments
     existing = db.query(RecruiterAssessmentAttempt).filter(
         RecruiterAssessmentAttempt.assessment_id == assessment_id,
@@ -972,6 +990,13 @@ def submit_assessment_attempt(
     assessment = db.query(RecruiterAssessment).filter(RecruiterAssessment.id == assessment_id).first()
     if not assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
+
+    if current_user.role == UserRole.CANDIDATE:
+        apps = db.query(Application).filter(Application.candidate_id == current_user.id).all()
+        job_ids = [a.job_id for a in apps if a.job_id]
+        linked_job = db.query(Job).filter(Job.id.in_(job_ids), Job.assessment_id == assessment.id).first() if job_ids else None
+        if not linked_job:
+            raise HTTPException(status_code=403, detail="You must apply for the associated job posting before submitting this coding assessment.")
 
     attempt = db.query(RecruiterAssessmentAttempt).filter(
         RecruiterAssessmentAttempt.assessment_id == assessment_id,
